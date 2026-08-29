@@ -23,6 +23,19 @@ Sistem informasi berbasis web yang dikembangkan untuk mempermudah dan mengotomat
 5. **Antarmuka Dashboard yang Modern**
    - Diimplementasikan menggunakan template desain *Mosaic* untuk memberikan antarmuka pengguna (UI) yang interaktif, profesional, dan responsif.
 
+## 📸 Tampilan Antarmuka (Screenshots)
+
+*Catatan: Gambar di bawah ini akan muncul setelah Anda menyimpan file screenshot ke dalam folder aplikasi Anda (misalnya di folder `public/screenshots/`).*
+
+### 1. Halaman Utama (Dashboard)
+![Tampilan Dashboard](public/screenshots/dashboard.png)
+
+### 2. Halaman Manajemen ABR
+![Tampilan ABR](public/screenshots/abr-index.png)
+
+### 3. Halaman Laporan (Report)
+![Tampilan Laporan](public/screenshots/report-pdf.png)
+
 ## 🛠️ Teknologi yang Digunakan
 
 - **Backend / Framework Utama:** Laravel (PHP)
