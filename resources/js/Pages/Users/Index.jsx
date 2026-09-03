@@ -46,7 +46,7 @@ export default function Index({ users }) {
                         </a>
                         <Link
                             href={route('users.create')}
-                            className="inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm text-sm transition duration-200"
+                            className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm text-sm transition duration-200"
                         >
                             <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
                                 <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" />
@@ -77,7 +77,7 @@ export default function Index({ users }) {
                                 >
                                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-300 flex items-center justify-center font-bold text-xs">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
                                                 {user.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
@@ -104,7 +104,7 @@ export default function Index({ users }) {
                                     <td className="px-6 py-4 text-right">
                                         <Link
                                             href={route('users.edit', user.id)}
-                                            className="font-semibold text-violet-600 dark:text-violet-400 hover:underline mr-4"
+                                            className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline mr-4"
                                         >
                                             Edit
                                         </Link>

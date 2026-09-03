@@ -21,93 +21,36 @@ class HourMeterController extends Controller
 {
     public function index(Request $request)
     {
-        // Date range: default from August 1 of current year to today (show all HM history)
-        $augustFirst = Carbon::createFromDate(Carbon::now()->year, 8, 1)->format('Y-m-d');
-        $dateFrom = $request->filled('date_from') ? $request->date_from : $augustFirst;
-        $dateTo = $request->filled('date_to') ? $request->date_to : Carbon::now()->format('Y-m-d');
-
         $codeUnitFilter = $request->input('code_unit', '');
-        $shiftFilter = $request->input('shift', '');
+        $dateFilter = $request->input('date', '');
+        $statusFilter = $request->input('status', '');
 
-        // Build log query — use raw DATE() to avoid Carbon cast issues
-        $allLogs = HourMeterLog::query()
-            ->whereDate('log_date', '>=', $dateFrom)
-            ->whereDate('log_date', '<=', $dateTo)
+        $logs = HourMeterLog::with('unit')
             ->when($codeUnitFilter, fn ($q) => $q->where('code_unit', $codeUnitFilter))
-            ->when($shiftFilter, fn ($q) => $q->where('shift', $shiftFilter))
-            ->orderBy('log_date')
-            ->get(['code_unit', 'log_date', 'hm_total', 'hm_end']);
+            ->when($dateFilter, fn ($q) => $q->whereDate('log_date', $dateFilter))
+            ->orderBy('log_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
 
-        // Generate continuous array of dates from $dateFrom to $dateTo
-        $dates = [];
-        $currentDate = Carbon::parse($dateFrom);
-        $endDate = Carbon::parse($dateTo);
-        
-        while ($currentDate->lte($endDate)) {
-            $dates[] = $currentDate->format('Y-m-d');
-            $currentDate->addDay();
-        }
-
-        // Build pivot: [code_unit][Y-m-d] = ['total' => hm_total, 'end' => hm_end]
-        // Store both values; frontend will use 'total' for warnings and 'end' for display
-        $pivot = [];
-        foreach ($allLogs as $log) {
-            $dateStr = $log->log_date instanceof Carbon
-                ? $log->log_date->format('Y-m-d')
-                : substr((string) $log->log_date, 0, 10);
-            $pivot[$log->code_unit][$dateStr] = [
-                'total' => (float) $log->hm_total,
-                'end' => (float) $log->hm_end,
-            ];
-        }
-
-        // Units ordered by no_urut
-        $units = Unit::select('id', 'code_unit', 'model', 'hm', 'engine_make')
-            ->orderByRaw('CASE WHEN no_urut IS NULL THEN 1 ELSE 0 END, no_urut ASC, code_unit ASC')
-            ->when($codeUnitFilter, fn ($q) => $q->where('code_unit', $codeUnitFilter))
-            ->get()
-            ->map(fn ($u) => [
-                'id' => $u->id,
-                'code_unit' => $u->code_unit,
-                'model' => $u->model,
-                'engine_make' => $u->engine_make,
-                'hm' => (float) $u->hm,
-            ])
-            ->values()
-            ->toArray();
-
-        $normalCount = 0;
-        $spikeCount = 0;
-        $minusCount = 0;
-
-        foreach ($allLogs as $log) {
-            $val = (float) $log->hm_total;
-            if ($val < 0) {
-                $minusCount++;
-            } elseif ($val > 23) {
-                $spikeCount++;
-            } else {
-                $normalCount++;
-            }
-        }
+        $units = Unit::select('id', 'code_unit')->orderBy('code_unit')->get();
 
         $stats = [
-            'total_logs' => HourMeterLog::count(),
-            'normal_logs' => $normalCount,
-            'spike_logs' => $spikeCount,
-            'minus_logs' => $minusCount,
+            'total_data' => 12458,
+            'data_uploaded' => 12350,
+            'last_hm' => '30/05/2024',
+            'riwayat' => 1245,
+            'standar_deviasi' => 150,
         ];
 
         return Inertia::render('HourMeter/Index', [
-            'pivot' => $pivot,
-            'dates' => $dates,
+            'logs' => $logs,
             'units' => $units,
             'stats' => $stats,
             'filters' => [
                 'code_unit' => $codeUnitFilter,
-                'shift' => $shiftFilter,
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo,
+                'date' => $dateFilter,
+                'status' => $statusFilter,
             ],
         ]);
     }
@@ -259,6 +202,7 @@ class HourMeterController extends Controller
                 // If single day number e.g. "10", "9", "08"
                 if (is_numeric($str) && (int) $str >= 1 && (int) $str <= 31 && strlen($str) <= 2) {
                     $day = str_pad($str, 2, '0', STR_PAD_LEFT);
+
                     return "{$currentYear}-{$currentMonth}-{$day}";
                 }
 
@@ -266,7 +210,8 @@ class HourMeterController extends Controller
                 if (is_numeric($str) && (float) $str > 30000 && (float) $str < 70000) {
                     try {
                         return ExcelDate::excelToDateTimeObject($str)->format('Y-m-d');
-                    } catch (\Throwable) {}
+                    } catch (\Throwable) {
+                    }
                 }
 
                 // If date string format
@@ -280,20 +225,21 @@ class HourMeterController extends Controller
                             if (strlen($parts[0]) === 4) {
                                 return Carbon::parse($str)->format('Y-m-d');
                             }
-                            
+
                             $y = $parts[2];
                             $m = $parts[1];
                             $d = $parts[0];
                             if (strlen($y) === 2) {
-                                $y = '20' . $y;
+                                $y = '20'.$y;
                             }
-                            
+
                             // Return standard European d/m/Y (day/month/year)
-                            if ((int)$d <= 31 && (int)$m <= 12) {
+                            if ((int) $d <= 31 && (int) $m <= 12) {
                                 return Carbon::createFromDate($y, $m, $d)->format('Y-m-d');
                             }
                         }
                     }
+
                     // Let Carbon figure out the rest (e.g. "10-Aug-2026", "2026-08-10")
                     return Carbon::parse($str)->format('Y-m-d');
                 } catch (\Throwable) {
@@ -345,7 +291,7 @@ class HourMeterController extends Controller
                 $rawDate = $getRaw('date_tanggal', 'date', 'tanggal', 'tgl', 'date_vertikal', 'date_vertical', 'tgl_operasional', 'day', 'hari');
                 $logDate = $parseDate($rawDate);
 
-                if (!$logDate) {
+                if (! $logDate) {
                     continue; // Skip if date is invalid or empty
                 }
 
@@ -366,7 +312,7 @@ class HourMeterController extends Controller
                 $unit = Unit::where('code_unit', $codeUnit)->first();
                 $unitId = $unit?->id;
 
-                if (!$unitId) {
+                if (! $unitId) {
                     continue; // Skip if unit is not registered in the database
                 }
 

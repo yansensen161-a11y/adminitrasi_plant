@@ -20,7 +20,7 @@ export default function Index({ roles }) {
                     <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">All Roles</h2>
                     <Link
                         href={route('roles.create')}
-                        className="bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200"
                     >
                         Create Role
                     </Link>
@@ -62,7 +62,7 @@ export default function Index({ roles }) {
                                     <td className="px-6 py-4 text-right">
                                         <Link
                                             href={route('roles.edit', role.id)}
-                                            className="font-medium text-violet-600 dark:text-violet-500 hover:underline mr-4"
+                                            className="font-medium text-emerald-600 dark:text-emerald-500 hover:underline mr-4"
                                         >
                                             Edit
                                         </Link>

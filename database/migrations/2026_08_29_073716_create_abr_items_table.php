@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('abr_items', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('abr_id')->constrained('abrs')->onDelete('cascade');
-            $table->string('category'); 
+            $table->string('category');
             $table->string('part_number')->nullable();
             $table->string('description');
             $table->decimal('price', 15, 2)->default(0);

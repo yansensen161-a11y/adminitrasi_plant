@@ -53,7 +53,7 @@ export default function Edit({ log = {}, units = [] }) {
                 <div className="mb-6 flex items-center justify-between">
                     <Link
                         href={route('hour-meters.index')}
-                        className="inline-flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline gap-1"
+                        className="inline-flex items-center text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:underline gap-1"
                     >
                         &larr; Kembali ke Daftar Hour Meter
                     </Link>
@@ -73,7 +73,7 @@ export default function Edit({ log = {}, units = [] }) {
                                 Perbarui data jam pembacaan awal, akhir, operator, atau lokasi kerja.
                             </p>
                         </div>
-                        <span className="text-xs font-mono bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 font-bold px-3.5 py-1.5 rounded-xl border border-violet-200 dark:border-violet-800">
+                        <span className="text-xs font-mono bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
                             {log.code_unit}
                         </span>
                     </div>
@@ -88,7 +88,7 @@ export default function Edit({ log = {}, units = [] }) {
                                 <select
                                     value={data.code_unit}
                                     onChange={(e) => setData('code_unit', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                     required
                                 >
                                     {units && units.map((u) => (
@@ -109,7 +109,7 @@ export default function Edit({ log = {}, units = [] }) {
                                     type="date"
                                     value={data.log_date}
                                     onChange={(e) => setData('log_date', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                     required
                                 />
                                 {errors.log_date && <p className="text-xs text-red-500 mt-1">{errors.log_date}</p>}
@@ -125,7 +125,7 @@ export default function Edit({ log = {}, units = [] }) {
                                     step="0.1"
                                     value={data.hm_start}
                                     onChange={(e) => handleHmStartChange(e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none font-bold"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
                                     required
                                 />
                                 {errors.hm_start && <p className="text-xs text-red-500 mt-1">{errors.hm_start}</p>}
@@ -141,7 +141,7 @@ export default function Edit({ log = {}, units = [] }) {
                                     step="0.1"
                                     value={data.hm_end}
                                     onChange={(e) => handleHmEndChange(e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none font-bold"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
                                     required
                                 />
                                 {errors.hm_end && <p className="text-xs text-red-500 mt-1">{errors.hm_end}</p>}
@@ -170,7 +170,7 @@ export default function Edit({ log = {}, units = [] }) {
                                 <select
                                     value={data.shift}
                                     onChange={(e) => setData('shift', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 >
                                     <option value="Shift 1">Shift 1 (Day)</option>
                                     <option value="Shift 2">Shift 2 (Night)</option>
@@ -188,7 +188,7 @@ export default function Edit({ log = {}, units = [] }) {
                                     type="text"
                                     value={data.operator_name}
                                     onChange={(e) => setData('operator_name', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                             </div>
 
@@ -201,7 +201,7 @@ export default function Edit({ log = {}, units = [] }) {
                                     type="text"
                                     value={data.location}
                                     onChange={(e) => setData('location', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                             </div>
 
@@ -214,7 +214,7 @@ export default function Edit({ log = {}, units = [] }) {
                                     type="text"
                                     value={data.remarks}
                                     onChange={(e) => setData('remarks', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -229,7 +229,7 @@ export default function Edit({ log = {}, units = [] }) {
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl shadow-md shadow-violet-600/20 transition"
+                                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl shadow-md shadow-emerald-600/20 transition"
                             >
                                 {processing ? 'Menyimpan...' : 'Perbarui Log HM'}
                             </button>

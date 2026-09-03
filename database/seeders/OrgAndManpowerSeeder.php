@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\ManpowerBudget;
 use App\Models\OrganizationNode;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 class OrgAndManpowerSeeder extends Seeder
@@ -39,7 +38,7 @@ class OrgAndManpowerSeeder extends Seeder
                 'category' => 'Staff',
                 'job_position' => $staff[0],
                 'plan_mp' => $staff[1],
-                'tersedia' => $staff[2]
+                'tersedia' => $staff[2],
             ]);
         }
 
@@ -80,21 +79,21 @@ class OrgAndManpowerSeeder extends Seeder
                 'category' => 'Non Staff',
                 'job_position' => $nonStaff[0],
                 'plan_mp' => $nonStaff[1],
-                'tersedia' => $nonStaff[2]
+                'tersedia' => $nonStaff[2],
             ]);
         }
 
         // 2. Organization Node Seeder
         $pm = OrganizationNode::create(['jabatan' => 'PROJECT MANAGER', 'name' => 'Supardi Halim']);
         $plantMgr = OrganizationNode::create(['jabatan' => 'PLANT MANAGER (HO)', 'name' => 'DADANG PRAYOGO']);
-        
+
         $supt = OrganizationNode::create(['parent_id' => $pm->id, 'jabatan' => 'Superintendent', 'name' => 'Ambo Mai']);
 
         // Supervisors
         $spvPlanner = OrganizationNode::create(['parent_id' => $supt->id, 'jabatan' => 'Supervisor Planner', 'name' => 'Mukti Alie']);
         $spvPrev = OrganizationNode::create(['parent_id' => $supt->id, 'jabatan' => 'Supervisor Preventive & Predictive maintenance', 'name' => 'Sutopo']);
         $spvCorr = OrganizationNode::create(['parent_id' => $supt->id, 'jabatan' => 'Supervisor Corrective Maintenance']);
-        
+
         // Add SPV Corr members (since there are 3 positions, we'll just assign them as children of the SPV role, or just list the SPVs)
         // Wait, the PDF shows Supervisor Corrective Maintenance has 1. Romy Akbar, 2. Fendi Fratama, 3. Vacant.
         // It's a single box with 3 people. For simplicity, we can create a node for each person, or a node for the position and children for the people.
@@ -111,7 +110,7 @@ class OrgAndManpowerSeeder extends Seeder
         $fmPlanner = OrganizationNode::create(['parent_id' => $spvPlanner->id, 'jabatan' => 'Foreman Planner', 'name' => 'Yansen']);
         OrganizationNode::create(['parent_id' => $fmPlanner->id, 'jabatan' => 'OFFICE PLANT', 'name' => 'Andika Rukmono']);
         OrganizationNode::create(['parent_id' => $fmPlanner->id, 'jabatan' => 'ADMIN PLANT', 'name' => 'Nur Dwi Hidayanti']);
-        
+
         $tkd = OrganizationNode::create(['parent_id' => $fmPlanner->id, 'jabatan' => 'TOOLSKEEPERT & DISPACHER']);
         OrganizationNode::create(['parent_id' => $tkd->id, 'jabatan' => 'Toolskeeper & Dispacher', 'name' => 'Ignasius Fredy']);
         OrganizationNode::create(['parent_id' => $tkd->id, 'jabatan' => 'Toolskeeper & Dispacher', 'name' => 'Herdi Chandra (Helper)']);
@@ -163,7 +162,6 @@ class OrgAndManpowerSeeder extends Seeder
         OrganizationNode::create(['parent_id' => $hsv->id, 'jabatan' => 'Helper', 'name' => 'Khairul Asriyadi']);
         OrganizationNode::create(['parent_id' => $hsv->id, 'jabatan' => 'Helper', 'name' => 'Agus Supriyanto']);
         OrganizationNode::create(['parent_id' => $hsv->id, 'jabatan' => 'Helper', 'name' => 'Sipriano Agung O.']);
-
 
         // --- Corrective Branch ---
         $fmCorr = OrganizationNode::create(['parent_id' => $spvCorr1->id, 'jabatan' => 'Foreman Corrective Maintenance']);

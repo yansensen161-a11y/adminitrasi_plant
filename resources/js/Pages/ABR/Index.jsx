@@ -79,7 +79,7 @@ export default function Index({ auth, abrs }) {
                                             <td className="px-4 py-3 border dark:border-gray-700 text-center">{index + 1 + (abrs.current_page - 1) * abrs.per_page}</td>
                                             <td className="px-4 py-3 border dark:border-gray-700 font-medium text-center">{abr.no_abr}</td>
                                             <td className="px-4 py-3 border dark:border-gray-700 text-center">{abr.tanggal ? new Date(abr.tanggal).toLocaleDateString('en-GB') : '-'}</td>
-                                            <td className="px-4 py-3 border dark:border-gray-700 text-center font-bold">{abr.unit?.code_unit}</td>
+                                            <td className="px-4 py-3 border dark:border-gray-700 text-center font-bold">{abr.unit?.code_unit || abr.manual_unit_code || '-'}</td>
                                             <td className="px-4 py-3 border dark:border-gray-700 text-center">{abr.hm}</td>
                                             <td className="px-4 py-3 border dark:border-gray-700 text-right font-medium">
                                                 {new Intl.NumberFormat('id-ID').format(abr.grand_total)}

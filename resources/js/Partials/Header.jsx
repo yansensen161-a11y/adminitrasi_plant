@@ -19,7 +19,7 @@ function Header({
       {/* Glass background */}
       <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/80 backdrop-blur-xl -z-10"></div>
       {/* Gradient bottom border */}
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/20 to-transparent -z-10"></div>
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#0b5c3e]/20 to-transparent -z-10"></div>
       
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -29,7 +29,7 @@ function Header({
 
             {/* Hamburger button */}
             <button
-              className="text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 lg:hidden transition-colors"
+              className="text-gray-500 hover:text-[#0b5c3e] dark:hover:text-[#2ecb8d] lg:hidden transition-colors"
               aria-controls="sidebar"
               aria-expanded={sidebarOpen}
               onClick={(e) => { e.stopPropagation(); setSidebarOpen(!sidebarOpen); }}
@@ -48,7 +48,7 @@ function Header({
           <div className="flex items-center space-x-2">
             <div>
               <button
-                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-violet-600 dark:hover:text-violet-400 ${searchModalOpen && 'bg-gray-100 dark:bg-white/5 text-violet-600'}`}
+                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-[#0b5c3e] dark:hover:text-[#2ecb8d] ${searchModalOpen && 'bg-gray-100 dark:bg-white/5 text-[#0b5c3e]'}`}
                 onClick={(e) => { e.stopPropagation(); setSearchModalOpen(true); }}
                 aria-controls="search-modal"
               >

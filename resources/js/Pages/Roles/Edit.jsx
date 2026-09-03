@@ -40,7 +40,7 @@ export default function Edit({ role, permissions }) {
                             type="text"
                             value={data.name}
                             onChange={e => setData('name', e.target.value)}
-                            className="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-violet-500 focus:ring-violet-500"
+                            className="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                         />
                         {errors.name && <div className="text-red-500 text-sm mt-1">{errors.name}</div>}
                     </div>
@@ -54,7 +54,7 @@ export default function Edit({ role, permissions }) {
                                         type="checkbox"
                                         checked={data.permissions.includes(permission.name)}
                                         onChange={() => handlePermissionChange(permission.name)}
-                                        className="rounded border-gray-300 text-violet-600 shadow-sm focus:ring-violet-500 bg-white dark:bg-gray-900"
+                                        className="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500 bg-white dark:bg-gray-900"
                                     />
                                     <span className="text-gray-700 dark:text-gray-300 font-medium">{permission.name}</span>
                                 </label>
@@ -73,7 +73,7 @@ export default function Edit({ role, permissions }) {
                         <button
                             type="submit"
                             disabled={processing}
-                            className="bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200 disabled:opacity-75"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200 disabled:opacity-75"
                         >
                             Update Role
                         </button>

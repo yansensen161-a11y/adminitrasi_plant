@@ -30,8 +30,8 @@ function DashboardCard04() {
         data: [
           4900, 2600, 5350, 4800, 5200, 4800,
         ],
-        backgroundColor: getCssVariable('--color-violet-500'),
-        hoverBackgroundColor: getCssVariable('--color-violet-600'),
+        backgroundColor: getCssVariable('--color-emerald-500'),
+        hoverBackgroundColor: getCssVariable('--color-emerald-600'),
         barPercentage: 0.7,
         categoryPercentage: 0.7,
         borderRadius: 4,

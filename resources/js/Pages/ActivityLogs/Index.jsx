@@ -72,7 +72,7 @@ export default function Index({ logs, filters }) {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search logs by description, event, or name..."
-                                className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:border-violet-500 text-gray-800 dark:text-gray-100"
+                                className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:border-emerald-500 text-gray-800 dark:text-gray-100"
                             />
                             <svg className="w-4 h-4 text-gray-400 absolute left-3.5 top-3 fill-current" viewBox="0 0 16 16">
                                 <path d="M7 14c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7ZM7 2C4.243 2 2 4.243 2 7s2.243 5 5 5 5-2.243 5-5-2.243-5-5-5Z" />
@@ -83,7 +83,7 @@ export default function Index({ logs, filters }) {
                         <select
                             value={eventFilter}
                             onChange={handleEventChange}
-                            className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-violet-500"
+                            className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-emerald-500"
                         >
                             <option value="">All Events</option>
                             <option value="created">Created</option>
@@ -94,7 +94,7 @@ export default function Index({ logs, filters }) {
 
                     <button
                         type="submit"
-                        className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white font-medium px-5 py-2 rounded-lg text-sm transition shadow-sm"
+                        className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2 rounded-lg text-sm transition shadow-sm"
                     >
                         Filter
                     </button>
@@ -130,7 +130,7 @@ export default function Index({ logs, filters }) {
                                         </td>
                                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-300 flex items-center justify-center font-bold text-xs">
+                                                <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
                                                     {log.causer?.name ? log.causer.name.charAt(0).toUpperCase() : 'S'}
                                                 </div>
                                                 <div>
@@ -163,7 +163,7 @@ export default function Index({ logs, filters }) {
                                         <td className="px-6 py-4 text-right">
                                             <button
                                                 onClick={() => setSelectedLog(log)}
-                                                className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:underline bg-violet-50 dark:bg-violet-900/30 px-2.5 py-1.5 rounded-lg transition"
+                                                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1.5 rounded-lg transition"
                                             >
                                                 View Diff
                                             </button>
@@ -199,7 +199,7 @@ export default function Index({ logs, filters }) {
                                     dangerouslySetInnerHTML={{ __html: link.label }}
                                     className={`px-3 py-1 rounded ${
                                         link.active
-                                            ? 'bg-violet-600 text-white font-bold'
+                                            ? 'bg-emerald-600 text-white font-bold'
                                             : link.url
                                             ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
                                             : 'text-gray-400 cursor-not-allowed'

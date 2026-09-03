@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\OrganizationNode;
 use Inertia\Inertia;
 
@@ -17,13 +16,14 @@ class OrganizationController extends Controller
         $tree = $this->buildTree($nodes);
 
         return Inertia::render('Organization/Index', [
-            'organizationTree' => $tree
+            'organizationTree' => $tree,
         ]);
     }
 
-    private function buildTree($elements, $parentId = null) {
-        $branch = array();
-    
+    private function buildTree($elements, $parentId = null)
+    {
+        $branch = [];
+
         foreach ($elements as $element) {
             if ($element->parent_id == $parentId) {
                 $children = $this->buildTree($elements, $element->id);
@@ -33,7 +33,7 @@ class OrganizationController extends Controller
                 $branch[] = $element;
             }
         }
-    
+
         return $branch;
     }
 }

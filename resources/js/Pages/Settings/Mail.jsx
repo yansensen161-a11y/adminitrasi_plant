@@ -68,7 +68,7 @@ export default function Mail({ settings }) {
                 >
                     <div className="p-6 border-b border-gray-100 dark:border-gray-700/60">
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400">
+                            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
                                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
                                     <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
                                 </svg>
@@ -94,7 +94,7 @@ export default function Mail({ settings }) {
                                 <select
                                     value={data.mail_mailer}
                                     onChange={(e) => setData('mail_mailer', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 >
                                     <option value="smtp">SMTP</option>
                                     <option value="sendmail">Sendmail</option>
@@ -115,7 +115,7 @@ export default function Mail({ settings }) {
                                     value={data.mail_host}
                                     onChange={(e) => setData('mail_host', e.target.value)}
                                     placeholder="smtp.mailgun.org or smtp.gmail.com"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                                 {errors.mail_host && (
                                     <p className="text-xs text-red-500 mt-1">{errors.mail_host}</p>
@@ -132,7 +132,7 @@ export default function Mail({ settings }) {
                                     value={data.mail_port}
                                     onChange={(e) => setData('mail_port', e.target.value)}
                                     placeholder="587 or 465"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                                 {errors.mail_port && (
                                     <p className="text-xs text-red-500 mt-1">{errors.mail_port}</p>
@@ -147,7 +147,7 @@ export default function Mail({ settings }) {
                                 <select
                                     value={data.mail_encryption}
                                     onChange={(e) => setData('mail_encryption', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 >
                                     <option value="tls">TLS</option>
                                     <option value="ssl">SSL</option>
@@ -168,7 +168,7 @@ export default function Mail({ settings }) {
                                     value={data.mail_username}
                                     onChange={(e) => setData('mail_username', e.target.value)}
                                     placeholder="user@example.com"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                                 {errors.mail_username && (
                                     <p className="text-xs text-red-500 mt-1">{errors.mail_username}</p>
@@ -185,7 +185,7 @@ export default function Mail({ settings }) {
                                     value={data.mail_password}
                                     onChange={(e) => setData('mail_password', e.target.value)}
                                     placeholder="••••••••••••"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                                 {errors.mail_password && (
                                     <p className="text-xs text-red-500 mt-1">{errors.mail_password}</p>
@@ -202,7 +202,7 @@ export default function Mail({ settings }) {
                                     value={data.mail_from_address}
                                     onChange={(e) => setData('mail_from_address', e.target.value)}
                                     placeholder="notifications@systemplant.com"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                                 {errors.mail_from_address && (
                                     <p className="text-xs text-red-500 mt-1">{errors.mail_from_address}</p>
@@ -219,7 +219,7 @@ export default function Mail({ settings }) {
                                     value={data.mail_from_name}
                                     onChange={(e) => setData('mail_from_name', e.target.value)}
                                     placeholder="System Plant Support"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                                 {errors.mail_from_name && (
                                     <p className="text-xs text-red-500 mt-1">{errors.mail_from_name}</p>
@@ -234,7 +234,7 @@ export default function Mail({ settings }) {
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-md shadow-violet-600/20"
+                                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-md shadow-emerald-600/20"
                             >
                                 {processing ? 'Saving...' : 'Save Configuration'}
                             </button>

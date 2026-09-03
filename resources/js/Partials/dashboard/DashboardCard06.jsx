@@ -15,14 +15,14 @@ function DashboardCard06() {
           35, 30, 35,
         ],
         backgroundColor: [
-          getCssVariable('--color-violet-500'),
+          getCssVariable('--color-emerald-500'),
           getCssVariable('--color-sky-500'),
-          getCssVariable('--color-violet-800'),
+          getCssVariable('--color-emerald-800'),
         ],
         hoverBackgroundColor: [
-          getCssVariable('--color-violet-600'),
+          getCssVariable('--color-emerald-600'),
           getCssVariable('--color-sky-600'),
-          getCssVariable('--color-violet-900'),
+          getCssVariable('--color-emerald-900'),
         ],
         borderWidth: 0,
       },

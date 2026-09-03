@@ -29,7 +29,7 @@ export default function Edit({ permission }) {
                             type="text"
                             value={data.name}
                             onChange={e => setData('name', e.target.value)}
-                            className="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-violet-500 focus:ring-violet-500"
+                            className="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                         />
                         {errors.name && <div className="text-red-500 text-sm mt-1">{errors.name}</div>}
                     </div>
@@ -41,7 +41,7 @@ export default function Edit({ permission }) {
                         <button
                             type="submit"
                             disabled={processing}
-                            className="bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200 disabled:opacity-75"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200 disabled:opacity-75"
                         >
                             Update Permission
                         </button>

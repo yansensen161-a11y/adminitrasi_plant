@@ -3,34 +3,35 @@
 namespace App\Http\Controllers;
 
 use App\Models\Abr;
-use App\Models\AbrItem;
 use App\Models\AbrImage;
+use App\Models\AbrItem;
 use App\Models\Unit;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class AbrController extends Controller
 {
     public function index()
     {
         $abrs = Abr::with('unit')->orderBy('created_at', 'desc')->paginate(10);
+
         return Inertia::render('ABR/Index', [
-            'abrs' => $abrs
+            'abrs' => $abrs,
         ]);
     }
 
     public function create()
     {
         $units = Unit::orderBy('code_unit', 'asc')->get();
-        // Generate an auto number: PT-MAM/001/ABR/VII/2026
-        $count = Abr::whereYear('created_at', date('Y'))->whereMonth('created_at', date('m'))->count() + 1;
+        // Generate an auto number: PT-MAM/016/ABR/VIII/2026
+        $count = Abr::whereYear('created_at', date('Y'))->whereMonth('created_at', date('m'))->count() + 16;
         $romanMonth = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][date('n') - 1];
         $no_abr = sprintf('PT-MAM/%03d/ABR/%s/%s', $count, $romanMonth, date('Y'));
 
         return Inertia::render('ABR/Create', [
             'units' => $units,
-            'no_abr' => $no_abr
+            'no_abr' => $no_abr,
         ]);
     }
 
@@ -39,7 +40,8 @@ class AbrController extends Controller
         $request->validate([
             'no_abr' => 'required|unique:abrs,no_abr',
             'tanggal' => 'required|date',
-            'unit_id' => 'required|exists:units,id',
+            'unit_id' => 'nullable|exists:units,id',
+            'manual_unit_code' => 'required_without:unit_id|nullable|string',
             'items' => 'required|array',
         ]);
 
@@ -48,6 +50,11 @@ class AbrController extends Controller
                 'no_abr' => $request->no_abr,
                 'tanggal' => $request->tanggal,
                 'unit_id' => $request->unit_id,
+                'manual_unit_code' => $request->manual_unit_code,
+                'manual_unit_model' => $request->manual_unit_model,
+                'manual_sn_chassis' => $request->manual_sn_chassis,
+                'manual_engine_model' => $request->manual_engine_model,
+                'manual_sn_engine' => $request->manual_sn_engine,
                 'lokasi_site' => $request->lokasi_site,
                 'lokasi_perbaikan' => $request->lokasi_perbaikan,
                 'hm' => $request->hm,
@@ -72,7 +79,7 @@ class AbrController extends Controller
                     'abr_id' => $abr->id,
                     'category' => $item['category'],
                     'part_number' => $item['part_number'] ?? null,
-                    'description' => $item['description'],
+                    'description' => $item['description'] ?? '-',
                     'price' => $item['price'] ?? 0,
                     'qty' => $item['qty'] ?? 1,
                     'satuan' => $item['satuan'] ?? null,
@@ -88,7 +95,7 @@ class AbrController extends Controller
                     $path = $file->store('abr_images', 'public');
                     AbrImage::create([
                         'abr_id' => $abr->id,
-                        'file_path' => '/storage/' . $path,
+                        'file_path' => '/storage/'.$path,
                     ]);
                 }
             }
@@ -100,19 +107,20 @@ class AbrController extends Controller
     public function show(Abr $abr)
     {
         $abr->load(['unit', 'items', 'images']);
+
         return Inertia::render('ABR/Print', [
-            'abr' => $abr
+            'abr' => $abr,
         ]);
     }
-    
+
     public function edit(Abr $abr)
     {
         $abr->load(['unit', 'items', 'images']);
         $units = Unit::orderBy('code_unit', 'asc')->get();
-        
+
         return Inertia::render('ABR/Edit', [
             'abr' => $abr,
-            'units' => $units
+            'units' => $units,
         ]);
     }
 
@@ -120,7 +128,8 @@ class AbrController extends Controller
     {
         $request->validate([
             'tanggal' => 'required|date',
-            'unit_id' => 'required|exists:units,id',
+            'unit_id' => 'nullable|exists:units,id',
+            'manual_unit_code' => 'required_without:unit_id|nullable|string',
             'items' => 'required|array',
         ]);
 
@@ -128,6 +137,11 @@ class AbrController extends Controller
             $abr->update([
                 'tanggal' => $request->tanggal,
                 'unit_id' => $request->unit_id,
+                'manual_unit_code' => $request->manual_unit_code,
+                'manual_unit_model' => $request->manual_unit_model,
+                'manual_sn_chassis' => $request->manual_sn_chassis,
+                'manual_engine_model' => $request->manual_engine_model,
+                'manual_sn_engine' => $request->manual_sn_engine,
                 'lokasi_site' => $request->lokasi_site,
                 'lokasi_perbaikan' => $request->lokasi_perbaikan,
                 'hm' => $request->hm,
@@ -154,7 +168,7 @@ class AbrController extends Controller
                     'abr_id' => $abr->id,
                     'category' => $item['category'],
                     'part_number' => $item['part_number'] ?? null,
-                    'description' => $item['description'],
+                    'description' => $item['description'] ?? '-',
                     'price' => $item['price'] ?? 0,
                     'qty' => $item['qty'] ?? 1,
                     'satuan' => $item['satuan'] ?? null,
@@ -162,6 +176,16 @@ class AbrController extends Controller
                     'mp' => $item['mp'] ?? null,
                     'amount' => $item['amount'] ?? 0,
                 ]);
+            }
+
+            if ($request->hasFile('new_images')) {
+                foreach ($request->file('new_images') as $file) {
+                    $path = $file->store('abr_images', 'public');
+                    AbrImage::create([
+                        'abr_id' => $abr->id,
+                        'file_path' => '/storage/'.$path,
+                    ]);
+                }
             }
         });
 
@@ -171,6 +195,7 @@ class AbrController extends Controller
     public function destroy(Abr $abr)
     {
         $abr->delete();
+
         return redirect()->route('abr.index')->with('success', 'Data ABR Berhasil Dihapus!');
     }
 }

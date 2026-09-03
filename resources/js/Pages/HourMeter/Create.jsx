@@ -68,7 +68,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                 <div className="mb-6 flex items-center justify-between">
                     <Link
                         href={route('hour-meters.index')}
-                        className="inline-flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline gap-1"
+                        className="inline-flex items-center text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:underline gap-1"
                     >
                         &larr; Kembali ke Daftar Hour Meter
                     </Link>
@@ -98,7 +98,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                                 <select
                                     value={data.code_unit}
                                     onChange={(e) => handleUnitChange(e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                     required
                                 >
                                     <option value="">-- Pilih Code Unit Alat --</option>
@@ -120,7 +120,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                                     type="date"
                                     value={data.log_date}
                                     onChange={(e) => setData('log_date', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                     required
                                 />
                                 {errors.log_date && <p className="text-xs text-red-500 mt-1">{errors.log_date}</p>}
@@ -137,7 +137,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                                     value={data.hm_start}
                                     onChange={(e) => handleHmStartChange(e.target.value)}
                                     placeholder="Contoh: 4512.0"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none font-bold"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
                                     required
                                 />
                                 {errors.hm_start && <p className="text-xs text-red-500 mt-1">{errors.hm_start}</p>}
@@ -154,7 +154,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                                     value={data.hm_end}
                                     onChange={(e) => handleHmEndChange(e.target.value)}
                                     placeholder="Contoh: 4520.5"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none font-bold"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
                                     required
                                 />
                                 {errors.hm_end && <p className="text-xs text-red-500 mt-1">{errors.hm_end}</p>}
@@ -183,7 +183,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                                 <select
                                     value={data.shift}
                                     onChange={(e) => setData('shift', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 >
                                     <option value="Shift 1">Shift 1 (Day)</option>
                                     <option value="Shift 2">Shift 2 (Night)</option>
@@ -202,7 +202,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                                     value={data.operator_name}
                                     onChange={(e) => setData('operator_name', e.target.value)}
                                     placeholder="Contoh: Budi Santoso"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                             </div>
 
@@ -216,7 +216,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                                     value={data.location}
                                     onChange={(e) => setData('location', e.target.value)}
                                     placeholder="Contoh: Pit Central, Site Sangatta"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                             </div>
 
@@ -230,7 +230,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                                     value={data.remarks}
                                     onChange={(e) => setData('remarks', e.target.value)}
                                     placeholder="Contoh: Operasi normal, hauling batu bara"
-                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -245,7 +245,7 @@ export default function Create({ units = [], defaultDate = '' }) {
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl shadow-md shadow-violet-600/20 transition"
+                                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl shadow-md shadow-emerald-600/20 transition"
                             >
                                 {processing ? 'Menyimpan...' : 'Simpan Log HM'}
                             </button>
