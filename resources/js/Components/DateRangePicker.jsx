@@ -37,7 +37,7 @@ export default function DateRangePicker({
         <Popover.Trigger asChild>
           <button
             className={cn(
-              'flex h-[38px] w-full items-center justify-start rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-left text-xs font-medium text-gray-200 hover:bg-gray-800 focus:border-[#0b5c3e] focus:outline-none focus:ring-1 focus:ring-[#0b5c3e] transition',
+              'flex h-[38px] w-full items-center justify-start rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-left text-sm font-medium text-gray-200 hover:bg-gray-800 focus:border-[#0b5c3e] focus:outline-none focus:ring-1 focus:ring-[#0b5c3e] transition',
               !selectedRange.from && 'text-gray-400'
             )}
           >

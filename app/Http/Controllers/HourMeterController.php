@@ -19,45 +19,156 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HourMeterController extends Controller
 {
+    private function getHmUnits(): array
+    {
+        return [
+            'ME023', 'ME048', 'ME049', 'ME052', 'ME053', 'ME055', 'ME056', 'ME057', 'ME059', 'ME066',
+            'ME067', 'ME068', 'ME069', 'ME070', 'ME072', 'MD036', 'MD037', 'MD041', 'MD042', 'MD043',
+            'MD045', 'MD046', 'MD047', 'MD048', 'MG018', 'MG019', 'MG021', 'MDT006', 'MDT009', 'MDT012',
+            'MDT015', 'MDT016', 'MDT017', 'MDT019', 'MDT020', 'MDT021', 'MDT022', 'MDT023', 'MDT025',
+            'MDT027', 'MDT028', 'MDT029', 'MDT030', 'MDT035', 'MDT036', 'MDT039', 'MDT040', 'MDT041',
+            'MDT042', 'MDT043', 'MDT045', 'MCP003', 'MCP006', 'MDT046', 'MDT047', 'MDT048', 'MDT051',
+            'MDT052', 'MDT026', 'MLT008', 'MLT005', 'MCT001', 'MB001', 'MB002', 'MWT010', 'MTL013',
+            'MTL015', 'MTL016', 'MTL023', 'MTL031', 'MTL035', 'MTL040', 'MTL041', 'MTL042', 'MTL043',
+            'MFT007', 'MFT009', 'MWP005', 'MWP003', 'MCM007', 'MGS002', 'MGS009', 'MGS006', 'B-02',
+            'B-10', 'T-02', 'A-07', 'A-08', 'B-16', 'G-03', 'D-09', 'D-21', 'D-20', 'E-02', 'F-05',
+            'G-05', 'D-19', 'H-02', 'HO-06', 'OHT066', 'OHT067', 'OHT068', 'OHT069', 'OHT070', 'OHT071',
+            'OHT072', 'OHT073', 'OHT074', 'OHT075', 'OHT115', 'OHT116', 'OHT117', 'OHT118', 'OHT119',
+            'OHT120', 'MWT009', 'MWM010', 'MMH005', 'MWP007', 'MGS016', 'MGS018', 'MC 02',
+        ];
+    }
+
     public function index(Request $request)
     {
         $codeUnitFilter = $request->input('code_unit', '');
-        $dateFilter = $request->input('date', '');
+        $typeUnitFilter = $request->input('type_unit', '');
+        $locationFilter = $request->input('location', '');
+        $departmentFilter = $request->input('department', '');
         $statusFilter = $request->input('status', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
+        $hmErrorFilter = $request->input('hm_error', '');
 
-        $logs = HourMeterLog::with('unit')
-            ->when($codeUnitFilter, fn ($q) => $q->where('code_unit', $codeUnitFilter))
-            ->when($dateFilter, fn ($q) => $q->whereDate('log_date', $dateFilter))
-            ->orderBy('log_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->paginate(10)
-            ->withQueryString();
+        if (! $dateFrom) {
+            $dateFrom = Carbon::now()->subDays(9)->format('Y-m-d');
+        }
+        if (! $dateTo) {
+            $dateTo = Carbon::now()->format('Y-m-d');
+        }
 
-        $units = Unit::select('id', 'code_unit')->orderBy('code_unit')->get();
+        $unitsQuery = Unit::query()->whereIn('code_unit', $this->getHmUnits());
+        if ($codeUnitFilter) {
+            $unitsQuery->where('code_unit', 'like', "%{$codeUnitFilter}%");
+        }
+        if ($typeUnitFilter) {
+            $unitsQuery->where('type_unit', $typeUnitFilter);
+        }
+        if ($locationFilter) {
+            $unitsQuery->where('location', $locationFilter);
+        }
+        if ($statusFilter) {
+            $unitsQuery->where('status', $statusFilter);
+        }
 
-        $stats = [
-            'total_data' => 12458,
-            'data_uploaded' => 12350,
-            'last_hm' => '30/05/2024',
-            'riwayat' => 1245,
-            'standar_deviasi' => 150,
-        ];
+        $units = $unitsQuery->orderBy('code_unit', 'asc')->get();
+        $unitIds = $units->pluck('id');
+
+        $logs = HourMeterLog::whereIn('unit_id', $unitIds)
+            ->whereDate('log_date', '>=', $dateFrom)
+            ->whereDate('log_date', '<=', $dateTo)
+            ->get();
+
+        $groupedLogs = [];
+        foreach ($logs as $log) {
+            $dateStr = Carbon::parse($log->log_date)->format('Y-m-d');
+            $groupedLogs[$log->unit_id][$dateStr] = $log;
+        }
+
+        $period = new \DatePeriod(
+            new \DateTime($dateFrom),
+            new \DateInterval('P1D'),
+            (new \DateTime($dateTo))->modify('+1 day')
+        );
+        $dates = [];
+        foreach ($period as $dt) {
+            $dates[] = $dt->format('Y-m-d');
+        }
+
+        if ($hmErrorFilter) {
+            $filteredUnits = [];
+            foreach ($units as $unit) {
+                $hasError = false;
+                if ($hmErrorFilter === 'belum_terisi') {
+                    foreach ($dates as $date) {
+                        if (! isset($groupedLogs[$unit->id][$date])) {
+                            $hasError = true;
+                            break;
+                        }
+                    }
+                } elseif ($hmErrorFilter === 'over_24') {
+                    foreach ($dates as $date) {
+                        if (isset($groupedLogs[$unit->id][$date]) && $groupedLogs[$unit->id][$date]->hm_total > 24) {
+                            $hasError = true;
+                            break;
+                        }
+                    }
+                } elseif ($hmErrorFilter === 'minus') {
+                    foreach ($dates as $date) {
+                        if (isset($groupedLogs[$unit->id][$date]) && $groupedLogs[$unit->id][$date]->hm_total < 0) {
+                            $hasError = true;
+                            break;
+                        }
+                    }
+                }
+
+                if ($hasError) {
+                    $filteredUnits[] = $unit;
+                }
+            }
+            $units = collect($filteredUnits)->values();
+        }
+
+        $typeUnits = Unit::select('type_unit')->distinct()->whereNotNull('type_unit')->where('type_unit', '!=', '')->pluck('type_unit');
+        $locations = Unit::select('location')->distinct()->whereNotNull('location')->where('location', '!=', '')->pluck('location');
+        $departments = collect(['Production', 'Support', 'Maintenance', 'Engineering', 'Safety']);
+        $statuses = Unit::select('status')->distinct()->whereNotNull('status')->where('status', '!=', '')->pluck('status');
 
         return Inertia::render('HourMeter/Index', [
-            'logs' => $logs,
             'units' => $units,
-            'stats' => $stats,
-            'filters' => [
-                'code_unit' => $codeUnitFilter,
-                'date' => $dateFilter,
-                'status' => $statusFilter,
+            'groupedLogs' => $groupedLogs,
+            'dates' => $dates,
+            'dropdowns' => [
+                'typeUnits' => $typeUnits,
+                'locations' => $locations,
+                'departments' => $departments,
+                'statuses' => $statuses,
             ],
+            'filters' => $request->only(['code_unit', 'type_unit', 'location', 'department', 'status', 'date_from', 'date_to', 'hm_error']),
         ]);
+    }
+
+    public function getHm(Request $request)
+    {
+        $unitId = $request->input('unit_id');
+        $date = $request->input('date');
+
+        if (! $unitId || ! $date) {
+            return response()->json(['hm' => null]);
+        }
+
+        $log = HourMeterLog::where('unit_id', $unitId)
+            ->whereDate('log_date', $date)
+            ->first();
+
+        return response()->json(['hm' => $log ? $log->hm_end : null]);
     }
 
     public function create()
     {
-        $units = Unit::select('id', 'code_unit', 'model', 'hm', 'location')->orderByRaw('CASE WHEN no_urut IS NULL THEN 1 ELSE 0 END, no_urut ASC, code_unit ASC')->get();
+        $units = Unit::select('id', 'code_unit', 'model', 'hm', 'location')
+            ->whereIn('code_unit', $this->getHmUnits())
+            ->orderByRaw('CASE WHEN no_urut IS NULL THEN 1 ELSE 0 END, no_urut ASC, code_unit ASC')
+            ->get();
 
         return Inertia::render('HourMeter/Create', [
             'units' => $units,
@@ -87,20 +198,23 @@ class HourMeterController extends Controller
         $unit = Unit::where('code_unit', $validated['code_unit'])->first();
         if ($unit) {
             $validated['unit_id'] = $unit->id;
-            // Update Unit current HM if log hm_end is greater
-            if ($validated['hm_end'] > $unit->hm) {
-                $unit->update(['hm' => $validated['hm_end']]);
-            }
         }
 
         HourMeterLog::create($validated);
+        
+        if ($unit && $validated['hm_end'] > $unit->hm) {
+            \App\Services\HMUpdateService::processHmUpdate($unit, $validated['hm_end'], $validated['log_date']);
+        }
 
         return redirect()->route('hour-meters.index')->with('message', "Log Hour Meter unit [{$request->code_unit}] tanggal {$request->log_date} berhasil disimpan.");
     }
 
     public function edit(HourMeterLog $hourMeter)
     {
-        $units = Unit::select('id', 'code_unit', 'model', 'hm', 'location')->orderByRaw('CASE WHEN no_urut IS NULL THEN 1 ELSE 0 END, no_urut ASC, code_unit ASC')->get();
+        $units = Unit::select('id', 'code_unit', 'model', 'hm', 'location')
+            ->whereIn('code_unit', $this->getHmUnits())
+            ->orderByRaw('CASE WHEN no_urut IS NULL THEN 1 ELSE 0 END, no_urut ASC, code_unit ASC')
+            ->get();
 
         return Inertia::render('HourMeter/Edit', [
             'log' => $hourMeter,
@@ -129,12 +243,13 @@ class HourMeterController extends Controller
         $unit = Unit::where('code_unit', $validated['code_unit'])->first();
         if ($unit) {
             $validated['unit_id'] = $unit->id;
-            if ($validated['hm_end'] > $unit->hm) {
-                $unit->update(['hm' => $validated['hm_end']]);
-            }
         }
 
         $hourMeter->update($validated);
+        
+        if ($unit && $validated['hm_end'] > $unit->hm) {
+            \App\Services\HMUpdateService::processHmUpdate($unit, $validated['hm_end'], $validated['log_date']);
+        }
 
         return redirect()->route('hour-meters.index')->with('message', "Log Hour Meter unit [{$hourMeter->code_unit}] berhasil diperbarui.");
     }
@@ -198,6 +313,12 @@ class HourMeterController extends Controller
                 }
 
                 $str = trim((string) $val);
+                
+                // If it contains a space, it might be something like "11/09/2026 NS"
+                // Let's just take the first part for the date.
+                if (str_contains($str, ' ')) {
+                    $str = explode(' ', $str)[0];
+                }
 
                 // If single day number e.g. "10", "9", "08"
                 if (is_numeric($str) && (int) $str >= 1 && (int) $str <= 31 && strlen($str) <= 2) {
@@ -247,73 +368,88 @@ class HourMeterController extends Controller
                 }
             };
 
-            for ($row = 2; $row <= $highestRow; $row++) {
-                $rowData = [];
-                $hasContent = false;
+            $validUnits = Unit::pluck('code_unit')->map(fn($c) => strtoupper(trim((string)$c)))->toArray();
 
+            for ($row = 1; $row <= $highestRow; $row++) {
+                $rowDataRaw = [];
                 for ($col = 1; $col <= $highestColumnIndex; $col++) {
                     $cell = $worksheet->getCell([$col, $row]);
-                    $formattedVal = $cell->getFormattedValue();
-                    $rawVal = $cell->getValue();
-
-                    $finalVal = $formattedVal !== null && $formattedVal !== '' ? (string) $formattedVal : ($rawVal !== null ? (string) $rawVal : null);
-
-                    if ($finalVal !== null && trim($finalVal) !== '') {
-                        $hasContent = true;
+                    
+                    if (\PhpOffice\PhpSpreadsheet\Shared\Date::isDateTime($cell) && is_numeric($cell->getValue())) {
+                        $rowDataRaw[] = (string) $cell->getValue();
+                    } else {
+                        $formattedVal = $cell->getFormattedValue();
+                        $rawVal = $cell->getValue();
+                        $finalVal = $formattedVal !== null && $formattedVal !== '' ? (string) $formattedVal : ($rawVal !== null ? (string) $rawVal : '');
+                        
+                        if (trim($finalVal) !== '') {
+                            $rowDataRaw[] = trim($finalVal);
+                        }
                     }
-
-                    $key = $headerMap[$col] ?? "col_{$col}";
-                    $rowData[$key] = $finalVal;
                 }
 
-                if (! $hasContent) {
+                if (empty($rowDataRaw)) {
                     continue;
                 }
 
-                $getRaw = function (...$keys) use ($rowData) {
-                    foreach ($keys as $k) {
-                        $cleanedKey = strtolower(str_replace(['.', '/', '-', ' '], '_', $k));
-                        if (isset($rowData[$cleanedKey]) && trim((string) $rowData[$cleanedKey]) !== '') {
-                            return trim((string) $rowData[$cleanedKey]);
+                $logDate = null;
+                $shift = null;
+                $codeUnit = null;
+                $numbers = [];
+
+                foreach ($rowDataRaw as $cellStr) {
+                    // Detect Date
+                    if (!$logDate) {
+                        $d = $parseDate($cellStr);
+                        if ($d) {
+                            $logDate = $d;
+                            $upperCell = strtoupper($cellStr);
+                            if (str_contains($upperCell, ' NS')) $shift = 'NS';
+                            if (str_contains($upperCell, ' DS')) $shift = 'DS';
+                            continue;
                         }
                     }
 
-                    return null;
-                };
+                    // Detect Unit Code
+                    if (!$codeUnit) {
+                        $upperCell = strtoupper($cellStr);
+                        if (in_array($upperCell, $validUnits)) {
+                            $codeUnit = $upperCell;
+                            continue;
+                        }
+                    }
 
-                // Code Unit
-                $codeUnit = $getRaw('code unit', 'code_unit', 'kode unit', 'kode_unit', 'unit', 'unit_code');
-                if (empty($codeUnit) || strtolower($codeUnit) === 'code unit') {
-                    continue;
+                    // Detect Numbers (HM)
+                    $cleanNum = str_replace(',', '.', $cellStr);
+                    if (is_numeric($cleanNum)) {
+                        $numbers[] = (float) $cleanNum;
+                    }
                 }
 
-                // Date (Vertical Date)
-                $rawDate = $getRaw('date_tanggal', 'date', 'tanggal', 'tgl', 'date_vertikal', 'date_vertical', 'tgl_operasional', 'day', 'hari');
-                $logDate = $parseDate($rawDate);
-
-                if (! $logDate) {
-                    continue; // Skip if date is invalid or empty
+                // If we didn't find shift in date, check if any cell is exactly 'NS' or 'DS'
+                if (!$shift) {
+                    foreach ($rowDataRaw as $cellStr) {
+                        $upperCell = strtoupper($cellStr);
+                        if ($upperCell === 'NS' || $upperCell === 'DS') {
+                            $shift = $upperCell;
+                            break;
+                        }
+                    }
                 }
 
-                // Start HM
-                $rawStart = $getRaw('hm awal', 'hm_awal', 'start hm', 'start_hm', 'hm start', 'hm_start', 'initial hm');
-                $hmStart = is_numeric(str_replace(',', '.', (string) $rawStart)) ? (float) str_replace(',', '.', (string) $rawStart) : 0;
+                if (!$logDate || !$codeUnit || count($numbers) < 1) {
+                    continue; // Skip invalid rows (like headers)
+                }
 
-                // End HM
-                $rawEnd = $getRaw('hm akhir', 'hm_akhir', 'end hm', 'end_hm', 'hm end', 'hm_end', 'final hm', 'hm terkini', 'hm');
-                $hmEnd = is_numeric(str_replace(',', '.', (string) $rawEnd)) ? (float) str_replace(',', '.', (string) $rawEnd) : $hmStart;
-
-                // Total HM / Operating Hours
-                $rawTotal = $getRaw('hm_total_operasi', 'hm_total_operasi', 'hm total', 'hm_total', 'total hm', 'total_hm', 'hm operasi', 'hm_operasi', 'daily hm', 'jam kerja');
-                $hmTotal = is_numeric(str_replace(',', '.', (string) $rawTotal)) ? (float) str_replace(',', '.', (string) $rawTotal) : max(0, round($hmEnd - $hmStart, 1));
-
-                $shift = $getRaw('shift', 'giliran', 'waktu');
+                $hmStart = $numbers[0];
+                $hmEnd = isset($numbers[1]) ? $numbers[1] : $hmStart;
+                $hmTotal = isset($numbers[2]) ? $numbers[2] : max(0, round($hmEnd - $hmStart, 1));
 
                 $unit = Unit::where('code_unit', $codeUnit)->first();
                 $unitId = $unit?->id;
 
                 if (! $unitId) {
-                    continue; // Skip if unit is not registered in the database
+                    continue;
                 }
 
                 HourMeterLog::create([
@@ -326,9 +462,8 @@ class HourMeterController extends Controller
                     'shift' => $shift,
                 ]);
 
-                // Sync latest HM to unit master
                 if ($unit && $hmEnd > $unit->hm) {
-                    $unit->update(['hm' => $hmEnd]);
+                    \App\Services\HMUpdateService::processHmUpdate($unit, $hmEnd, $logDate);
                 }
 
                 $importedCount++;

@@ -36,14 +36,14 @@ function DropdownHelp({
     <div className="relative inline-flex">
       <button
         ref={trigger}
-        className={`w-8 h-8 flex items-center justify-center hover:bg-gray-100 lg:hover:bg-gray-200 dark:hover:bg-gray-700/50 dark:lg:hover:bg-gray-800 rounded-full ${dropdownOpen && 'bg-gray-200 dark:bg-gray-800'}`}
+        className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 hover:scale-110 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ${dropdownOpen && 'bg-emerald-100 dark:bg-emerald-500/20'}`}
         aria-haspopup="true"
         onClick={() => setDropdownOpen(!dropdownOpen)}
         aria-expanded={dropdownOpen}
       >
         <span className="sr-only">Need help?</span>
         <svg
-          className="fill-current text-gray-500/80 dark:text-gray-400/80"
+          className="fill-current w-6 h-6 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
           width={16}
           height={16}
           viewBox="0 0 16 16"
@@ -72,7 +72,7 @@ function DropdownHelp({
           onFocus={() => setDropdownOpen(true)}
           onBlur={() => setDropdownOpen(false)}
         >
-          <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-3">Need help?</div>
+          <div className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-3">Need help?</div>
           <ul>
             <li>
               <Link

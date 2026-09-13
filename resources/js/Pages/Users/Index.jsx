@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 
 export default function Index({ users }) {
@@ -30,7 +30,7 @@ export default function Index({ users }) {
                 <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">All Registered Users</h2>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage user credentials, roles, and export data.</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Manage user credentials, roles, and export data.</p>
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                         <a
@@ -58,7 +58,7 @@ export default function Index({ users }) {
                 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700/50 dark:text-gray-400">
+                        <thead className="text-sm text-gray-700 uppercase bg-gray-50 dark:bg-gray-700/50 dark:text-gray-400">
                             <tr>
                                 <th scope="col" className="px-6 py-4 font-semibold">Name</th>
                                 <th scope="col" className="px-6 py-4 font-semibold">Email</th>
@@ -73,16 +73,17 @@ export default function Index({ users }) {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.3, delay: index * 0.05 }}
                                     key={user.id} 
-                                    className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                                    onDoubleClick={() => router.visit(route('users.edit', user.id))}
+                                    className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
                                 >
                                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-sm">
                                                 {user.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
                                                 <div className="font-semibold">{user.name}</div>
-                                                <div className="text-[11px] font-mono text-gray-400">{user.id.substring(0, 8)}...</div>
+                                                <div className="text-sm font-mono text-gray-400">{user.id.substring(0, 8)}...</div>
                                             </div>
                                         </div>
                                     </td>
@@ -92,12 +93,12 @@ export default function Index({ users }) {
                                     <td className="px-6 py-4">
                                         <div className="flex gap-2 flex-wrap">
                                             {user.roles && user.roles.map(role => (
-                                                <span key={role.id} className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${role.name === 'super-admin' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300'}`}>
+                                                <span key={role.id} className={`text-sm font-semibold px-2.5 py-0.5 rounded-full ${role.name === 'super-admin' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300'}`}>
                                                     {role.name}
                                                 </span>
                                             ))}
                                             {(!user.roles || user.roles.length === 0) && (
-                                                <span className="text-gray-400 italic text-xs">No roles</span>
+                                                <span className="text-gray-400 italic text-sm">No roles</span>
                                             )}
                                         </div>
                                     </td>

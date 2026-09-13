@@ -28,7 +28,7 @@ export default function Index({ roles }) {
                 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700/50 dark:text-gray-400">
+                        <thead className="text-sm text-gray-700 uppercase bg-gray-50 dark:bg-gray-700/50 dark:text-gray-400">
                             <tr>
                                 <th scope="col" className="px-6 py-4 font-semibold">Name</th>
                                 <th scope="col" className="px-6 py-4 font-semibold">Permissions</th>
@@ -50,12 +50,12 @@ export default function Index({ roles }) {
                                     <td className="px-6 py-4">
                                         <div className="flex gap-2 flex-wrap">
                                             {role.permissions && role.permissions.map(permission => (
-                                                <span key={permission.id} className="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-emerald-900/30 dark:text-emerald-300">
+                                                <span key={permission.id} className="bg-emerald-100 text-emerald-800 text-sm font-medium px-2.5 py-0.5 rounded-full dark:bg-emerald-900/30 dark:text-emerald-300">
                                                     {permission.name}
                                                 </span>
                                             ))}
                                             {(!role.permissions || role.permissions.length === 0) && (
-                                                <span className="text-gray-400 italic text-xs">No permissions</span>
+                                                <span className="text-gray-400 italic text-sm">No permissions</span>
                                             )}
                                         </div>
                                     </td>

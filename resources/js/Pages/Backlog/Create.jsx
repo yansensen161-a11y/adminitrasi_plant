@@ -31,7 +31,7 @@ export default function Create({ auth }) {
                 </div>
                 
                 <div className="flex items-center gap-4">
-                    <div className="text-xs text-gray-400 hidden sm:flex items-center gap-1">
+                    <div className="text-sm text-gray-400 hidden sm:flex items-center gap-1">
                         <span>Dashboard</span>
                         <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/></svg>
                         <Link href="/backlogs" className="hover:text-gray-800 transition-colors">Backlog</Link>
@@ -45,7 +45,7 @@ export default function Create({ auth }) {
                 <form onSubmit={submit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Code Unit</label>
+                            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Code Unit</label>
                             <input
                                 type="text"
                                 value={data.code_unit}
@@ -53,10 +53,10 @@ export default function Create({ auth }) {
                                 className="w-full bg-white border border-gray-200 focus:border-[#0b5c3e] rounded-lg px-3 py-2.5 text-sm text-gray-900"
                                 placeholder="Contoh: BDZ-002"
                             />
-                            {errors.code_unit && <p className="text-red-500 text-xs mt-1">{errors.code_unit}</p>}
+                            {errors.code_unit && <p className="text-red-500 text-sm mt-1">{errors.code_unit}</p>}
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Lokasi</label>
+                            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Lokasi</label>
                             <input
                                 type="text"
                                 value={data.lokasi}
@@ -66,7 +66,7 @@ export default function Create({ auth }) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Tipe Service Saat Temuan</label>
+                            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Tipe Service Saat Temuan</label>
                             <input
                                 type="text"
                                 value={data.tipe_service}
@@ -76,7 +76,7 @@ export default function Create({ auth }) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Tanggal Temuan</label>
+                            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Tanggal Temuan</label>
                             <input
                                 type="date"
                                 value={data.tanggal_temuan}
@@ -87,7 +87,7 @@ export default function Create({ auth }) {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Temuan / Deskripsi</label>
+                        <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Temuan / Deskripsi</label>
                         <textarea
                             value={data.temuan}
                             onChange={e => setData('temuan', e.target.value)}
@@ -98,7 +98,7 @@ export default function Create({ auth }) {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Part yang Diperlukan</label>
+                        <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Part yang Diperlukan</label>
                         <textarea
                             value={data.part_diperlukan}
                             onChange={e => setData('part_diperlukan', e.target.value)}
@@ -110,7 +110,7 @@ export default function Create({ auth }) {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Tingkat Backlog</label>
+                            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Tingkat Backlog</label>
                             <select
                                 value={data.tingkat_backlog}
                                 onChange={e => setData('tingkat_backlog', e.target.value)}
@@ -122,7 +122,7 @@ export default function Create({ auth }) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Target Pasang (HM/Service)</label>
+                            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Target Pasang (HM/Service)</label>
                             <input
                                 type="text"
                                 value={data.target_pasang}
@@ -132,7 +132,7 @@ export default function Create({ auth }) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Tindakan Mekanik</label>
+                            <label className="block text-sm font-bold text-gray-700 uppercase mb-2">Tindakan Mekanik</label>
                             <input
                                 type="text"
                                 value={data.tindakan_mekanik}

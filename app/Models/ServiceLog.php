@@ -20,6 +20,7 @@ class ServiceLog extends Model
         'work_hours_per_day',
         'back_evo',
         'accuracy',
+        'maintenance_order_id',
     ];
 
     protected $casts = [
@@ -33,5 +34,10 @@ class ServiceLog extends Model
     public function unit()
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    public function maintenanceOrder()
+    {
+        return $this->belongsTo(MaintenanceOrder::class, 'maintenance_order_id');
     }
 }

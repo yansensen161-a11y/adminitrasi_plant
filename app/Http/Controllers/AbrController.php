@@ -6,18 +6,174 @@ use App\Models\Abr;
 use App\Models\AbrImage;
 use App\Models\AbrItem;
 use App\Models\Unit;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class AbrController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $abrs = Abr::with('unit')->orderBy('created_at', 'desc')->paginate(10);
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
+        $codeUnit = $request->input('code_unit', '');
+        $kategori = $request->input('kategori', '');
+
+        $query = Abr::with(['unit', 'items'])->orderBy('tanggal', 'desc');
+
+        if ($dateFrom) {
+            $query->whereDate('tanggal', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->whereDate('tanggal', '<=', $dateTo);
+        }
+        if ($codeUnit) {
+            $query->whereHas('unit', function ($q) use ($codeUnit) {
+                $q->where('code_unit', 'like', "%{$codeUnit}%");
+            });
+        }
+        if ($kategori) {
+            $query->whereHas('items', function ($q) use ($kategori) {
+                $q->where('category', 'like', "%{$kategori}%");
+            });
+        }
+
+        $allFilteredAbrs = $query->get();
+
+        $total_biaya = $allFilteredAbrs->sum('grand_total');
+        $jumlah_repair = $allFilteredAbrs->count();
+        $rata_rata_biaya = $jumlah_repair > 0 ? $total_biaya / $jumlah_repair : 0;
+
+        // Simple trend calculation vs previous month
+        $currentMonth = now()->startOfMonth();
+        $prevMonth = now()->subMonth()->startOfMonth();
+        $currentMonthTotal = Abr::whereMonth('tanggal', $currentMonth->month)->whereYear('tanggal', $currentMonth->year)->sum('grand_total');
+        $prevMonthTotal = Abr::whereMonth('tanggal', $prevMonth->month)->whereYear('tanggal', $prevMonth->year)->sum('grand_total');
+
+        if ($prevMonthTotal > 0) {
+            $trend = (($currentMonthTotal - $prevMonthTotal) / $prevMonthTotal) * 100;
+            $trend_pct = ($trend > 0 ? '+' : '').number_format($trend, 1).'%';
+        } else {
+            $trend_pct = '+0%';
+        }
+
+        $stats = [
+            'total_biaya' => $total_biaya,
+            'periode' => now()->translatedFormat('M Y'),
+            'jumlah_repair' => $jumlah_repair,
+            'rata_rata_biaya' => $rata_rata_biaya,
+            'trend_pct' => $trend_pct,
+        ];
+
+        // Chart Biaya Per Unit (Top 5 + Others)
+        $unitBiaya = [];
+        foreach ($allFilteredAbrs as $abr) {
+            $type = ($abr->unit && ! empty($abr->unit->type_unit)) ? $abr->unit->type_unit : 'Lainnya';
+            $unitBiaya[$type] = ($unitBiaya[$type] ?? 0) + $abr->grand_total;
+        }
+        arsort($unitBiaya);
+        $colors = ['#1d4ed8', '#10b981', '#facc15', '#ef4444', '#6b7280', '#9ca3af'];
+        $chartBiayaPerUnit = [];
+        $i = 0;
+        $others = 0;
+        foreach ($unitBiaya as $name => $value) {
+            if ($i < 5) {
+                $chartBiayaPerUnit[] = [
+                    'name' => $name,
+                    'value' => $value,
+                    'label' => number_format($value / 1000000, 0).'M',
+                    'color' => $colors[$i],
+                ];
+            } else {
+                $others += $value;
+            }
+            $i++;
+        }
+        if ($others > 0) {
+            $chartBiayaPerUnit[] = [
+                'name' => 'Others',
+                'value' => $others,
+                'label' => number_format($others / 1000000, 0).'M',
+                'color' => $colors[5],
+            ];
+        }
+
+        // Chart Biaya Per Kategori
+        $kategoriBiaya = [];
+        $totalItemsBiaya = 0;
+        foreach ($allFilteredAbrs as $abr) {
+            foreach ($abr->items as $item) {
+                $cat = ucfirst($item->category);
+                $kategoriBiaya[$cat] = ($kategoriBiaya[$cat] ?? 0) + $item->amount;
+                $totalItemsBiaya += $item->amount;
+            }
+        }
+        arsort($kategoriBiaya);
+        $chartBiayaPerKategori = [];
+        $i = 0;
+        foreach ($kategoriBiaya as $name => $val) {
+            $pct = $totalItemsBiaya > 0 ? ($val / $totalItemsBiaya) * 100 : 0;
+            $chartBiayaPerKategori[] = [
+                'name' => $name,
+                'value' => round($pct, 1),
+                'color' => $colors[$i % count($colors)],
+            ];
+            $i++;
+        }
+
+        // Chart Trend Biaya (Last 6 Months)
+        $chartTrendBiaya = [];
+        for ($m = 5; $m >= 0; $m--) {
+            $d = now()->subMonths($m);
+            $val = Abr::whereMonth('tanggal', $d->month)->whereYear('tanggal', $d->year)->sum('grand_total');
+            $chartTrendBiaya[] = [
+                'month' => $d->translatedFormat('M Y'),
+                'value' => (float) $val,
+                'label' => number_format($val / 1000000, 0).'M',
+            ];
+        }
+
+        $paginatedAbrs = $query->paginate(10);
+        $items = collect($paginatedAbrs->items())->map(function ($abr) {
+            $biaya_part = $abr->items->where('category', 'sparepart')->sum('amount');
+            $biaya_jasa = $abr->items->whereIn('category', ['repair', 'manpower'])->sum('amount');
+
+            return [
+                'id' => $abr->id,
+                'tanggal' => Carbon::parse($abr->tanggal)->format('d/m/Y'),
+                'code_unit' => $abr->unit ? $abr->unit->code_unit : $abr->manual_unit_code,
+                'equipment' => $abr->unit ? $abr->unit->type_unit : '-',
+                'model' => $abr->unit ? $abr->unit->model : $abr->manual_unit_model,
+                'deskripsi' => $abr->incident_description,
+                'kategori' => $abr->items->pluck('category')->map(fn ($c) => ucfirst($c))->unique()->implode(', '),
+                'part_number' => $abr->items->pluck('part_number')->filter()->unique()->implode(', '),
+                'qty' => $abr->items->sum('qty'),
+                'biaya_part' => (float) $biaya_part,
+                'biaya_jasa' => (float) $biaya_jasa,
+                'total_biaya' => (float) $abr->grand_total,
+                'status' => $abr->status,
+            ];
+        })->values()->toArray();
 
         return Inertia::render('ABR/Index', [
-            'abrs' => $abrs,
+            'stats' => $stats,
+            'chartBiayaPerUnit' => $chartBiayaPerUnit,
+            'chartBiayaPerKategori' => $chartBiayaPerKategori,
+            'chartTrendBiaya' => $chartTrendBiaya,
+            'items' => $items,
+            'pagination' => [
+                'total' => $paginatedAbrs->total(),
+                'per_page' => $paginatedAbrs->perPage(),
+                'current_page' => $paginatedAbrs->currentPage(),
+                'last_page' => $paginatedAbrs->lastPage(),
+            ],
+            'filters' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'code_unit' => $codeUnit,
+                'kategori' => $kategori,
+            ],
         ]);
     }
 

@@ -15,6 +15,7 @@ class Unit extends Model
     protected $fillable = [
         'no_urut',
         'code_unit',
+        'type_unit',
         'hm',
         'model',
         'sn_chassis',

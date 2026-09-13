@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Breakdown;
+use App\Models\MaintenanceOrder;
 use App\Models\Unit;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -15,96 +16,74 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class BreakdownController extends Controller
 {
-    public function daily()
+    public function daily(Request $request)
     {
-        $predefinedGroups = [
-            'A.1. EXCAVATOR CRUSHER',
-            'A.2. EXCAVATOR BIGMALL',
-            'A.3. EXCAVATOR SMALL',
-            'A.4. BULLDOZER',
-            'A.5. HAULER',
-            'A.6. MOTORGRADER',
-            'A.7. DUMP TRUCK',
-            'A.8. Compactor',
-            'A.09. MAINHAUL',
-            'A.10. GENERAL',
-        ];
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
+        $codeUnit = $request->input('code_unit', '');
+        $status = $request->input('status', '');
 
-        $breakdowns = Breakdown::with(['unit', 'tasks'])->get();
-        $grouped = $breakdowns->groupBy('equipment_group');
-
-        $mapUnits = function ($items) {
-            return collect($items)->map(function ($item, $index) {
-                return [
-                    'id' => $item->id,
-                    'no' => $index + 1,
-                    'unit_id' => $item->unit_id,
-                    'unit_no' => $item->unit ? $item->unit->code_unit : '-',
-                    'model' => $item->unit ? $item->unit->model : '-',
-                    'sn' => $item->unit ? $item->unit->sn_chassis : '-',
-                    'loc' => $item->loc,
-                    'hm' => $item->hm,
-                    'est_finish' => $item->est_finish ? Carbon::parse($item->est_finish)->format('d-M-y') : '-',
-                    'raw_est_finish' => $item->est_finish,
-                    'aging' => $item->aging,
-                    'status' => $item->status,
-                    'equipment_group' => $item->equipment_group,
-                    'tasks' => $item->tasks->map(function ($task) {
-                        return [
-                            'id' => $task->id,
-                            'task_no' => $task->task_no,
-                            'problem' => $task->problem,
-                            'activity' => $task->activity,
-                            'status' => $task->status,
-                            'remarks' => $task->remarks,
-                            'mol' => $task->mol,
-                            'pr' => $task->pr,
-                            'po' => $task->po,
-                            'eta' => $task->eta ? Carbon::parse($task->eta)->format('d-M-y') : '-',
-                            'raw_eta' => $task->eta,
-                        ];
-                    }),
-                ];
-            })->values()->all();
-        };
-
-        $categories = collect();
-
-        foreach ($predefinedGroups as $groupName) {
-            $items = $grouped->get($groupName, collect([]));
-
-            // Tampilkan A.1 selalu, dan tampilkan yang lain jika ada data ATAU kita paksa semua tampil
-            // Berhubung user minta urutkan A1 - A10, kita akan tampilkan semuanya.
-            // Jika user sebelumnya minta hapus 2-10 (karena bug duplicate), sekarang bug sudah diperbaiki di DB.
-            // Agar aman, kita hanya render jika ada isinya ATAU jika itu A.1.
-            // Tunggu, mari kita tampilkan semua saja karena "urutkan semua dari A1 sampai A10".
-            // Revisi: user sebelumnya tidak suka 2-10 kosong.
-            // Jadi: Tampilkan jika count > 0 atau jika A.1.
-            if ($items->count() > 0 || $groupName === 'A.1. EXCAVATOR CRUSHER') {
-                $categories->push([
-                    'name' => $groupName,
-                    'units' => $mapUnits($items),
-                ]);
-            }
-        }
-
-        // Tambahkan grup lain yang tidak ada di predefined (berjaga-jaga)
-        foreach ($grouped as $groupName => $items) {
-            if (! in_array($groupName, $predefinedGroups)) {
-                $categories->push([
-                    'name' => $groupName ?: 'UNSPECIFIED GROUP',
-                    'units' => $mapUnits($items),
-                ]);
-            }
-        }
-
-        $categories = $categories->all();
-
+        // Existing data for available units
         $units = Unit::select('id', 'code_unit', 'model')->get();
 
+        // --- MOCK DATA FOR NEW FAR DASHBOARD ---
+        $farKpi = [
+            'total_kasus' => ['count' => 124, 'trend' => '+12%'],
+            'unit_terdampak' => ['count' => 56, 'pct' => '45.2%'],
+            'total_downtime' => ['count' => '1,842', 'rata' => '14.9'],
+            'closed_case' => ['count' => 98, 'pct' => '79.0%'],
+        ];
+
+        $chartKategori = [
+            ['name' => 'Engine', 'value' => 28, 'pct' => '22.6%', 'color' => '#3b82f6'],
+            ['name' => 'Hydraulic', 'value' => 32, 'pct' => '25.8%', 'color' => '#10b981'],
+            ['name' => 'Electrical', 'value' => 18, 'pct' => '14.5%', 'color' => '#facc15'],
+            ['name' => 'Undercarriage', 'value' => 20, 'pct' => '16.1%', 'color' => '#ef4444'],
+            ['name' => 'Transmission', 'value' => 14, 'pct' => '11.3%', 'color' => '#a855f7'],
+            ['name' => 'Others', 'value' => 12, 'pct' => '9.7%', 'color' => '#6b7280'],
+        ];
+
+        $chartPenyebab = [
+            ['name' => '1. Wear & Tear', 'value' => 32, 'pct' => '25.8%', 'color' => '#0ea5e9'],
+            ['name' => '2. Contamination', 'value' => 24, 'pct' => '19.4%', 'color' => '#10b981'],
+            ['name' => '3. Overload', 'value' => 18, 'pct' => '14.5%', 'color' => '#facc15'],
+            ['name' => '4. Improper Operation', 'value' => 16, 'pct' => '12.9%', 'color' => '#ef4444'],
+            ['name' => '5. Poor Maintenance', 'value' => 14, 'pct' => '11.3%', 'color' => '#8b5cf6'],
+        ];
+
+        $chartTrend = [
+            'labels' => ['Apr 2026', 'Mei 2026', 'Jun 2026', 'Jul 2026', 'Agu 2026', 'Sep 2026'],
+            'kasus' => [18, 22, 20, 26, 25, 31],
+            'downtime' => [150, 180, 160, 210, 200, 260],
+        ];
+
+        $farTable = [
+            ['id' => 1, 'tanggal' => '03/09/2026', 'kode_unit' => 'EX-056', 'equipment' => 'Excavator', 'komponen' => 'Hydraulic Pump', 'deskripsi' => 'Pump tidak bekerja normal', 'penyebab' => 'Contamination', 'downtime' => 18.0, 'biaya' => '125,000,000', 'status' => 'Open'],
+            ['id' => 2, 'tanggal' => '31/08/2026', 'kode_unit' => 'HD785-12', 'equipment' => 'Hauler', 'komponen' => 'Engine', 'deskripsi' => 'Overheat saat operasi', 'penyebab' => 'Overload', 'downtime' => 26.5, 'biaya' => '480,000,000', 'status' => 'In Progress'],
+            ['id' => 3, 'tanggal' => '28/08/2026', 'kode_unit' => 'GD655-01', 'equipment' => 'Motor Grader', 'komponen' => 'Circle Bearing', 'deskripsi' => 'Bunyi abnormal saat jalan', 'penyebab' => 'Wear & Tear', 'downtime' => 12.0, 'biaya' => '95,000,000', 'status' => 'Closed'],
+            ['id' => 4, 'tanggal' => '25/08/2026', 'kode_unit' => 'D85-01', 'equipment' => 'Dozer', 'komponen' => 'Final Drive', 'deskripsi' => 'Kebocoran oli seal', 'penyebab' => 'Wear & Tear', 'downtime' => 16.5, 'biaya' => '210,000,000', 'status' => 'Closed'],
+            ['id' => 5, 'tanggal' => '21/08/2026', 'kode_unit' => 'TRK-01', 'equipment' => 'Water Truck', 'komponen' => 'Water Pump', 'deskripsi' => 'Pump tidak menghisap', 'penyebab' => 'Contamination', 'downtime' => 8.0, 'biaya' => '48,000,000', 'status' => 'Closed'],
+            ['id' => 6, 'tanggal' => '18/08/2026', 'kode_unit' => 'SV-01', 'equipment' => 'Service Truck', 'komponen' => 'Alternator', 'deskripsi' => 'Tidak ada charging', 'penyebab' => 'Electrical Failure', 'downtime' => 6.5, 'biaya' => '32,500,000', 'status' => 'Closed'],
+            ['id' => 7, 'tanggal' => '15/08/2026', 'kode_unit' => 'LT-01', 'equipment' => 'Tower Lamp', 'komponen' => 'Generator Set', 'deskripsi' => 'Tidak bisa start', 'penyebab' => 'Fuel System', 'downtime' => 4.0, 'biaya' => '18,000,000', 'status' => 'Closed'],
+            ['id' => 8, 'tanggal' => '12/08/2026', 'kode_unit' => 'CM-01', 'equipment' => 'Compactor', 'komponen' => 'Vibration Motor', 'deskripsi' => 'Getaran tidak normal', 'penyebab' => 'Wear & Tear', 'downtime' => 14.0, 'biaya' => '165,000,000', 'status' => 'In Progress'],
+            ['id' => 9, 'tanggal' => '10/08/2026', 'kode_unit' => 'MAN-01', 'equipment' => 'Manitou', 'komponen' => 'Boom Cylinder', 'deskripsi' => 'Kebocoran oli seal', 'penyebab' => 'Seal Failure', 'downtime' => 10.5, 'biaya' => '72,000,000', 'status' => 'Closed'],
+            ['id' => 10, 'tanggal' => '05/08/2026', 'kode_unit' => 'EX-057', 'equipment' => 'Excavator', 'komponen' => 'Swing Bearing', 'deskripsi' => 'Bunyi kasar saat swing', 'penyebab' => 'Lubrication Failure', 'downtime' => 22.0, 'biaya' => '320,000,000', 'status' => 'Open'],
+        ];
+        // ---------------------------------------
+
         return Inertia::render('Breakdown/Daily', [
-            'categories' => $categories,
             'availableUnits' => $units,
+            'farKpi' => $farKpi,
+            'chartKategori' => $chartKategori,
+            'chartPenyebab' => $chartPenyebab,
+            'chartTrend' => $chartTrend,
+            'farTable' => $farTable,
+            'filters' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'code_unit' => $codeUnit,
+                'status' => $status,
+            ],
         ]);
     }
 
@@ -113,6 +92,7 @@ class BreakdownController extends Controller
         $validated = $request->validate([
             'unit_id' => 'required|exists:units,id',
             'equipment_group' => 'required|string',
+            'date' => 'nullable|date',
             'loc' => 'nullable|string',
             'hm' => 'nullable|string',
             'est_finish' => 'nullable|date',
@@ -121,6 +101,24 @@ class BreakdownController extends Controller
             'tasks' => 'nullable|array',
         ]);
 
+        // Auto-generate CMMS Master Work Order
+        $wo = \App\Services\WorkOrderService::createWorkOrder([
+            'tipe_wo' => 'BREAKDOWN',
+            'unit_id' => $validated['unit_id'],
+            'hm_unit' => $validated['hm'],
+            'location' => $validated['loc'],
+            'priority' => 'HIGH',
+            'status_wo' => 'OPEN',
+            'failure_description' => isset($validated['tasks'][0]['problem']) ? substr($validated['tasks'][0]['problem'], 0, 255) : null,
+            'request_by' => auth()->user()->name ?? 'System',
+            'request_date' => $validated['date'] ?? now(),
+        ], [
+            'trouble_date' => $validated['date'] ?? now(),
+            'breakdown_start' => $validated['date'] ?? now(),
+        ]);
+
+        // Support existing breakdown table structure
+        $validated['maintenance_order_id'] = $wo->id;
         $breakdown = Breakdown::create($validated);
 
         if (! empty($validated['tasks'])) {
@@ -129,7 +127,7 @@ class BreakdownController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'Breakdown created successfully');
+        return redirect()->back()->with('success', 'Breakdown and Work Order (' . $wo->no_wo . ') created successfully');
     }
 
     public function update(Request $request, Breakdown $breakdown)
@@ -137,6 +135,7 @@ class BreakdownController extends Controller
         $validated = $request->validate([
             'unit_id' => 'required|exists:units,id',
             'equipment_group' => 'required|string',
+            'date' => 'nullable|date',
             'loc' => 'nullable|string',
             'hm' => 'nullable|string',
             'est_finish' => 'nullable|date',
@@ -144,6 +143,16 @@ class BreakdownController extends Controller
             'status' => 'nullable|string',
             'tasks' => 'nullable|array',
         ]);
+
+        if ($breakdown->maintenance_order_id) {
+            MaintenanceOrder::where('id', $breakdown->maintenance_order_id)->update([
+                'tanggal' => $validated['date'] ?? $breakdown->date,
+                'unit_id' => $validated['unit_id'],
+                'hm' => $validated['hm'],
+                'lokasi' => $validated['loc'],
+                'failure_code' => isset($validated['tasks'][0]['problem']) ? substr($validated['tasks'][0]['problem'], 0, 255) : null,
+            ]);
+        }
 
         $breakdown->update($validated);
 
@@ -160,9 +169,14 @@ class BreakdownController extends Controller
 
     public function destroy(Breakdown $breakdown)
     {
+        $woId = $breakdown->maintenance_order_id;
         $breakdown->delete();
 
-        return redirect()->back()->with('success', 'Breakdown deleted successfully');
+        if ($woId) {
+            MaintenanceOrder::where('id', $woId)->delete();
+        }
+
+        return redirect()->back()->with('success', 'Breakdown and Work Order deleted successfully');
     }
 
     public function exportExcel()

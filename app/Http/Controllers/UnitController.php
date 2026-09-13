@@ -2,12 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Backlog;
+use App\Models\Breakdown;
+use App\Models\HourMeterLog;
+use App\Models\MaintenanceOrder;
+use App\Models\PartCanibal;
+use App\Models\PcrUc;
 use App\Models\Unit;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -60,15 +67,100 @@ class UnitController extends Controller
             'standby' => Unit::where('status', 'Standby')->count(),
         ];
 
+        $unitsByType = Unit::whereNotNull('type_unit')->where('type_unit', '!=', '')
+            ->groupBy('type_unit')
+            ->selectRaw('type_unit, count(*) as total')
+            ->pluck('total', 'type_unit');
+
         $locations = Unit::select('location')->distinct()->whereNotNull('location')->where('location', '!=', '')->pluck('location');
         $engineMakes = Unit::select('engine_make')->distinct()->whereNotNull('engine_make')->where('engine_make', '!=', '')->pluck('engine_make');
 
         return Inertia::render('Units/Index', [
             'units' => $units,
             'stats' => $stats,
+            'unitsByType' => $unitsByType,
             'locations' => $locations,
             'engineMakes' => $engineMakes,
             'filters' => $request->only(['search', 'status', 'location', 'engine_make']),
+        ]);
+    }
+
+    public function show(Unit $unit)
+    {
+        $hourMeters = HourMeterLog::where('unit_id', $unit->id)
+            ->orderBy('log_date', 'desc')
+            ->take(20)
+            ->get();
+
+        $breakdowns = \App\Models\WorkOrder::where('unit_id', $unit->id)
+            ->where('tipe_wo', 'BREAKDOWN')
+            ->latest()
+            ->take(20)
+            ->get();
+
+        $services = class_exists(MaintenanceOrder::class)
+            ? MaintenanceOrder::where('unit_id', $unit->id)->latest()->take(20)->get()
+            : [];
+
+        $backlogs = class_exists(Backlog::class)
+            ? Backlog::where('unit_id', $unit->id)->latest()->take(20)->get()
+            : [];
+
+        $components = PcrUc::where('unit_id', $unit->id)
+            ->orderBy('date_replace', 'desc')
+            ->get();
+
+        $cannibals = PartCanibal::with(['unit', 'dariUnit'])
+            ->where(function ($q) use ($unit) {
+                $q->where('unit_id', $unit->id)
+                    ->orWhere('dari_unit_id', $unit->id);
+            })
+            ->latest()
+            ->get();
+
+        // 1. Magnetic Plug Data
+        $magneticPlugs = \App\Models\MagneticPlug::where('unit_id', $unit->id)
+            ->orderBy('date', 'desc')
+            ->take(20)
+            ->get();
+
+        // 2. Tyres Data mapped by position
+        $tyres = \App\Models\Tyre::where('unit_id', $unit->id)->get();
+        $tyresMap = [];
+        foreach ($tyres as $t) {
+            if ($t->position) {
+                $currentHm = (float) $unit->hm;
+                $lifetime = (float) $t->total_hm + max(0, $currentHm - (float) $t->installed_hm);
+                $tArray = $t->toArray();
+                $tArray['current_lifetime'] = round($lifetime, 1);
+                $tyresMap[$t->position] = $tArray;
+            }
+        }
+
+        // 3. Mock Budget Data
+        $unitBudget = [
+            'total_forecast' => ['amount' => '450,000,000', 'vs_realisasi' => '12.5%', 'color' => '#3b82f6'],
+            'planned_maintenance' => ['amount' => '320,000,000', 'pct' => '71.1%', 'color' => '#10b981'],
+            'corrective_maintenance' => ['amount' => '110,000,000', 'pct' => '24.4%', 'color' => '#facc15'],
+            'project_improvement' => ['amount' => '20,000,000', 'pct' => '4.5%', 'color' => '#ef4444'],
+            'monthly' => [
+                ['bulan' => 'Jan', 'planned' => '25,000,000', 'realisasi' => '24,000,000', 'status' => 'On Track'],
+                ['bulan' => 'Feb', 'planned' => '25,000,000', 'realisasi' => '26,500,000', 'status' => 'Over Budget'],
+                ['bulan' => 'Mar', 'planned' => '30,000,000', 'realisasi' => '29,000,000', 'status' => 'On Track'],
+            ]
+        ];
+
+        return Inertia::render('Units/Show', [
+            'unit' => $unit,
+            'hourMeters' => $hourMeters,
+            'breakdowns' => $breakdowns,
+            'services' => $services,
+            'backlogs' => $backlogs,
+            'components' => $components,
+            'cannibals' => $cannibals,
+            'magneticPlugs' => $magneticPlugs,
+            'tyresMap' => $tyresMap,
+            'unitBudget' => $unitBudget,
         ]);
     }
 
@@ -86,6 +178,7 @@ class UnitController extends Controller
         $validated = $request->validate([
             'no_urut' => 'nullable|integer|min:1',
             'code_unit' => 'required|string|max:100|unique:units,code_unit',
+            'type_unit' => 'nullable|string|max:100',
             'hm' => 'nullable|numeric|min:0',
             'model' => 'nullable|string|max:150',
             'sn_chassis' => 'nullable|string|max:150',
@@ -127,6 +220,7 @@ class UnitController extends Controller
         $validated = $request->validate([
             'no_urut' => 'nullable|integer|min:1',
             'code_unit' => 'required|string|max:100|unique:units,code_unit,'.$unit->id,
+            'type_unit' => 'nullable|string|max:100',
             'hm' => 'nullable|numeric|min:0',
             'model' => 'nullable|string|max:150',
             'sn_chassis' => 'nullable|string|max:150',
@@ -264,6 +358,14 @@ class UnitController extends Controller
                     }
                 }
 
+                $rawReceivedDate = $getRaw('received_date', 'received date', 'tgl terima', 'tanggal terima');
+                if ($rawReceivedDate && is_numeric($rawReceivedDate) && (int) $rawReceivedDate > 30000 && (int) $rawReceivedDate < 60000) {
+                    try {
+                        $rawReceivedDate = Date::excelToDateTimeObject((float) $rawReceivedDate)->format('Y-m-d');
+                    } catch (\Throwable $e) {
+                    }
+                }
+
                 Unit::updateOrCreate(
                     ['code_unit' => $codeUnit],
                     [
@@ -280,7 +382,7 @@ class UnitController extends Controller
                         'hp' => $getRaw('hp', 'horse power', 'horsepower'),
                         'kw' => $getRaw('kw', 'kilo watt', 'kilowatt'),
                         'tahun_perakitan' => $tahun,
-                        'received_date' => $getRaw('received_date', 'received date', 'tgl terima', 'tanggal terima'),
+                        'received_date' => $rawReceivedDate,
                         'received_from' => $getRaw('received_from', 'received from', 'terima dari', 'vendor'),
                         'location' => $getRaw('location', 'lokasi', 'site'),
                         'before_from' => $getRaw('before_from', 'before from', 'sebelumnya', 'asal unit'),

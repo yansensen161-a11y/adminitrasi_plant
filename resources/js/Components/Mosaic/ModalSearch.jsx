@@ -98,7 +98,7 @@ function ModalSearch({
           <div className="py-4 px-2">
             {/* Recent searches */}
             <div className="mb-3 last:mb-0">
-              <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 mb-2">Recent searches</div>
+              <div className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 mb-2">Recent searches</div>
               <ul className="text-sm">
                 <li>
                   <Link
@@ -206,7 +206,7 @@ function ModalSearch({
             </div>
             {/* Recent pages */}
             <div className="mb-3 last:mb-0">
-              <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 mb-2">Recent pages</div>
+              <div className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 mb-2">Recent pages</div>
               <ul className="text-sm">
                 <li>
                   <Link

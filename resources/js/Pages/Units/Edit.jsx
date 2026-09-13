@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { motion } from 'framer-motion';
@@ -7,6 +7,7 @@ export default function Edit({ unit }) {
     const { data, setData, put, processing, errors } = useForm({
         no_urut: unit.no_urut || '',
         code_unit: unit.code_unit || '',
+        type_unit: unit.type_unit || '',
         hm: unit.hm || '',
         model: unit.model || '',
         sn_chassis: unit.sn_chassis || '',
@@ -26,6 +27,38 @@ export default function Edit({ unit }) {
         remarks: unit.remarks || '',
         status: unit.status || 'Operational',
     });
+
+    useEffect(() => {
+        if (data.code_unit) {
+            const code = data.code_unit.toUpperCase();
+            let detectedType = '';
+            
+            if (code.startsWith('MEO') || code.startsWith('ME0')) detectedType = 'EXCAVATOR';
+            else if (code.startsWith('MD0') || code.startsWith('MDO')) detectedType = 'DOZER';
+            else if (code.startsWith('MG0') || code.startsWith('MGO')) detectedType = 'MOTORGRADER';
+            else if (code.startsWith('MCP0') || code.startsWith('MCPO')) detectedType = 'COMPACTOR';
+            else if (code.startsWith('OHT')) detectedType = 'HAULER';
+            else if (code.startsWith('MDT')) detectedType = 'DUMP TRUCK';
+            else if (code.startsWith('LV')) detectedType = 'LIGHT VEHICLE';
+            else if (code.startsWith('MTL')) detectedType = 'TOWER LAMP';
+            else if (code.startsWith('MGS')) detectedType = 'GENSET';
+            else if (code.startsWith('MWM')) detectedType = 'WELDING MACHINE';
+            else if (code.startsWith('MCM')) detectedType = 'AIR COMPRESSOR';
+            else if (code.startsWith('MSC')) detectedType = 'CRUSHER STONE';
+            else if (code.startsWith('MLT')) detectedType = 'LUBECAR';
+            else if (code.startsWith('MFT')) detectedType = 'FUEL TRUCK';
+            else if (code.startsWith('MWT')) detectedType = 'WATER TRUCK';
+            else if (code.startsWith('MCT') || code.startsWith('MC 02') || code.startsWith('MC02')) detectedType = 'CRANE TRUCK';
+            else if (code.startsWith('MWP')) detectedType = 'DEWATERING';
+            else if (code.startsWith('MWF')) detectedType = 'WATERFILL';
+            else if (code.startsWith('MB0') || code.startsWith('MBO')) detectedType = 'BIS';
+            else if (code.startsWith('MMH')) detectedType = 'MAINHAUL';
+
+            if (detectedType && data.type_unit !== detectedType) {
+                setData('type_unit', detectedType);
+            }
+        }
+    }, [data.code_unit]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -56,11 +89,11 @@ export default function Edit({ unit }) {
                             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                                 Edit Spesifikasi & Data Unit
                             </h2>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 Perbarui nomor urut, data HM, status kesiapan, atau catatan operasional unit.
                             </p>
                         </div>
-                        <span className="text-xs font-mono bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                        <span className="text-sm font-mono bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
                             {unit.code_unit}
                         </span>
                     </div>
@@ -68,12 +101,12 @@ export default function Edit({ unit }) {
                     <form onSubmit={handleSubmit} className="p-6 space-y-8">
                         {/* Section 1: Identitas Dasar */}
                         <div>
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-4 pb-1 border-b border-emerald-100 dark:border-emerald-900/30">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-4 pb-1 border-b border-emerald-100 dark:border-emerald-900/30">
                                 1. Identitas & Legalitas Unit
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         No. Urut
                                     </label>
                                     <input
@@ -83,11 +116,11 @@ export default function Edit({ unit }) {
                                         placeholder="1, 2, 3..."
                                         className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm font-mono font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                     />
-                                    {errors.no_urut && <p className="text-xs text-red-500 mt-1">{errors.no_urut}</p>}
+                                    {errors.no_urut && <p className="text-sm text-red-500 mt-1">{errors.no_urut}</p>}
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         CODE UNIT <span className="text-red-500">*</span>
                                     </label>
                                     <input
@@ -97,11 +130,23 @@ export default function Edit({ unit }) {
                                         className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                         required
                                     />
-                                    {errors.code_unit && <p className="text-xs text-red-500 mt-1">{errors.code_unit}</p>}
+                                    {errors.code_unit && <p className="text-sm text-red-500 mt-1">{errors.code_unit}</p>}
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                        TYPE UNIT
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.type_unit}
+                                        onChange={(e) => setData('type_unit', e.target.value)}
+                                        className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         Model Unit
                                     </label>
                                     <input
@@ -113,7 +158,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         S/N CHASSIS (Rangka / VIN)
                                     </label>
                                     <input
@@ -125,7 +170,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         NO. POLICE
                                     </label>
                                     <input
@@ -137,7 +182,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         TAHUN PERAKITAN
                                     </label>
                                     <input
@@ -149,7 +194,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         Status Unit <span className="text-red-500">*</span>
                                     </label>
                                     <select
@@ -168,12 +213,12 @@ export default function Edit({ unit }) {
 
                         {/* Section 2: Mesin & Kapasitas */}
                         <div>
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-4 pb-1 border-b border-emerald-100 dark:border-emerald-900/30">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-4 pb-1 border-b border-emerald-100 dark:border-emerald-900/30">
                                 2. Spesifikasi Mesin & Kapasitas
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         ENGINE MAKE
                                     </label>
                                     <input
@@ -185,7 +230,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         ENGINE MODEL
                                     </label>
                                     <input
@@ -197,7 +242,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         S/N ENGINE
                                     </label>
                                     <input
@@ -209,7 +254,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         EQUIPMENT CAPACITY
                                     </label>
                                     <input
@@ -221,7 +266,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         HP (Horsepower)
                                     </label>
                                     <input
@@ -233,7 +278,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         KW (Kilowatt)
                                     </label>
                                     <input
@@ -245,7 +290,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         ATTACHMENTS
                                     </label>
                                     <input
@@ -260,12 +305,12 @@ export default function Edit({ unit }) {
 
                         {/* Section 3: Operasional & Riwayat */}
                         <div>
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-4 pb-1 border-b border-emerald-100 dark:border-emerald-900/30">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-4 pb-1 border-b border-emerald-100 dark:border-emerald-900/30">
                                 3. Operasional, Lokasi & Riwayat
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         HM (Hour Meter)
                                     </label>
                                     <input
@@ -278,7 +323,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         LOCATION (Lokasi / Site)
                                     </label>
                                     <input
@@ -290,7 +335,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         RECEIVED DATE
                                     </label>
                                     <input
@@ -302,7 +347,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         RECEIVED FROM
                                     </label>
                                     <input
@@ -314,7 +359,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         BEFORE FROM (Asal Unit Sebelumnya)
                                     </label>
                                     <input
@@ -326,7 +371,7 @@ export default function Edit({ unit }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                         Remarks (Catatan)
                                     </label>
                                     <input

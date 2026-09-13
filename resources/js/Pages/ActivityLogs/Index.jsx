@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function Index({ logs, filters }) {
     const [search, setSearch] = useState(filters.search || '');
     const [eventFilter, setEventFilter] = useState(filters.event || '');
+    const [dateFrom, setDateFrom] = useState(filters.date_from || '');
+    const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [selectedLog, setSelectedLog] = useState(null);
 
     const handleSearch = (e) => {
@@ -13,6 +15,8 @@ export default function Index({ logs, filters }) {
         router.get(route('activity-logs.index'), {
             search: search,
             event: eventFilter,
+            date_from: dateFrom,
+            date_to: dateTo,
         }, { preserveState: true });
     };
 
@@ -22,6 +26,8 @@ export default function Index({ logs, filters }) {
         router.get(route('activity-logs.index'), {
             search: search,
             event: value,
+            date_from: dateFrom,
+            date_to: dateTo,
         }, { preserveState: true });
     };
 
@@ -29,28 +35,28 @@ export default function Index({ logs, filters }) {
         switch (event) {
             case 'created':
                 return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
                         <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500"></span>
                         Created
                     </span>
                 );
             case 'updated':
                 return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
                         <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-amber-500"></span>
                         Updated
                     </span>
                 );
             case 'deleted':
                 return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300">
                         <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-red-500"></span>
                         Deleted
                     </span>
                 );
             default:
                 return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
                         <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-blue-500"></span>
                         {event || 'Activity'}
                     </span>
@@ -64,22 +70,23 @@ export default function Index({ logs, filters }) {
 
             {/* Header & Filter Card */}
             <div className="bg-white dark:bg-gray-800 shadow-sm sm:rounded-xl mb-6 p-4 sm:p-6 border border-gray-100 dark:border-gray-700/60">
-                <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="flex-1 w-full flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search logs by description, event, or name..."
-                                className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:border-emerald-500 text-gray-800 dark:text-gray-100"
-                            />
-                            <svg className="w-4 h-4 text-gray-400 absolute left-3.5 top-3 fill-current" viewBox="0 0 16 16">
-                                <path d="M7 14c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7ZM7 2C4.243 2 2 4.243 2 7s2.243 5 5 5 5-2.243 5-5-2.243-5-5-5Z" />
-                                <path d="m13.314 11.9 2.393 2.393a.999.999 0 1 1-1.414 1.414L11.9 13.314a8.019 8.019 0 0 0 1.414-1.414Z" />
-                            </svg>
-                        </div>
+                <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-3">
+                    <div className="relative flex-1 min-w-[200px]">
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search logs by description, event, or name..."
+                            className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:border-emerald-500 text-gray-800 dark:text-gray-100"
+                        />
+                        <svg className="w-4 h-4 text-gray-400 absolute left-3.5 top-2.5 fill-current" viewBox="0 0 16 16">
+                            <path d="M7 14c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7ZM7 2C4.243 2 2 4.243 2 7s2.243 5 5 5 5-2.243 5-5-2.243-5-5-5Z" />
+                            <path d="m13.314 11.9 2.393 2.393a.999.999 0 1 1-1.414 1.414L11.9 13.314a8.019 8.019 0 0 0 1.414-1.414Z" />
+                        </svg>
+                    </div>
 
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1">Event</label>
                         <select
                             value={eventFilter}
                             onChange={handleEventChange}
@@ -92,9 +99,31 @@ export default function Index({ logs, filters }) {
                         </select>
                     </div>
 
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1">Tanggal Dari</label>
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            max={dateTo || undefined}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                            className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 bg-gray-50"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1">Tanggal Sampai</label>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            min={dateFrom || undefined}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 bg-gray-50"
+                        />
+                    </div>
+
                     <button
                         type="submit"
-                        className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2 rounded-lg text-sm transition shadow-sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2 rounded-lg text-sm transition shadow-sm"
                     >
                         Filter
                     </button>
@@ -105,7 +134,7 @@ export default function Index({ logs, filters }) {
             <div className="bg-white dark:bg-gray-800 shadow-sm sm:rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700/60">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700/50 dark:text-gray-400">
+                        <thead className="text-sm text-gray-700 uppercase bg-gray-50 dark:bg-gray-700/50 dark:text-gray-400">
                             <tr>
                                 <th scope="col" className="px-6 py-4 font-semibold">Event</th>
                                 <th scope="col" className="px-6 py-4 font-semibold">User (Causer)</th>
@@ -130,14 +159,14 @@ export default function Index({ logs, filters }) {
                                         </td>
                                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
+                                                <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-sm">
                                                     {log.causer?.name ? log.causer.name.charAt(0).toUpperCase() : 'S'}
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                                                    <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                                                         {log.causer?.name || 'System / Guest'}
                                                     </div>
-                                                    <div className="text-[11px] text-gray-400">
+                                                    <div className="text-sm text-gray-400">
                                                         {log.causer?.email || '-'}
                                                     </div>
                                                 </div>
@@ -147,11 +176,11 @@ export default function Index({ logs, filters }) {
                                             {log.description}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-700 dark:text-gray-300">
+                                            <span className="text-sm font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-700 dark:text-gray-300">
                                                 {log.subject_type ? log.subject_type.split('\\').pop() : 'N/A'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400">
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                             {new Date(log.created_at).toLocaleString('id-ID', {
                                                 year: 'numeric',
                                                 month: 'short',
@@ -163,7 +192,7 @@ export default function Index({ logs, filters }) {
                                         <td className="px-6 py-4 text-right">
                                             <button
                                                 onClick={() => setSelectedLog(log)}
-                                                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1.5 rounded-lg transition"
+                                                className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:underline bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1.5 rounded-lg transition"
                                             >
                                                 View Diff
                                             </button>
@@ -186,7 +215,7 @@ export default function Index({ logs, filters }) {
 
                 {/* Pagination */}
                 {logs.links && logs.links.length > 3 && (
-                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center text-xs text-gray-500">
+                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center text-sm text-gray-500">
                         <div>
                             Showing {logs.from || 0} to {logs.to || 0} of {logs.total} logs
                         </div>
@@ -226,7 +255,7 @@ export default function Index({ logs, filters }) {
                                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                                         Log Details & Changes
                                     </h3>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
                                         Log ID: <span className="font-mono">{selectedLog.id}</span>
                                     </p>
                                 </div>
@@ -239,7 +268,7 @@ export default function Index({ logs, filters }) {
                             </div>
 
                             <div className="mt-4 space-y-4 overflow-y-auto pr-1">
-                                <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
                                     <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                                         <span className="text-gray-400 block font-semibold mb-1">Causer</span>
                                         <span className="font-medium text-gray-800 dark:text-gray-200">
@@ -253,8 +282,8 @@ export default function Index({ logs, filters }) {
                                 </div>
 
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase text-gray-400 mb-2">Properties & Data Changes</h4>
-                                    <pre className="bg-gray-900 text-emerald-400 p-4 rounded-xl text-xs font-mono overflow-x-auto max-h-72">
+                                    <h4 className="text-sm font-bold uppercase text-gray-400 mb-2">Properties & Data Changes</h4>
+                                    <pre className="bg-gray-900 text-emerald-400 p-4 rounded-xl text-sm font-mono overflow-x-auto max-h-72">
                                         {JSON.stringify(selectedLog.properties, null, 2) || '{}'}
                                     </pre>
                                 </div>
@@ -263,7 +292,7 @@ export default function Index({ logs, filters }) {
                             <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
                                 <button
                                     onClick={() => setSelectedLog(null)}
-                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold text-xs rounded-lg transition"
+                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold text-sm rounded-lg transition"
                                 >
                                     Close
                                 </button>

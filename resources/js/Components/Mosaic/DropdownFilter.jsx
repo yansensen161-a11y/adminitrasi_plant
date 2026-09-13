@@ -88,7 +88,7 @@ function DropdownFilter({ align }) {
         leaveEnd="opacity-0"
       >
         <div ref={dropdown}>
-          <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-3">
+          <div className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-3">
             Filters
           </div>
           <ul className="mb-4">

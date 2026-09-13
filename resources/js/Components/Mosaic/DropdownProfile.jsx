@@ -70,7 +70,7 @@ function DropdownProfile({
         >
           <div className="pt-0.5 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700/60">
             <div className="font-medium text-gray-800 dark:text-gray-100">{user?.name || 'User'}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic">
                 {user?.roles?.length > 0 ? user.roles[0].name : 'User'}
             </div>
           </div>

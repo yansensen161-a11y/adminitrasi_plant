@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TireVault 3D — Plant Maintenance System</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg:#080c10;--panel:#0e1318;--panel2:#131a21;--border:#1e2d3d;
+  --accent:#00d4ff;--accent2:#7b2fff;--ok:#00e676;--warn:#ffab00;--crit:#ff1744;
+  --text:#e2f0ff;--muted:#4a6580;
+  --font:'Rajdhani',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ── Toolbar ── */
+header{display:flex;align-items:center;gap:12px;padding:0 20px;height:52px;
+  background:linear-gradient(90deg,#060a0e,#0a1520);
+  border-bottom:1px solid var(--border);flex-shrink:0;position:relative;z-index:10}
+header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.4}
+.brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--accent);
+  text-shadow:0 0 20px rgba(0,212,255,.5)}
+.brand svg{filter:drop-shadow(0 0 6px var(--accent))}
+.unit-select{background:rgba(0,212,255,.05);color:var(--text);
+  border:1px solid rgba(0,212,255,.2);padding:7px 14px;border-radius:6px;
+  font-family:var(--font);font-size:14px;font-weight:600;letter-spacing:.05em;
+  transition:all .2s;cursor:pointer;min-width:220px}
+.unit-select:hover{border-color:var(--accent);box-shadow:0 0 12px rgba(0,212,255,.15)}
+.hm-badge{background:rgba(123,47,255,.1);border:1px solid rgba(123,47,255,.3);
+  color:#a78bff;padding:6px 14px;border-radius:6px;font-family:var(--mono);font-size:12px;font-weight:500}
+.toolbar-right{display:flex;gap:6px;margin-left:auto}
+.tb-btn{background:rgba(255,255,255,.03);border:1px solid var(--border);
+  color:var(--muted);padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;
+  letter-spacing:.05em;cursor:pointer;font-family:var(--font);transition:all .2s;white-space:nowrap}
+.tb-btn:hover,.tb-btn.active{color:var(--accent);border-color:rgba(0,212,255,.4);
+  background:rgba(0,212,255,.06);box-shadow:0 0 12px rgba(0,212,255,.1)}
+.tb-btn.cad.active{color:#a78bff;border-color:rgba(123,47,255,.4);background:rgba(123,47,255,.06)}
+
+/* ── Main Layout ── */
+main{flex:1;display:flex;min-height:0}
+#viewport{flex:1;position:relative;
+  background:radial-gradient(ellipse at 50% 30%,#0d1f30 0%,#040608 80%)}
+#viewport canvas{display:block;width:100%;height:100%}
+.vp-overlay{position:absolute;left:18px;bottom:16px;font-size:12px;color:var(--muted);
+  font-family:var(--mono);letter-spacing:.1em}
+.vp-unit-label{position:absolute;left:18px;top:16px;font-size:13px;
+  font-family:var(--mono);letter-spacing:.15em;color:rgba(0,212,255,.6)}
+/* Scan line animation on viewport */
+#viewport::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.015) 2px,rgba(0,212,255,.015) 4px);
+  pointer-events:none;z-index:1}
+
+/* ── Sidebar ── */
+aside{width:310px;flex-shrink:0;background:var(--panel);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.aside-header{padding:14px 18px;border-bottom:1px solid var(--border);
+  font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+.aside-scroll{flex:1;overflow-y:auto;padding:16px 18px}
+.aside-scroll::-webkit-scrollbar{width:3px}
+.aside-scroll::-webkit-scrollbar-thumb{background:rgba(0,212,255,.15);border-radius:2px}
+
+/* ── Fleet chips ── */
+.fleet-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
+.f-chip{width:42px;height:36px;border-radius:6px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;font-family:var(--mono);font-size:8px;
+  font-weight:600;transition:all .2s;border:1px solid transparent;letter-spacing:.05em}
+.f-chip:hover{transform:scale(1.08);box-shadow:0 4px 16px rgba(0,0,0,.5)}
+.f-chip.selected{border-color:rgba(255,255,255,.4)!important;box-shadow:0 0 12px rgba(255,255,255,.2)!important}
+.f-chip-pos{font-size:7px;opacity:.7}
+
+/* ── Tire Detail Panel ── */
+.empty-msg{color:var(--muted);font-size:13px;line-height:1.7;padding:10px 0;text-align:center;margin-top:30px}
+.detail-pos{font-size:10px;font-weight:700;letter-spacing:.25em;color:var(--muted);margin-bottom:5px;text-transform:uppercase}
+.detail-name{font-size:22px;font-weight:700;line-height:1.1;margin-bottom:4px;letter-spacing:.03em}
+.detail-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px}
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
+  font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:18px;text-transform:uppercase}
+.status-pill .dot{width:7px;height:7px;border-radius:50%;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── Stat bars ── */
+.stat-block{margin-bottom:14px}
+.stat-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+.stat-label{color:var(--muted)}
+.stat-val{font-family:var(--mono);font-weight:500}
+.bar-track{height:4px;background:#1a2535;border-radius:2px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:2px;transition:width .8s cubic-bezier(.25,.8,.25,1);position:relative}
+.bar-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:4px;
+  background:rgba(255,255,255,.6);filter:blur(2px)}
+
+/* ── Meta info ── */
+.meta-grid{margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
+.meta-row{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.meta-row:last-child{border-bottom:none}
+.meta-key{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px}
+.meta-val{font-family:var(--mono);font-size:12px;text-align:right}
+
+/* ── Install button ── */
+.install-btn{width:100%;margin-top:14px;padding:12px;border-radius:8px;font-family:var(--font);
+  font-size:14px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
+  border:1px solid rgba(0,212,255,.4);background:rgba(0,212,255,.08);color:var(--accent);
+  transition:all .25s;display:flex;align-items:center;justify-content:center;gap:8px}
+.install-btn:hover{background:rgba(0,212,255,.18);box-shadow:0 0 20px rgba(0,212,255,.25)}
+.install-btn svg{width:16px;height:16px}
+
+/* ── Install Modal ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);
+  z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal-box{background:var(--panel2);border:1px solid var(--border);border-radius:14px;
+  width:420px;max-width:95vw;overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.8),0 0 40px rgba(0,212,255,.05)}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
+.modal-title{font-size:16px;font-weight:700;letter-spacing:.05em;color:var(--accent)}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;transition:.2s}
+.modal-close:hover{color:var(--crit)}
+.modal-body{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.form-input,.form-select{background:rgba(255,255,255,.04);border:1px solid var(--border);
+  color:var(--text);padding:10px 14px;border-radius:8px;font-family:var(--font);font-size:14px;
+  transition:all .2s;width:100%}
+.form-input:focus,.form-select:focus{outline:none;border-color:rgba(0,212,255,.4);box-shadow:0 0 0 2px rgba(0,212,255,.08)}
+.modal-footer{padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.btn-cancel{background:none;border:1px solid var(--border);color:var(--muted);padding:10px 20px;
+  border-radius:8px;font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;transition:.2s}
+.btn-cancel:hover{border-color:rgba(255,255,255,.2);color:var(--text)}
+.btn-save{background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.4);color:var(--accent);
+  padding:10px 24px;border-radius:8px;font-family:var(--font);font-size:14px;font-weight:700;
+  letter-spacing:.08em;cursor:pointer;transition:all .25s}
+.btn-save:hover{background:rgba(0,212,255,.25);box-shadow:0 0 20px rgba(0,212,255,.2)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:rgba(0,230,118,.15);border:1px solid rgba(0,230,118,.4);color:var(--ok);
+  padding:12px 24px;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:.05em;
+  transition:all .4s cubic-bezier(.25,.8,.25,1);z-index:2000;white-space:nowrap;
+  box-shadow:0 0 24px rgba(0,230,118,.2)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── Footer legend ── */
+footer{display:flex;align-items:center;gap:24px;padding:0 20px;height:36px;
+  background:var(--panel);border-top:1px solid var(--border);flex-shrink:0;
+  font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.leg-item{display:flex;align-items:center;gap:7px}
+.leg-dot{width:8px;height:8px;border-radius:50%;box-shadow:0 0 8px currentColor}
+
+/* Empty position label in 3D — shown as HUD overlay */
+.pos-labels{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:2}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
+        <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+        <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+      </svg>
+      TireVault 3D
+    </div>
+    <select class="unit-select" id="unitSelect"><option value="">⟳ Memuat unit...</option></select>
+    <span class="hm-badge" id="hmBadge">HM: —</span>
+    <div class="toolbar-right">
+      <button class="tb-btn active" data-view="iso">ISO</button>
+      <button class="tb-btn" data-view="front">DEPAN</button>
+      <button class="tb-btn" data-view="side">SAMPING</button>
+      <button class="tb-btn" data-view="top">ATAS</button>
+      <button class="tb-btn cad" id="cadBtn">WIRE</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="viewport">
+      <div class="vp-unit-label" id="unitLabel"></div>
+      <div class="vp-overlay">DRAG ROTATE · SCROLL ZOOM · KLIK BAN = DETAIL</div>
+      <div class="pos-labels" id="posLabels"></div>
+    </div>
+    <aside>
+      <div class="aside-header">Status Armada</div>
+      <div class="aside-scroll">
+        <div class="fleet-grid" id="fleetGrid"></div>
+        <div id="detailPanel"><div class="empty-msg">Pilih unit dari dropdown atau klik<br>ban pada tampilan 3D</div></div>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <div class="leg-item" style="color:var(--ok)"><span class="leg-dot" style="background:var(--ok)"></span>Baik</div>
+    <div class="leg-item" style="color:var(--warn)"><span class="leg-dot" style="background:var(--warn)"></span>Perhatian</div>
+    <div class="leg-item" style="color:var(--crit)"><span class="leg-dot" style="background:var(--crit)"></span>Ganti Segera</div>
+    <div class="leg-item" style="color:var(--muted)"><span class="leg-dot" style="background:var(--muted)"></span>Kosong</div>
+    <span style="margin-left:auto;font-size:10px">PLANT MAINTENANCE SYSTEM · TIREVAULT 3D v2</span>
+  </footer>
+</div>
+
+<!-- Install Modal -->
+<div class="modal-bg" id="modalBg" style="display:none">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">INSTALL TYRE → <span id="mPos"></span></span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Pilih Tyre (Stok Tersedia)</label>
+        <select class="form-select" id="mTyreSelect"><option value="">— Pilih tyre —</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">HM Unit Saat Pemasangan</label>
+        <input class="form-input" id="mHm" type="number" step="0.1" placeholder="Contoh: 15250">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tanggal Pasang</label>
+        <input class="form-input" id="mDate" type="date">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Batal</button>
+      <button class="btn-save" id="btnSave" onclick="doInstall()">PASANG TYRE</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CSRF token from Laravel ──
+function getCsrf(){
+  const m = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+// ── THREE.JS SCENE SETUP ──
+const viewport = document.getElementById('viewport');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x040608, 0.038);
+
+const camera = new THREE.PerspectiveCamera(38, viewport.clientWidth/viewport.clientHeight, 0.1, 100);
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2.5));
+renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+viewport.appendChild(renderer.domElement);
+
+// Lighting
+const hemi = new THREE.HemisphereLight(0x2040ff, 0x000510, 0.4);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0x80c8ff, 1.5);
+key.position.set(6, 12, 4);
+key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+key.shadow.camera.left = -8; key.shadow.camera.right = 8;
+key.shadow.camera.top = 8; key.shadow.camera.bottom = -8;
+key.shadow.camera.near = 1; key.shadow.camera.far = 30;
+key.shadow.bias = -0.001;
+scene.add(key);
+const rim1 = new THREE.DirectionalLight(0x00d4ff, 0.5); rim1.position.set(-8, 4, -3); scene.add(rim1);
+const rim2 = new THREE.DirectionalLight(0x7b2fff, 0.3); rim2.position.set(8, 3, -5); scene.add(rim2);
+const camLight = new THREE.PointLight(0x0060a0, 0.3, 20); scene.add(camLight);
+
+// Ground — reflective dark
+const groundGeo = new THREE.PlaneGeometry(30, 30);
+const groundMat = new THREE.MeshStandardMaterial({ color:0x080c10, roughness:0.7, metalness:0.4 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+
+// Grid with cyan tint
+const grid = new THREE.GridHelper(30, 30, 0x003040, 0x011520);
+grid.position.y = 0.004;
+grid.material.transparent = true; grid.material.opacity = 0.65;
+scene.add(grid);
+
+// ── TRUCK BODY BUILD ──
+const mBody = new THREE.MeshStandardMaterial({ color:0xd4860a, roughness:0.35, metalness:0.4 });
+const mDark = new THREE.MeshStandardMaterial({ color:0x151c22, roughness:0.5, metalness:0.55 });
+const mGlass = new THREE.MeshStandardMaterial({ color:0x1a4060, roughness:0.05, metalness:0.7, transparent:true, opacity:0.7 });
+const mChrome = new THREE.MeshStandardMaterial({ color:0x606870, roughness:0.15, metalness:0.95 });
+const mEdge = new THREE.LineBasicMaterial({ color:0x00d4ff, transparent:true, opacity:0.7 });
+let cadMode = false;
+const solidMeshes = [], edgeLines = [];
+
+function box(w,h,d,x,y,z,mat){
+  const geo = new THREE.BoxGeometry(w,h,d);
+  const m = new THREE.Mesh(geo, mat||mBody);
+  m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true;
+  scene.add(m); solidMeshes.push(m);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), mEdge);
+  e.position.set(x,y,z); e.visible=false; scene.add(e); edgeLines.push(e);
+  return m;
+}
+
+// Main chassis rails
+box(0.18,0.45,7.6,-0.88,1.02,0.3,mDark);
+box(0.18,0.45,7.6, 0.88,1.02,0.3,mDark);
+// Cross braces
+for(const z of[3.4,0.5,-0.8,-2.9]){ box(1.94,0.14,0.18,0,1.02,z,mDark); }
+// Fuel tank
+const tankG = new THREE.CylinderGeometry(.27,.27,1.3,20);
+const tank = new THREE.Mesh(tankG, mDark);
+tank.rotation.z=Math.PI/2; tank.position.set(-0.97,0.73,1.2);
+tank.castShadow=true; scene.add(tank); solidMeshes.push(tank);
+const tankE = new THREE.LineSegments(new THREE.EdgesGeometry(tankG),mEdge);
+tankE.rotation.z=Math.PI/2; tankE.position.set(-0.97,0.73,1.2); tankE.visible=false;
+scene.add(tankE); edgeLines.push(tankE);
+
+// Battery box
+box(0.35,0.32,0.7,0.9,0.73,1.6,mDark);
+// Air tank
+const atG = new THREE.CylinderGeometry(.12,.12,0.6,12);
+const at = new THREE.Mesh(atG,mDark); at.rotation.z=Math.PI/2;
+at.position.set(0.95,0.62,2.6); scene.add(at); solidMeshes.push(at);
+
+// Cab
+box(1.76,1.16,1.55,0,1.8,3.7,mBody);
+// Cab roof visor
+box(1.76,0.12,0.35,0,2.4,3.15,mDark);
+// Windshield
+const ws = new THREE.Mesh(new THREE.PlaneGeometry(1.46,0.72),mGlass);
+ws.position.set(0,1.9,4.47); ws.rotation.x=-0.2; scene.add(ws);
+// Door lines
+[-0.86,0.86].forEach(sx=>{
+  const dl=new THREE.Mesh(new THREE.PlaneGeometry(0.02,0.9),mDark);
+  dl.position.set(sx,1.72,3.7); dl.rotation.y=sx<0?Math.PI/2:-Math.PI/2; scene.add(dl);
+});
+// Grill
+box(1.52,0.38,0.1,0,1.16,4.48,mDark);
+// Bumper
+box(1.72,0.22,0.22,0,0.64,4.42,mChrome);
+// Lights
+[-0.66,0.66].forEach(x=>{
+  const l=new THREE.Mesh(new THREE.SphereGeometry(.09,12,12),
+    new THREE.MeshStandardMaterial({color:0xffe8a0,emissive:0xffdd44,emissiveIntensity:1.2,roughness:.3}));
+  l.position.set(x,1.22,4.49); scene.add(l); solidMeshes.push(l);
+  // Point light per headlamp
+  const lp=new THREE.PointLight(0xffe070,.6,5);
+  lp.position.set(x,1.22,4.6); scene.add(lp);
+});
+// Mirror arms
+[-0.89,0.89].forEach(sx=>{
+  box(0.04,0.04,0.28,sx*1.05,2.0,3.93,mChrome);
+  box(0.22,0.14,0.04,sx*1.05,2.0,4.05,mChrome);
+});
+// Exhaust
+const exG=new THREE.CylinderGeometry(.075,.075,1.5,14);
+const ex=new THREE.Mesh(exG,mChrome); ex.position.set(0.96,2.32,3.2);
+ex.castShadow=true; scene.add(ex); solidMeshes.push(ex);
+
+// Dump bed
+box(2.1,1.38,4.05,0,1.96,-1.56,mBody);
+box(2.2,0.13,4.15,0,2.65,-1.56,mDark);
+// Bed sidewalls detail
+box(0.08,1.3,4.0,-1.08,1.96,-1.56,mBody);
+box(0.08,1.3,4.0, 1.08,1.96,-1.56,mBody);
+// Tailgate
+box(2.1,1.3,0.1,0,1.96,-3.62,mBody);
+// 5th-wheel or body prop
+box(1.8,0.1,0.6,0,1.32,-0.2,mChrome);
+
+// Mudguards (torus arcs)
+function mudguard(x,z,w=1){
+  const mg=new THREE.Mesh(new THREE.TorusGeometry(0.72,0.055,8,22,Math.PI*.82),mDark);
+  mg.position.set(x,0.72+0.07,z);
+  mg.rotation.y=Math.PI/2; mg.rotation.z=Math.PI;
+  mg.scale.set(1,1,w); mg.castShadow=true; scene.add(mg); solidMeshes.push(mg);
+}
+mudguard(-1.05,3.6,1); mudguard(1.05,3.6,1);
+mudguard(-1.1,-1.65,2.2); mudguard(1.1,-1.65,2.2);
+
+// ── TYRE TEXTURE ──
+function makeTyreTex(){
+  const c=document.createElement('canvas'); c.width=512; c.height=128;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#0d0d0d'; ctx.fillRect(0,0,512,128);
+  // Tread blocks
+  ctx.fillStyle='#060606';
+  for(let x=0;x<512;x+=20){
+    ctx.fillRect(x+1,8,14,112);
+    ctx.fillRect(x+1,8,14,48);
+    ctx.fillRect(x+1,72,14,48);
+  }
+  // Center groove
+  ctx.fillStyle='#050505'; ctx.fillRect(0,60,512,8);
+  const tex=new THREE.CanvasTexture(c);
+  tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(36,1); return tex;
+}
+const tyreTex=makeTyreTex();
+
+// ── WHEEL POSITIONS (10-wheel truck) ──
+const POS_NAMES={
+  FL:'Depan Kiri',FR:'Depan Kanan',
+  A1LO:'G1 Kiri Luar',A1LI:'G1 Kiri Dalam',A1RI:'G1 Kanan Dalam',A1RO:'G1 Kanan Luar',
+  A2LO:'G2 Kiri Luar',A2LI:'G2 Kiri Dalam',A2RI:'G2 Kanan Dalam',A2RO:'G2 Kanan Luar'
+};
+const WHEEL_POS={
+  FL:[-1.07,0,3.58], FR:[1.07,0,3.58],
+  A1LO:[-1.38,0,-1.05], A1LI:[-0.83,0,-1.05],
+  A1RI:[ 0.83,0,-1.05], A1RO:[ 1.38,0,-1.05],
+  A2LO:[-1.38,0,-2.42], A2LI:[-0.83,0,-2.42],
+  A2RI:[ 0.83,0,-2.42], A2RO:[ 1.38,0,-2.42]
+};
+const R=0.58, TUBE=0.23;
+const wheelMeshes={}, wheelGroups={};
+const wheelRings={}; // glow ring per wheel
+
+const COND_COLOR={ ok:0x00e676, warn:0xffab00, crit:0xff1744, empty:0x203040 };
+const COND_EMI={   ok:0.25,    warn:0.3,       crit:0.45,      empty:0.05 };
+
+function getCondColor(tyre){
+  if(!tyre) return 'empty';
+  if(tyre.condition==='SCRAP'||tyre.condition==='REPAIR') return 'crit';
+  const lt=(tyre.current_lifetime||0);
+  if(lt>20000) return 'crit';
+  if(lt>14000) return 'warn';
+  return 'ok';
+}
+
+Object.keys(WHEEL_POS).forEach(id=>{
+  const [x,y,z]=WHEEL_POS[id];
+  const group=new THREE.Group();
+  group.position.set(x,y+R,z);
+  group.userData.posId=id;
+
+  const tMat=new THREE.MeshStandardMaterial({
+    map:tyreTex,bumpMap:tyreTex,bumpScale:.04,
+    roughness:.88,metalness:.05,
+    emissive:new THREE.Color(COND_COLOR.empty),emissiveIntensity:.05
+  });
+  const tyre=new THREE.Mesh(new THREE.TorusGeometry(R,TUBE,18,56),tMat);
+  tyre.rotation.y=Math.PI/2; tyre.castShadow=true; tyre.receiveShadow=true;
+  group.add(tyre);
+
+  // Rim
+  const rimMat=new THREE.MeshStandardMaterial({color:0x404850,roughness:.18,metalness:.92});
+  const rim=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.36,24),rimMat);
+  rim.rotation.z=Math.PI/2; rim.castShadow=true; group.add(rim);
+  // Hub cap
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.42,16),mChrome);
+  hub.rotation.z=Math.PI/2; group.add(hub);
+  // Bolts
+  for(let i=0;i<6;i++){
+    const a=(i/6)*Math.PI*2;
+    const bolt=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.44,8),mChrome);
+    bolt.rotation.z=Math.PI/2;
+    bolt.position.set(0,Math.sin(a)*.2,Math.cos(a)*.2); group.add(bolt);
+  }
+  // Spokes
+  for(let i=0;i<5;i++){
+    const a=(i/5)*Math.PI*2;
+    const sk=new THREE.Mesh(new THREE.BoxGeometry(.35,.055,.045),rimMat);
+    const flip=x<0?-1:1;
+    sk.position.set(.17*flip,Math.sin(a)*.19,Math.cos(a)*.19);
+    sk.rotation.x=a; group.add(sk);
+  }
+
+  // Glow ring (shows when selected or critical)
+  const ringGeo=new THREE.TorusGeometry(R+0.12,.015,8,36);
+  const ringMat=new THREE.MeshStandardMaterial({
+    color:0x00d4ff,emissive:new THREE.Color(0x00d4ff),emissiveIntensity:2,
+    transparent:true,opacity:0
+  });
+  const ring=new THREE.Mesh(ringGeo,ringMat);
+  ring.rotation.y=Math.PI/2; group.add(ring);
+  wheelRings[id]=ring;
+
+  scene.add(group);
+  wheelMeshes[id]=tyre;
+  wheelGroups[id]=group;
+});
+
+// ── CAMERA ORBIT ──
+let theta=0.72,phi=1.08,radius=11.5;
+const target=new THREE.Vector3(0,1.4,0.2);
+let isDragging=false,moved=false,px=0,py=0,lastInt=0;
+function updateCam(){
+  const x=target.x+radius*Math.sin(phi)*Math.sin(theta);
+  const y=target.y+radius*Math.cos(phi);
+  const z=target.z+radius*Math.sin(phi)*Math.cos(theta);
+  camera.position.set(x,y,z); camera.lookAt(target);
+  camLight.position.copy(camera.position);
+}
+updateCam();
+function markInt(){lastInt=performance.now();}
+renderer.domElement.addEventListener('mousedown',e=>{isDragging=true;moved=false;px=e.clientX;py=e.clientY;markInt();});
+window.addEventListener('mousemove',e=>{
+  if(!isDragging)return;
+  const dx=e.clientX-px,dy=e.clientY-py;
+  if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+  theta-=dx*.0055; phi=Math.min(Math.max(phi-dy*.0055,.18),Math.PI-.12);
+  px=e.clientX;py=e.clientY; updateCam(); markInt();
+});
+window.addEventListener('mouseup',e=>{if(isDragging&&!moved)handlePick(e.clientX,e.clientY);isDragging=false;});
+renderer.domElement.addEventListener('wheel',e=>{
+  e.preventDefault();radius=Math.min(Math.max(radius+e.deltaY*.012,4),20);updateCam();markInt();
+},{passive:false});
+
+// Touch
+renderer.domElement.addEventListener('touchstart',e=>{const t=e.touches[0];isDragging=true;moved=false;px=t.clientX;py=t.clientY;markInt();},{passive:true});
+renderer.domElement.addEventListener('touchmove',e=>{
+  if(!isDragging)return;
+  const t=e.touches[0],dx=t.clientX-px,dy=t.clientY-py;
+  if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+  theta-=dx*.0055; phi=Math.min(Math.max(phi-dy*.0055,.18),Math.PI-.12);
+  px=t.clientX;py=t.clientY; updateCam(); markInt();
+},{passive:true});
+renderer.domElement.addEventListener('touchend',e=>{
+  if(isDragging&&!moved){const t=e.changedTouches[0];handlePick(t.clientX,t.clientY);}isDragging=false;
+});
+
+// Raycaster
+const raycaster=new THREE.Raycaster();
+const ndcMouse=new THREE.Vector2();
+function handlePick(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect();
+  ndcMouse.x=((cx-r.left)/r.width)*2-1;
+  ndcMouse.y=-((cy-r.top)/r.height)*2+1;
+  raycaster.setFromCamera(ndcMouse,camera);
+  const hits=raycaster.intersectObjects(Object.values(wheelGroups),true);
+  if(hits.length){
+    let o=hits[0].object;
+    while(o&&!o.userData.posId)o=o.parent;
+    if(o)selectPos(o.userData.posId);
+  }
+}
+
+// Views
+const VIEWS={
+  iso:{theta:.72,phi:1.08,radius:11.5},
+  front:{theta:0,phi:1.3,radius:9.5},
+  side:{theta:Math.PI/2,phi:1.3,radius:10},
+  top:{theta:.5,phi:.22,radius:13}
+};
+document.querySelectorAll('[data-view]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-view]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const v=VIEWS[btn.dataset.view];
+    theta=v.theta;phi=v.phi;radius=v.radius;updateCam();markInt();
+  });
+});
+document.getElementById('cadBtn').addEventListener('click',function(){
+  cadMode=!cadMode;
+  solidMeshes.forEach(m=>m.visible=!cadMode);
+  edgeLines.forEach(l=>l.visible=cadMode);
+  Object.values(wheelGroups).forEach(g=>{
+    g.children.forEach(c=>{if(c.geometry&&c.geometry.type==='TorusGeometry')c.visible=!cadMode;});
+  });
+  ws.visible=!cadMode; grid.material.opacity=cadMode?.9:.65;
+  this.classList.toggle('active',cadMode);
+});
+
+// Resize
+window.addEventListener('resize',()=>{
+  camera.aspect=viewport.clientWidth/viewport.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(viewport.clientWidth,viewport.clientHeight);
+});
+
+// ── ANIMATION LOOP ──
+let frameN=0;
+(function animate(){
+  requestAnimationFrame(animate);
+  frameN++;
+  // Auto-rotate when idle
+  if(!isDragging&&performance.now()-lastInt>3500){
+    theta+=.0008; updateCam();
+  }
+  // Animate critical tyre rings pulse
+  Object.keys(wheelRings).forEach(id=>{
+    const t=unitTyreData[id];
+    const cond=getCondColor(t||null);
+    const ring=wheelRings[id];
+    if(cond==='crit'&&t){
+      ring.material.opacity=.35+.25*Math.sin(frameN*.07);
+      ring.material.emissive.set(COND_COLOR.crit);
+      ring.material.color.set(COND_COLOR.crit);
+    } else if(id===selectedPos){
+      ring.material.opacity=.5+.2*Math.sin(frameN*.12);
+      ring.material.emissive.set(0x00d4ff);
+      ring.material.color.set(0x00d4ff);
+    } else {
+      ring.material.opacity=0;
+    }
+  });
+  renderer.render(scene,camera);
+})();
+
+// ── DATA & STATE ──
+let currentUnitId=null;
+let unitTyreData={};  // posId -> tyre obj (or null)
+let unitStockTyres=[]; 
+let selectedPos=null;
+let pendingInstallPos=null;
+
+// Load wheel units
+async function loadUnits(){
+  try{
+    const r=await fetch('/api/tirevault/units',{headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const units=await r.json();
+    const sel=document.getElementById('unitSelect');
+    sel.innerHTML='<option value="">— Pilih Unit —</option>';
+    units.forEach(u=>{
+      const o=document.createElement('option');
+      o.value=u.id; o.textContent=`${u.code_unit} (${u.type_unit})`;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change',()=>{ if(sel.value) loadUnit(sel.value,sel.options[sel.selectedIndex].text); });
+    // Auto load first
+    if(units.length){ sel.value=units[0].id; loadUnit(units[0].id,units[0].code_unit+' ('+units[0].type_unit+')'); }
+  }catch(e){ console.error('Failed to load units',e); }
+}
+
+async function loadUnit(unitId,label){
+  currentUnitId=unitId;
+  document.getElementById('unitLabel').textContent=label;
+  document.getElementById('detailPanel').innerHTML='<div class="empty-msg">Memuat data...</div>';
+  try{
+    const r=await fetch(`/api/tirevault/unit/${unitId}`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const data=await r.json();
+    unitTyreData=data.tyres||{};
+    unitStockTyres=data.stock||[];
+    document.getElementById('hmBadge').textContent=`HM: ${(data.unit.hm||0).toLocaleString('id-ID')}`;
+    updateWheels();
+    buildFleetChips();
+    selectedPos=null;
+    document.getElementById('detailPanel').innerHTML='<div class="empty-msg">Klik ban untuk detail<br>atau klik posisi kosong untuk install</div>';
+  }catch(e){ console.error('Failed to load unit tyres',e); }
+}
+
+function updateWheels(){
+  Object.keys(WHEEL_POS).forEach(id=>{
+    const t=unitTyreData[id]||null;
+    const cond=getCondColor(t);
+    const col=COND_COLOR[cond];
+    const emi=COND_EMI[cond];
+    wheelMeshes[id].material.emissive.set(col);
+    wheelMeshes[id].material.emissiveIntensity=emi;
+    wheelMeshes[id].material.color.set(cond==='empty'?0x1a2530:0xffffff);
+  });
+}
+
+function buildFleetChips(){
+  const grid=document.getElementById('fleetGrid');
+  grid.innerHTML='';
+  Object.keys(POS_NAMES).forEach(id=>{
+    const t=unitTyreData[id]||null;
+    const cond=getCondColor(t);
+    const hexCol='#'+COND_COLOR[cond].toString(16).padStart(6,'0');
+    const chip=document.createElement('div');
+    chip.className='f-chip'; chip.dataset.pos=id;
+    chip.style.background=hexCol+'22';
+    chip.style.borderColor=hexCol+'55';
+    chip.style.color=hexCol;
+    chip.innerHTML=`<span>${id.replace(/^A\d/,'').replace('LO','LO').replace('LI','LI')}</span><span class="f-chip-pos">${t?'●':'○'}</span>`;
+    chip.title=POS_NAMES[id]+(t?` — ${t.brand} ${t.serial_number}`:'');
+    chip.addEventListener('click',()=>selectPos(id));
+    grid.appendChild(chip);
+  });
+}
+
+function selectPos(id){
+  selectedPos=id;
+  // Update chip active state
+  document.querySelectorAll('.f-chip').forEach(c=>c.classList.toggle('selected',c.dataset.pos===id));
+  renderDetail(id);
+}
+
+function renderDetail(id){
+  const t=unitTyreData[id]||null;
+  const cond=getCondColor(t);
+  const hexCol='#'+COND_COLOR[cond].toString(16).padStart(6,'0');
+  const condLabel={ok:'BAIK',warn:'PERHATIAN',crit:'GANTI SEGERA',empty:'POSISI KOSONG'}[cond];
+
+  if(!t){
+    document.getElementById('detailPanel').innerHTML=`
+      <div class="detail-pos">POSISI ${id}</div>
+      <div class="detail-name">${POS_NAMES[id]}</div>
+      <div class="detail-sub">Belum ada ban terpasang</div>
+      <div class="status-pill" style="background:${hexCol}18;border:1px solid ${hexCol}44;color:${hexCol}">
+        <span class="dot" style="background:${hexCol}"></span>${condLabel}
+      </div>
+      <button class="install-btn" onclick="openInstallModal('${id}')">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        INSTALL TYRE DI POSISI INI
+      </button>`;
+    return;
+  }
+
+  const lt=t.current_lifetime||0;
+  const ltPct=Math.min((lt/25000)*100,100);
+  document.getElementById('detailPanel').innerHTML=`
+    <div class="detail-pos">POSISI ${id} — ${POS_NAMES[id]}</div>
+    <div class="detail-name">${t.brand}</div>
+    <div class="detail-sub">${t.type_size||'—'} · S/N: ${t.serial_number}</div>
+    <div class="status-pill" style="background:${hexCol}18;border:1px solid ${hexCol}44;color:${hexCol}">
+      <span class="dot" style="background:${hexCol}"></span>${condLabel}
+    </div>
+    <div class="stat-block">
+      <div class="stat-row"><span class="stat-label">Lifetime HM</span><span class="stat-val" style="color:${hexCol}">${lt.toLocaleString('id-ID')} HM</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${ltPct}%;background:${hexCol}"></div></div>
+    </div>
+    <div class="meta-grid">
+      <div class="meta-row"><span class="meta-key">Serial No.</span><span class="meta-val">${t.serial_number}</span></div>
+      <div class="meta-row"><span class="meta-key">Brand</span><span class="meta-val">${t.brand}</span></div>
+      <div class="meta-row"><span class="meta-key">Ukuran</span><span class="meta-val">${t.type_size||'—'}</span></div>
+      <div class="meta-row"><span class="meta-key">Kondisi</span><span class="meta-val" style="color:${hexCol}">${t.condition}</span></div>
+      <div class="meta-row"><span class="meta-key">HM Awal Pasang</span><span class="meta-val">${(t.installed_hm||0).toLocaleString('id-ID')}</span></div>
+      <div class="meta-row"><span class="meta-key">Total Lifetime</span><span class="meta-val" style="color:${hexCol}">${lt.toLocaleString('id-ID')} HM</span></div>
+      ${t.tread_depth_current?`<div class="meta-row"><span class="meta-key">Tread Depth</span><span class="meta-val">${t.tread_depth_current} mm</span></div>`:''}
+    </div>
+    <button class="install-btn" style="border-color:rgba(255,23,68,.4);color:var(--crit);background:rgba(255,23,68,.06)" onclick="openInstallModal('${id}')">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      GANTI / ROTASI TYRE
+    </button>`;
+}
+
+// ── INSTALL MODAL ──
+function openInstallModal(pos){
+  pendingInstallPos=pos;
+  document.getElementById('mPos').textContent=`${pos} (${POS_NAMES[pos]})`;
+  // Populate stock
+  const sel=document.getElementById('mTyreSelect');
+  sel.innerHTML='<option value="">— Pilih tyre dari stok —</option>';
+  unitStockTyres.forEach(t=>{
+    const o=document.createElement('option');
+    o.value=t.id; o.textContent=`${t.brand} — ${t.serial_number} (${t.type_size||'—'})`;
+    sel.appendChild(o);
+  });
+  // Set default date
+  document.getElementById('mDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('modalBg').style.display='flex';
+}
+function closeModal(){ document.getElementById('modalBg').style.display='none'; pendingInstallPos=null; }
+
+async function doInstall(){
+  const tyreId=document.getElementById('mTyreSelect').value;
+  if(!tyreId){alert('Pilih tyre terlebih dahulu!');return;}
+  const hm=document.getElementById('mHm').value;
+  const date=document.getElementById('mDate').value;
+  const btn=document.getElementById('btnSave');
+  btn.textContent='MENYIMPAN...'; btn.disabled=true;
+  try{
+    const r=await fetch('/api/tirevault/install',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'X-XSRF-TOKEN':getCsrf(),
+        'X-Requested-With':'XMLHttpRequest'
+      },
+      body:JSON.stringify({tyre_id:tyreId,unit_id:currentUnitId,position:pendingInstallPos,hm,date})
+    });
+    if(!r.ok){const e=await r.json();throw new Error(e.message||'Gagal install');}
+    closeModal();
+    await loadUnit(currentUnitId,document.getElementById('unitLabel').textContent);
+    showToast('✔ Tyre berhasil dipasang!');
+    selectPos(pendingInstallPos||Object.keys(WHEEL_POS)[0]);
+  }catch(e){
+    alert('Gagal: '+e.message);
+  }finally{btn.textContent='PASANG TYRE';btn.disabled=false;}
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ── INIT ──
+loadUnits();
+</script>
+</body>
+</html>

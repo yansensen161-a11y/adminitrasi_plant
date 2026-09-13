@@ -14,7 +14,7 @@ export default function Index({ auth, services, stats }) {
                 </div>
                 
                 <div className="flex items-center gap-4">
-                    <div className="text-xs text-gray-400 hidden sm:flex items-center gap-1">
+                    <div className="text-sm text-gray-400 hidden sm:flex items-center gap-1">
                         <span>Dashboard</span>
                         <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/></svg>
                         <span>Master Control PM Service</span>
@@ -31,9 +31,9 @@ export default function Index({ auth, services, stats }) {
                         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zm-7 5h5v5h-5z"/></svg>
                     </div>
                     <div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">TOTAL SERVICE (SELESAI)</div>
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">TOTAL SERVICE (SELESAI)</div>
                         <div className="text-2xl font-black text-gray-900">{stats.total_service}</div>
-                        <div className="text-[10px] text-gray-500 font-semibold">Pelaksanaan</div>
+                        <div className="text-xs text-gray-500 font-semibold">Pelaksanaan</div>
                     </div>
                 </div>
 
@@ -42,9 +42,9 @@ export default function Index({ auth, services, stats }) {
                         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                     </div>
                     <div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">COMPLETED</div>
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">COMPLETED</div>
                         <div className="text-2xl font-black text-gray-900">{stats.completed}</div>
-                        <div className="text-[10px] text-gray-500 font-semibold">({stats.completed_pct.toString().replace('.', ',')}%)</div>
+                        <div className="text-xs text-gray-500 font-semibold">({stats.completed_pct.toString().replace('.', ',')}%)</div>
                     </div>
                 </div>
 
@@ -53,9 +53,9 @@ export default function Index({ auth, services, stats }) {
                         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
                     </div>
                     <div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">OVERDUE SELESAI</div>
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">OVERDUE SELESAI</div>
                         <div className="text-2xl font-black text-gray-900">{stats.overdue_selesai}</div>
-                        <div className="text-[10px] text-gray-500 font-semibold">({stats.overdue_selesai_pct.toString().replace('.', ',')}%)</div>
+                        <div className="text-xs text-gray-500 font-semibold">({stats.overdue_selesai_pct.toString().replace('.', ',')}%)</div>
                     </div>
                 </div>
 
@@ -64,9 +64,9 @@ export default function Index({ auth, services, stats }) {
                         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                     </div>
                     <div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">CANCELLED</div>
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">CANCELLED</div>
                         <div className="text-2xl font-black text-gray-900">{stats.cancelled}</div>
-                        <div className="text-[10px] text-gray-500 font-semibold">({stats.cancelled_pct.toString().replace('.', ',')}%)</div>
+                        <div className="text-xs text-gray-500 font-semibold">({stats.cancelled_pct.toString().replace('.', ',')}%)</div>
                     </div>
                 </div>
             </div>
@@ -76,39 +76,39 @@ export default function Index({ auth, services, stats }) {
                 <div className="flex flex-col xl:flex-row gap-4 items-end">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1 w-full">
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Unit / Equipment</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Unit / Equipment</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua Unit</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Lokasi</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Lokasi</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua Lokasi</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Tipe Service Plan</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Tipe Service Plan</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Tahun</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Tahun</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="2024">2024</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Periode Service</label>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Periode Service</label>
                             <div className="flex items-center gap-2">
                                 <div className="relative w-full">
-                                    <input type="text" value="01/01/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
+                                    <input type="text" value="01/01/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
                                     <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/></svg>
                                 </div>
-                                <span className="text-[10px] font-bold text-gray-500">s/d</span>
+                                <span className="text-xs font-bold text-gray-500">s/d</span>
                                 <div className="relative w-full">
-                                    <input type="text" value="31/12/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
+                                    <input type="text" value="31/12/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
                                     <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/></svg>
                                 </div>
                             </div>
@@ -116,11 +116,11 @@ export default function Index({ auth, services, stats }) {
                     </div>
                     
                     <div className="flex flex-col gap-2 w-full xl:w-auto shrink-0">
-                        <button className="bg-[#0a4d3c] hover:bg-[#08422c] text-white font-bold px-6 py-2 rounded-lg text-xs transition flex items-center justify-center gap-2 h-9">
+                        <button className="bg-[#0a4d3c] hover:bg-[#08422c] text-white font-bold px-6 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2 h-9">
                             <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd"/></svg>
                             Filter
                         </button>
-                        <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2 rounded-lg text-xs transition border border-gray-200 flex items-center justify-center gap-2 h-9">
+                        <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2 rounded-lg text-sm transition border border-gray-200 flex items-center justify-center gap-2 h-9">
                             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.75a9.25 9.25 0 1 0 4.737 17.197l-1.366-1.503A7.25 7.25 0 1 1 12 4.75v3.5L16.5 4.5 12 .75v2z"/></svg>
                             Reset
                         </button>
@@ -130,23 +130,23 @@ export default function Index({ auth, services, stats }) {
 
             {/* Info Alert */}
             <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 mb-6 flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold shrink-0 text-xs">
+                <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold shrink-0 text-sm">
                     i
                 </div>
-                <p className="text-[11px] text-gray-700 font-medium">
+                <p className="text-sm text-gray-700 font-medium">
                     Data pada menu ini hanya menampilkan unit yang telah selesai dilakukan service dengan status <strong>COMPLETED</strong>.
                 </p>
             </div>
 
             {/* Table & Actions */}
             <div className="flex justify-between items-end mb-3">
-                <h2 className="text-xs font-extrabold text-[#0b5c3e] uppercase tracking-wider">DAFTAR HISTORICAL PERIODICAL SERVICE</h2>
+                <h2 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider">DAFTAR HISTORICAL PERIODICAL SERVICE</h2>
                 <div className="flex gap-2">
-                    <button className="bg-white hover:bg-gray-50 border border-gray-200 text-green-700 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm">
+                    <button className="bg-white hover:bg-gray-50 border border-gray-200 text-green-700 font-bold px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1.5 shadow-sm">
                         <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
                         Export Excel
                     </button>
-                    <button className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm">
+                    <button className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-bold px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1.5 shadow-sm">
                         <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd"/></svg>
                         Print
                     </button>
@@ -155,7 +155,7 @@ export default function Index({ auth, services, stats }) {
 
             <div className="bg-white shadow-sm sm:rounded-xl overflow-hidden border border-gray-100 mb-6">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-[10px] text-left">
+                    <table className="w-full text-xs text-left">
                         <thead className="bg-[#0a4d3c] text-white">
                             <tr>
                                 <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">No</th>
@@ -214,7 +214,7 @@ export default function Index({ auth, services, stats }) {
                 </div>
                 
                 {/* Pagination */}
-                <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500 bg-white">
+                <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center text-sm text-gray-500 bg-white">
                     <div>
                         Menampilkan 1 - 10 dari 248 data
                     </div>
@@ -230,7 +230,7 @@ export default function Index({ auth, services, stats }) {
                             <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">25</button>
                             <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600">&gt;</button>
                         </div>
-                        <select className="ml-2 border border-gray-200 text-gray-600 text-xs rounded px-2 py-1 focus:outline-none bg-white">
+                        <select className="ml-2 border border-gray-200 text-gray-600 text-sm rounded px-2 py-1 focus:outline-none bg-white">
                             <option>10 / halaman</option>
                         </select>
                     </div>
@@ -240,8 +240,8 @@ export default function Index({ auth, services, stats }) {
             {/* Footer Information Section */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 bg-gray-50 rounded-xl border border-gray-100 p-6 mb-10">
                 <div className="lg:col-span-3">
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">PENJELASAN KOLOM</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">PENJELASAN KOLOM</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div className="space-y-2">
                             <div className="grid grid-cols-[130px_10px_1fr]">
                                 <div className="font-bold text-gray-900">Tipe Service Plan</div>
@@ -279,8 +279,8 @@ export default function Index({ auth, services, stats }) {
                     </div>
                 </div>
                 <div>
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">ALUR DATA</h3>
-                    <div className="text-xs text-gray-600 space-y-1">
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">ALUR DATA</h3>
+                    <div className="text-sm text-gray-600 space-y-1">
                         <div>Monitoring Periodical Service</div>
                         <div className="pl-4">↓</div>
                         <div>Mekanik melakukan service</div>

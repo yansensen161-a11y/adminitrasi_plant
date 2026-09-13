@@ -25,11 +25,19 @@ class ActivityLogController extends Controller
             $query->where('event', $request->event);
         }
 
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
         $logs = $query->paginate(15)->withQueryString();
 
         return Inertia::render('ActivityLogs/Index', [
             'logs' => $logs,
-            'filters' => $request->only(['search', 'event']),
+            'filters' => $request->only(['search', 'event', 'date_from', 'date_to']),
         ]);
     }
 }

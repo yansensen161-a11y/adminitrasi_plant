@@ -12,7 +12,7 @@ export default function Index({ auth, stats, data, topParts }) {
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Claim Warranty Report</h1>
-                            <div className="w-5 h-5 rounded-full bg-[#0a4d3c] text-white flex items-center justify-center font-bold shrink-0 text-xs shadow-sm cursor-pointer">
+                            <div className="w-5 h-5 rounded-full bg-[#0a4d3c] text-white flex items-center justify-center font-bold shrink-0 text-sm shadow-sm cursor-pointer">
                                 i
                             </div>
                         </div>
@@ -21,7 +21,7 @@ export default function Index({ auth, stats, data, topParts }) {
                 </div>
                 
                 <div className="flex items-center gap-4">
-                    <div className="text-xs text-gray-400 hidden sm:flex items-center gap-1">
+                    <div className="text-sm text-gray-400 hidden sm:flex items-center gap-1">
                         <span>Dashboard</span>
                         <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/></svg>
                         <span>Master Control PM Service</span>
@@ -40,7 +40,7 @@ export default function Index({ auth, stats, data, topParts }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TOTAL CLAIM</div>
                         <div className="text-xl font-black text-gray-900 leading-none">{stats.total_claim}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">Klaim</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">Klaim</div>
                     </div>
                 </div>
 
@@ -51,7 +51,7 @@ export default function Index({ auth, stats, data, topParts }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">CLAIM APPROVED</div>
                         <div className="text-xl font-black text-gray-900 leading-none">{stats.approved}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">({stats.approved_pct})</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">({stats.approved_pct})</div>
                     </div>
                 </div>
 
@@ -62,7 +62,7 @@ export default function Index({ auth, stats, data, topParts }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">CLAIM PENDING</div>
                         <div className="text-xl font-black text-gray-900 leading-none">{stats.pending}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">({stats.pending_pct})</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">({stats.pending_pct})</div>
                     </div>
                 </div>
 
@@ -73,7 +73,7 @@ export default function Index({ auth, stats, data, topParts }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">CLAIM REJECTED</div>
                         <div className="text-xl font-black text-gray-900 leading-none">{stats.rejected}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">({stats.rejected_pct})</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">({stats.rejected_pct})</div>
                     </div>
                 </div>
 
@@ -93,51 +93,51 @@ export default function Index({ auth, stats, data, topParts }) {
                 <div className="flex flex-col xl:flex-row gap-4 items-end">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1 w-full">
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Periode Claim</label>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Periode Claim</label>
                             <div className="flex items-center gap-2">
                                 <div className="relative w-full">
-                                    <input type="text" value="01/06/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
+                                    <input type="text" value="01/06/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
                                     <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/></svg>
                                 </div>
-                                <span className="text-[10px] font-bold text-gray-500">s/d</span>
+                                <span className="text-xs font-bold text-gray-500">s/d</span>
                                 <div className="relative w-full">
-                                    <input type="text" value="31/08/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
+                                    <input type="text" value="31/08/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
                                     <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/></svg>
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Unit / Equipment</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Unit / Equipment</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua Unit</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Kategori Part</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Kategori Part</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Supplier / Vendor</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Supplier / Vendor</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Status Claim</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Status Claim</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua</option>
                             </select>
                         </div>
                     </div>
                     
                     <div className="flex flex-col gap-2 w-full xl:w-auto shrink-0">
-                        <button className="bg-[#0a4d3c] hover:bg-[#08422c] text-white font-bold px-6 py-2 rounded-lg text-xs transition flex items-center justify-center gap-2 h-9 shadow-sm">
+                        <button className="bg-[#0a4d3c] hover:bg-[#08422c] text-white font-bold px-6 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2 h-9 shadow-sm">
                             <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd"/></svg>
                             Filter
                         </button>
-                        <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2 rounded-lg text-xs transition border border-gray-200 flex items-center justify-center gap-2 h-9 shadow-sm">
+                        <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2 rounded-lg text-sm transition border border-gray-200 flex items-center justify-center gap-2 h-9 shadow-sm">
                             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.75a9.25 9.25 0 1 0 4.737 17.197l-1.366-1.503A7.25 7.25 0 1 1 12 4.75v3.5L16.5 4.5 12 .75v2z"/></svg>
                             Reset
                         </button>
@@ -151,7 +151,7 @@ export default function Index({ auth, stats, data, topParts }) {
                 {/* Table Section */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
                     <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                        <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider">DAFTAR CLAIM WARRANTY</h3>
+                        <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider">DAFTAR CLAIM WARRANTY</h3>
                     </div>
 
                     {/* Table Area */}
@@ -207,7 +207,7 @@ export default function Index({ auth, stats, data, topParts }) {
                         </div>
                         
                         {/* Pagination */}
-                        <div className="pt-3 pb-4 flex justify-between items-center text-xs text-gray-500 mt-2">
+                        <div className="pt-3 pb-4 flex justify-between items-center text-sm text-gray-500 mt-2">
                             <div>
                                 Menampilkan 1 - 10 dari 86 data
                             </div>
@@ -223,7 +223,7 @@ export default function Index({ auth, stats, data, topParts }) {
                                     <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">9</button>
                                     <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600">&gt;</button>
                                 </div>
-                                <select className="ml-2 border border-gray-200 text-gray-600 text-xs rounded px-2 py-1 focus:outline-none bg-white">
+                                <select className="ml-2 border border-gray-200 text-gray-600 text-sm rounded px-2 py-1 focus:outline-none bg-white">
                                     <option>10 / halaman</option>
                                 </select>
                             </div>
@@ -235,7 +235,7 @@ export default function Index({ auth, stats, data, topParts }) {
                 <div className="space-y-6">
                     {/* Ringkasan Status Claim */}
                     <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN STATUS CLAIM</h3>
+                        <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN STATUS CLAIM</h3>
                         
                         <div className="flex items-center gap-6">
                             {/* Donut Chart */}
@@ -259,21 +259,21 @@ export default function Index({ auth, stats, data, topParts }) {
                             
                             {/* Legend */}
                             <div className="w-full space-y-3">
-                                <div className="text-[10px]">
+                                <div className="text-xs">
                                     <div className="flex items-center gap-2 mb-0.5">
                                         <div className="w-2.5 h-2.5 bg-green-600 rounded-sm"></div>
                                         <span className="font-bold text-gray-700">Approved</span>
                                     </div>
                                     <div className="text-gray-900 font-medium pl-4">56 <span className="text-gray-400 font-normal ml-0.5">(65,1%)</span></div>
                                 </div>
-                                <div className="text-[10px]">
+                                <div className="text-xs">
                                     <div className="flex items-center gap-2 mb-0.5">
                                         <div className="w-2.5 h-2.5 bg-orange-500 rounded-sm"></div>
                                         <span className="font-bold text-gray-700">Pending</span>
                                     </div>
                                     <div className="text-gray-900 font-medium pl-4">18 <span className="text-gray-400 font-normal ml-0.5">(20,9%)</span></div>
                                 </div>
-                                <div className="text-[10px]">
+                                <div className="text-xs">
                                     <div className="flex items-center gap-2 mb-0.5">
                                         <div className="w-2.5 h-2.5 bg-red-500 rounded-sm"></div>
                                         <span className="font-bold text-gray-700">Rejected</span>
@@ -286,7 +286,7 @@ export default function Index({ auth, stats, data, topParts }) {
 
                     {/* Ringkasan Nilai Claim (IDR) */}
                     <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
-                        <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN NILAI CLAIM (IDR)</h3>
+                        <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN NILAI CLAIM (IDR)</h3>
                         
                         <div className="space-y-4 relative pb-6">
                             <div className="flex justify-between items-center text-[9px] group gap-3">
@@ -332,7 +332,7 @@ export default function Index({ auth, stats, data, topParts }) {
                 
                 {/* 1. Nilai Claim Per Bulan (IDR) */}
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-2">NILAI CLAIM PER BULAN (IDR)</h3>
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-2">NILAI CLAIM PER BULAN (IDR)</h3>
                     
                     {/* Legend */}
                     <div className="flex justify-center gap-4 mb-4 text-[9px]">
@@ -425,7 +425,7 @@ export default function Index({ auth, stats, data, topParts }) {
 
                 {/* 2. Top 5 Part */}
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">TOP 5 PART DENGAN NILAI CLAIM TERTINGGI</h3>
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">TOP 5 PART DENGAN NILAI CLAIM TERTINGGI</h3>
                     
                     <div className="overflow-x-auto flex-1 flex flex-col justify-between">
                         <table className="w-full text-[9px] text-left">
@@ -448,7 +448,7 @@ export default function Index({ auth, stats, data, topParts }) {
                                 ))}
                             </tbody>
                         </table>
-                        <div className="flex justify-between items-center text-[10px] pt-3 border-t-2 border-gray-200 font-bold text-gray-900 mt-2 px-2 uppercase tracking-wider">
+                        <div className="flex justify-between items-center text-xs pt-3 border-t-2 border-gray-200 font-bold text-gray-900 mt-2 px-2 uppercase tracking-wider">
                             <span>TOTAL TOP 5</span>
                             <span className="font-mono">Rp 946.600.000 <span className="ml-4 font-sans">76,0%</span></span>
                         </div>
@@ -457,16 +457,16 @@ export default function Index({ auth, stats, data, topParts }) {
 
                 {/* 3. Informasi */}
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-3">INFORMASI</h3>
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-3">INFORMASI</h3>
                     
-                    <ul className="text-[10px] text-gray-600 space-y-2.5 list-disc pl-4 mb-4 leading-relaxed flex-1">
+                    <ul className="text-xs text-gray-600 space-y-2.5 list-disc pl-4 mb-4 leading-relaxed flex-1">
                         <li>Data diambil berdasarkan tanggal pengajuan claim warranty.</li>
                         <li><strong>Claim Approved:</strong> Claim disetujui oleh Principal/Supplier.</li>
                         <li><strong>Claim Pending:</strong> Menunggu hasil inspeksi/keputusan.</li>
                         <li><strong>Claim Rejected:</strong> Claim ditolak oleh Principal/Supplier.</li>
                     </ul>
                     
-                    <div className="bg-green-50/80 border border-green-200 text-green-800 text-[10px] font-medium py-3 px-4 rounded-lg mt-auto space-y-1">
+                    <div className="bg-green-50/80 border border-green-200 text-green-800 text-xs font-medium py-3 px-4 rounded-lg mt-auto space-y-1">
                         <div>Terakhir update: 30/08/2024 10:30 WIB</div>
                         <div className="text-gray-500">Oleh: Planner (PLN-001)</div>
                     </div>
@@ -475,15 +475,15 @@ export default function Index({ auth, stats, data, topParts }) {
 
             {/* Bottom Action Buttons */}
             <div className="flex justify-end gap-3 mt-4 mb-10">
-                <button className="bg-white hover:bg-gray-50 border border-[#0a4d3c] text-[#0a4d3c] font-bold px-6 py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-sm">
+                <button className="bg-white hover:bg-gray-50 border border-[#0a4d3c] text-[#0a4d3c] font-bold px-6 py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
                     Export Excel
                 </button>
-                <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2.5 rounded-lg text-xs transition border border-gray-300 flex items-center justify-center gap-2 shadow-sm">
+                <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2.5 rounded-lg text-sm transition border border-gray-300 flex items-center justify-center gap-2 shadow-sm">
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd"/></svg>
                     Print Report
                 </button>
-                <button className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-6 py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-sm">
+                <button className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-6 py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                     New Claim
                 </button>

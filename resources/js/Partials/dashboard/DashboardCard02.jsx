@@ -96,7 +96,7 @@ function DashboardCard02() {
             </li>
           </EditMenu>
         </header>
-        <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1">Sales</div>
+        <div className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1">Sales</div>
         <div className="flex items-start">
           <div className="text-3xl font-bold text-gray-800 dark:text-gray-100 mr-2">$17,489</div>
           <div className="text-sm font-medium text-red-700 px-1.5 bg-red-500/20 rounded-full">-14%</div>

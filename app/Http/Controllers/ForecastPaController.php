@@ -8,42 +8,73 @@ class ForecastPaController extends Controller
 {
     public function index()
     {
-        // KPI Stats
-        $stats = [
-            'total_qty' => '1.256',
-            'estimasi_nilai' => '2.745.890.000',
-            'unit_akan_service' => 86,
-            'backlog_open' => 142,
-            'urgent' => 37,
+        // KPI Cards
+        $kpiBudget = [
+            'total_forecast' => ['amount' => '12,650,000,000', 'vs_realisasi' => '8.5%', 'color' => '#3b82f6'],
+            'planned_maintenance' => ['amount' => '7,820,000,000', 'pct' => '61.8%', 'color' => '#10b981'],
+            'corrective_maintenance' => ['amount' => '3,950,000,000', 'pct' => '31.2%', 'color' => '#facc15'],
+            'project_improvement' => ['amount' => '880,000,000', 'pct' => '7.0%', 'color' => '#ef4444'],
         ];
 
-        // Table Data (Forecast PA)
-        $data = [
-            ['id' => 1, 'code_unit' => 'EXC-001', 'equipment' => 'Excavator CAT 320D2', 'lokasi' => 'Pit 1', 'tipe_service_next' => 'PM 2000', 'hm_target' => '14.000', 'tanggal_estimasi' => '15/06/2024', 'sumber' => 'Next Service', 'item_pa' => 8, 'total_qty' => 22, 'estimasi_nilai' => '48.750.000', 'urgent' => true],
-            ['id' => 2, 'code_unit' => 'TRK-015', 'equipment' => 'Dump Truck HD 785-7', 'lokasi' => 'Pit 2', 'tipe_service_next' => 'PM 2000', 'hm_target' => '16.000', 'tanggal_estimasi' => '18/06/2024', 'sumber' => 'Next Service', 'item_pa' => 10, 'total_qty' => 30, 'estimasi_nilai' => '76.250.000', 'urgent' => true],
-            ['id' => 3, 'code_unit' => 'BDZ-002', 'equipment' => 'Bulldozer D85ESS-2', 'lokasi' => 'Pit 1', 'tipe_service_next' => 'PM 2000', 'hm_target' => '14.000', 'tanggal_estimasi' => '20/06/2024', 'sumber' => 'Backlog', 'item_pa' => 6, 'total_qty' => 18, 'estimasi_nilai' => '32.400.000', 'urgent' => false],
-            ['id' => 4, 'code_unit' => 'GRD-007', 'equipment' => 'Motor Grader GD 705A-4', 'lokasi' => 'Mainroad', 'tipe_service_next' => 'PM 1000', 'hm_target' => '10.000', 'tanggal_estimasi' => '22/06/2024', 'sumber' => 'Next Service', 'item_pa' => 7, 'total_qty' => 15, 'estimasi_nilai' => '28.975.000', 'urgent' => false],
-            ['id' => 5, 'code_unit' => 'FTR-006', 'equipment' => 'Fuel Truck FT 2000', 'lokasi' => 'Jetty', 'tipe_service_next' => 'PM 1000', 'hm_target' => '6.000', 'tanggal_estimasi' => '25/06/2024', 'sumber' => 'Backlog', 'item_pa' => 5, 'total_qty' => 12, 'estimasi_nilai' => '15.480.000', 'urgent' => true],
-            ['id' => 6, 'code_unit' => 'WTR-003', 'equipment' => 'Water Truck HM 4000', 'lokasi' => 'Pit 3', 'tipe_service_next' => 'PM 2000', 'hm_target' => '6.000', 'tanggal_estimasi' => '28/06/2024', 'sumber' => 'Next Service', 'item_pa' => 6, 'total_qty' => 16, 'estimasi_nilai' => '24.800.000', 'urgent' => false],
-            ['id' => 7, 'code_unit' => 'CMP-002', 'equipment' => 'Compactor CS-563E', 'lokasi' => 'Pit 2', 'tipe_service_next' => 'PM 250', 'hm_target' => '2.500', 'tanggal_estimasi' => '30/06/2024', 'sumber' => 'Backlog', 'item_pa' => 4, 'total_qty' => 8, 'estimasi_nilai' => '8.650.000', 'urgent' => false],
-            ['id' => 8, 'code_unit' => 'GEN-001', 'equipment' => 'Genset CAT 3512', 'lokasi' => 'Workshop', 'tipe_service_next' => 'PM 500', 'hm_target' => '4.000', 'tanggal_estimasi' => '02/07/2024', 'sumber' => 'Backlog', 'item_pa' => 6, 'total_qty' => 10, 'estimasi_nilai' => '12.600.000', 'urgent' => false],
-            ['id' => 9, 'code_unit' => 'TRK-021', 'equipment' => 'Dump Truck HD 785-7', 'lokasi' => 'Pit 2', 'tipe_service_next' => 'PM 2000', 'hm_target' => '12.000', 'tanggal_estimasi' => '05/07/2024', 'sumber' => 'Next Service', 'item_pa' => 9, 'total_qty' => 25, 'estimasi_nilai' => '63.100.000', 'urgent' => true],
-            ['id' => 10, 'code_unit' => 'EXC-003', 'equipment' => 'Excavator CAT 336D', 'lokasi' => 'Pit 1', 'tipe_service_next' => 'PM 2000', 'hm_target' => '12.000', 'tanggal_estimasi' => '07/07/2024', 'sumber' => 'Backlog', 'item_pa' => 7, 'total_qty' => 18, 'estimasi_nilai' => '27.030.000', 'urgent' => false],
+        // Charts Data
+        $chartForecastRealisasi = [
+            'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'forecast' => [1000, 1030, 1060, 1090, 1060, 1100, 1100, 1140, 1120, 1070, 1040, 1010],
+            'realisasi' => [920, 950, 980, 990, 970, 1000, 1010, 1050, 1020, 980, 960, 930],
         ];
 
-        // Categories Table Data
-        $categories = [
-            ['id' => 1, 'name' => 'Hydraulic System', 'total_item' => 28, 'total_qty' => 188, 'estimasi_nilai' => '621.450.000', 'persen' => '22.6%'],
-            ['id' => 2, 'name' => 'Engine System', 'total_item' => 23, 'total_qty' => 204, 'estimasi_nilai' => '558.700.000', 'persen' => '20.3%'],
-            ['id' => 3, 'name' => 'Undercarriage', 'total_item' => 19, 'total_qty' => 168, 'estimasi_nilai' => '422.750.000', 'persen' => '15.4%'],
-            ['id' => 4, 'name' => 'Electrical System', 'total_item' => 16, 'total_qty' => 120, 'estimasi_nilai' => '315.600.000', 'persen' => '11.5%'],
-            ['id' => 5, 'name' => 'Brake System', 'total_item' => 14, 'total_qty' => 96, 'estimasi_nilai' => '208.900.000', 'persen' => '7.6%'],
+        $chartDistribusiKategori = [
+            ['name' => 'Planned Maintenance', 'value' => 7820, 'pct' => '61.8%', 'color' => '#10b981'],
+            ['name' => 'Corrective Maintenance', 'value' => 3950, 'pct' => '31.2%', 'color' => '#3b82f6'],
+            ['name' => 'Project / Improvement', 'value' => 880, 'pct' => '7.0%', 'color' => '#facc15'],
+        ];
+
+        $chartTopUnit = [
+            ['name' => 'Excavator', 'value' => 3250, 'color' => '#10b981'],
+            ['name' => 'Hauler', 'value' => 2480, 'color' => '#3b82f6'],
+            ['name' => 'Dozer', 'value' => 1560, 'color' => '#facc15'],
+            ['name' => 'Motor Grader', 'value' => 1120, 'color' => '#ef4444'],
+            ['name' => 'Truck', 'value' => 980, 'color' => '#8b5cf6'],
+        ];
+
+        // Main Table: Detail Forecast Budget Monthly
+        $tableDetailForecast = [
+            ['no' => 1, 'bulan' => 'Jan', 'planned' => '620,000,000', 'corrective' => '310,000,000', 'project' => '70,000,000', 'total' => '1,000,000,000', 'realisasi' => '920,000,000', 'selisih' => '+8.7%', 'status' => 'On Track'],
+            ['no' => 2, 'bulan' => 'Feb', 'planned' => '640,000,000', 'corrective' => '320,000,000', 'project' => '70,000,000', 'total' => '1,030,000,000', 'realisasi' => '950,000,000', 'selisih' => '+8.4%', 'status' => 'On Track'],
+            ['no' => 3, 'bulan' => 'Mar', 'planned' => '650,000,000', 'corrective' => '340,000,000', 'project' => '70,000,000', 'total' => '1,060,000,000', 'realisasi' => '980,000,000', 'selisih' => '+8.2%', 'status' => 'On Track'],
+            ['no' => 4, 'bulan' => 'Apr', 'planned' => '670,000,000', 'corrective' => '350,000,000', 'project' => '70,000,000', 'total' => '1,090,000,000', 'realisasi' => '990,000,000', 'selisih' => '+10.1%', 'status' => 'On Track'],
+            ['no' => 5, 'bulan' => 'May', 'planned' => '660,000,000', 'corrective' => '330,000,000', 'project' => '70,000,000', 'total' => '1,060,000,000', 'realisasi' => '970,000,000', 'selisih' => '+9.3%', 'status' => 'On Track'],
+            ['no' => 6, 'bulan' => 'Jun', 'planned' => '670,000,000', 'corrective' => '360,000,000', 'project' => '70,000,000', 'total' => '1,100,000,000', 'realisasi' => '1,000,000,000', 'selisih' => '+10.0%', 'status' => 'On Track'],
+            ['no' => 7, 'bulan' => 'Jul', 'planned' => '680,000,000', 'corrective' => '350,000,000', 'project' => '70,000,000', 'total' => '1,100,000,000', 'realisasi' => '1,010,000,000', 'selisih' => '+8.9%', 'status' => 'On Track'],
+            ['no' => 8, 'bulan' => 'Aug', 'planned' => '700,000,000', 'corrective' => '370,000,000', 'project' => '70,000,000', 'total' => '1,140,000,000', 'realisasi' => '1,050,000,000', 'selisih' => '+8.6%', 'status' => 'On Track'],
+            ['no' => 9, 'bulan' => 'Sep', 'planned' => '690,000,000', 'corrective' => '360,000,000', 'project' => '70,000,000', 'total' => '1,120,000,000', 'realisasi' => '1,020,000,000', 'selisih' => '+9.8%', 'status' => 'On Track'],
+            ['no' => 10, 'bulan' => 'Oct', 'planned' => '660,000,000', 'corrective' => '340,000,000', 'project' => '70,000,000', 'total' => '1,070,000,000', 'realisasi' => '980,000,000', 'selisih' => '+9.2%', 'status' => 'On Track'],
+            ['no' => 11, 'bulan' => 'Nov', 'planned' => '650,000,000', 'corrective' => '320,000,000', 'project' => '70,000,000', 'total' => '1,040,000,000', 'realisasi' => '960,000,000', 'selisih' => '+8.3%', 'status' => 'On Track'],
+            ['no' => 12, 'bulan' => 'Dec', 'planned' => '640,000,000', 'corrective' => '300,000,000', 'project' => '70,000,000', 'total' => '1,010,000,000', 'realisasi' => '930,000,000', 'selisih' => '+8.6%', 'status' => 'On Track'],
+        ];
+
+        // Bottom Panels
+        $rekapDepartment = [
+            ['no' => 1, 'dept' => 'Plant', 'forecast' => '8,950,000,000', 'pct' => '70.8%'],
+            ['no' => 2, 'dept' => 'Workshop', 'forecast' => '2,150,000,000', 'pct' => '17.0%'],
+            ['no' => 3, 'dept' => 'Tyre', 'forecast' => '980,000,000', 'pct' => '7.8%'],
+            ['no' => 4, 'dept' => 'Electrical', 'forecast' => '570,000,000', 'pct' => '4.5%'],
+        ];
+
+        $rekapKategori = [
+            ['no' => 1, 'kategori' => 'Planned Maintenance', 'forecast' => '7,820,000,000', 'pct' => '61.8%'],
+            ['no' => 2, 'kategori' => 'Corrective Maintenance', 'forecast' => '3,950,000,000', 'pct' => '31.2%'],
+            ['no' => 3, 'kategori' => 'Project / Improvement', 'forecast' => '880,000,000', 'pct' => '7.0%'],
         ];
 
         return Inertia::render('ForecastPa/Index', [
-            'stats' => $stats,
-            'data' => $data,
-            'categories' => $categories,
+            'kpiBudget' => $kpiBudget,
+            'chartForecastRealisasi' => $chartForecastRealisasi,
+            'chartDistribusiKategori' => $chartDistribusiKategori,
+            'chartTopUnit' => $chartTopUnit,
+            'tableDetailForecast' => $tableDetailForecast,
+            'rekapDepartment' => $rekapDepartment,
+            'rekapKategori' => $rekapKategori,
         ]);
     }
 }

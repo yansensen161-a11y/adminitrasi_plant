@@ -25,6 +25,8 @@ class PartCanibal extends Model
         'po',
         'eta_part',
         'status',
+        'image',
+        'maintenance_order_id',
     ];
 
     public function unit()
@@ -40,5 +42,10 @@ class PartCanibal extends Model
     public function parts()
     {
         return $this->hasMany(PartCanibalPart::class, 'part_canibal_id');
+    }
+
+    public function maintenanceOrder()
+    {
+        return $this->belongsTo(MaintenanceOrder::class, 'maintenance_order_id');
     }
 }

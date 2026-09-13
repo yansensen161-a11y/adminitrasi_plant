@@ -14,7 +14,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Historical Tyre</h1>
-                            <div className="w-5 h-5 rounded-full bg-[#0a4d3c] text-white flex items-center justify-center font-bold shrink-0 text-xs shadow-sm cursor-pointer">
+                            <div className="w-5 h-5 rounded-full bg-[#0a4d3c] text-white flex items-center justify-center font-bold shrink-0 text-sm shadow-sm cursor-pointer">
                                 i
                             </div>
                         </div>
@@ -23,7 +23,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                 </div>
                 
                 <div className="flex items-center gap-4">
-                    <div className="text-xs text-gray-400 hidden sm:flex items-center gap-1">
+                    <div className="text-sm text-gray-400 hidden sm:flex items-center gap-1">
                         <span>Dashboard</span>
                         <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/></svg>
                         <span>Master Control PM Service</span>
@@ -42,7 +42,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TOTAL TYRE</div>
                         <div className="text-xl font-black text-gray-900 leading-none">{stats.total_tyre}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">Ban</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">Ban</div>
                     </div>
                 </div>
 
@@ -53,7 +53,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TYRE COMPLETED</div>
                         <div className="text-xl font-black text-gray-900 leading-none">{stats.completed}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">({stats.completed_pct})</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">({stats.completed_pct})</div>
                     </div>
                 </div>
 
@@ -64,7 +64,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TOTAL USAGE (KM)</div>
                         <div className="text-xl font-black text-gray-900 leading-none">{stats.total_usage_km}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">Kilometer</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">Kilometer</div>
                     </div>
                 </div>
 
@@ -75,7 +75,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TOTAL USAGE (HOUR)</div>
                         <div className="text-xl font-black text-gray-900 leading-none">{stats.total_usage_hour}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">Jam</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">Jam</div>
                     </div>
                 </div>
 
@@ -86,7 +86,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                     <div>
                         <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TOTAL COST</div>
                         <div className="text-xl font-black text-gray-900 leading-none">Rp {stats.total_cost}</div>
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">Biaya</div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">Biaya</div>
                     </div>
                 </div>
             </div>
@@ -96,45 +96,45 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                 <div className="flex flex-col xl:flex-row gap-4 items-end">
                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4 flex-1 w-full">
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Lokasi</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Lokasi</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua Lokasi</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Unit / Equipment</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Unit / Equipment</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua Unit</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Tipe Tyre</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Tipe Tyre</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Merk / Brand</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Merk / Brand</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Ukuran Tyre</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Ukuran Tyre</label>
+                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
                                 <option value="">Semua</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Periode Diganti</label>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Periode Diganti</label>
                             <div className="flex items-center gap-2">
                                 <div className="relative w-full">
-                                    <input type="text" value="01/06/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
+                                    <input type="text" value="01/06/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
                                     <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/></svg>
                                 </div>
-                                <span className="text-[10px] font-bold text-gray-500">s/d</span>
+                                <span className="text-xs font-bold text-gray-500">s/d</span>
                                 <div className="relative w-full">
-                                    <input type="text" value="31/08/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
+                                    <input type="text" value="31/08/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
                                     <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/></svg>
                                 </div>
                             </div>
@@ -142,11 +142,11 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                     </div>
                     
                     <div className="flex flex-col gap-2 w-full xl:w-auto shrink-0">
-                        <button className="bg-[#0a4d3c] hover:bg-[#08422c] text-white font-bold px-6 py-2 rounded-lg text-xs transition flex items-center justify-center gap-2 h-9 shadow-sm">
+                        <button className="bg-[#0a4d3c] hover:bg-[#08422c] text-white font-bold px-6 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2 h-9 shadow-sm">
                             <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd"/></svg>
                             Filter
                         </button>
-                        <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2 rounded-lg text-xs transition border border-gray-200 flex items-center justify-center gap-2 h-9 shadow-sm">
+                        <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2 rounded-lg text-sm transition border border-gray-200 flex items-center justify-center gap-2 h-9 shadow-sm">
                             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.75a9.25 9.25 0 1 0 4.737 17.197l-1.366-1.503A7.25 7.25 0 1 1 12 4.75v3.5L16.5 4.5 12 .75v2z"/></svg>
                             Reset
                         </button>
@@ -231,7 +231,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                         </div>
                         
                         {/* Pagination */}
-                        <div className="pt-3 pb-4 flex justify-between items-center text-xs text-gray-500 mt-2">
+                        <div className="pt-3 pb-4 flex justify-between items-center text-sm text-gray-500 mt-2">
                             <div>
                                 Menampilkan 1 - 10 dari 487 data
                             </div>
@@ -247,7 +247,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                                     <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">49</button>
                                     <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600">&gt;</button>
                                 </div>
-                                <select className="ml-2 border border-gray-200 text-gray-600 text-xs rounded px-2 py-1 focus:outline-none bg-white">
+                                <select className="ml-2 border border-gray-200 text-gray-600 text-sm rounded px-2 py-1 focus:outline-none bg-white">
                                     <option>10 / halaman</option>
                                 </select>
                             </div>
@@ -259,7 +259,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                 <div className="space-y-6">
                     {/* Ringkasan Status Tyre */}
                     <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN STATUS TYRE</h3>
+                        <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN STATUS TYRE</h3>
                         
                         <div className="flex flex-col items-center">
                             {/* Donut Chart */}
@@ -283,21 +283,21 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                             
                             {/* Legend */}
                             <div className="w-full space-y-3">
-                                <div className="flex justify-between items-center text-[10px]">
+                                <div className="flex justify-between items-center text-xs">
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 bg-green-600 rounded-sm"></div>
                                         <span className="font-bold text-gray-700">Completed</span>
                                     </div>
                                     <div className="text-gray-900 font-medium">487 <span className="text-gray-400 font-normal ml-0.5">(89,8%)</span></div>
                                 </div>
-                                <div className="flex justify-between items-center text-[10px]">
+                                <div className="flex justify-between items-center text-xs">
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
                                         <span className="font-bold text-gray-700">In Use</span>
                                     </div>
                                     <div className="text-gray-900 font-medium">45 <span className="text-gray-400 font-normal ml-0.5">(8,3%)</span></div>
                                 </div>
-                                <div className="flex justify-between items-center text-[10px]">
+                                <div className="flex justify-between items-center text-xs">
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
                                         <span className="font-bold text-gray-700">Scrap</span>
@@ -310,7 +310,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
 
                     {/* Alasan Penggantian (Top 5) */}
                     <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between flex-1">
-                        <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">ALASAN PENGGANTIAN (TOP 5)</h3>
+                        <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">ALASAN PENGGANTIAN (TOP 5)</h3>
                         
                         <div className="space-y-4 mb-4">
                             {/* Colors array for progress bars */}
@@ -332,7 +332,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
                             })()}
                         </div>
                         
-                        <div className="flex justify-between items-center text-[11px] pt-3 border-t border-gray-100 font-bold text-gray-900 mt-auto">
+                        <div className="flex justify-between items-center text-sm pt-3 border-t border-gray-100 font-bold text-gray-900 mt-auto">
                             <span>Total</span>
                             <span>542 (100%)</span>
                         </div>
@@ -344,7 +344,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {/* 1. Usage Rata-Rata Tyre */}
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">USAGE RATA-RATA TYRE</h3>
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">USAGE RATA-RATA TYRE</h3>
                     
                     <div className="grid grid-cols-2 gap-4 flex-1 items-center">
                         <div className="bg-gray-50/50 p-4 rounded-lg text-center border border-gray-100">
@@ -362,7 +362,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
 
                 {/* 2. Ringkasan Biaya */}
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN BIAYA</h3>
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN BIAYA</h3>
                     
                     <div className="space-y-4 flex-1 flex flex-col justify-center">
                         <div className="flex items-center gap-4 bg-gray-50/50 p-3 rounded-lg border border-gray-100">
@@ -389,7 +389,7 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
 
                 {/* 3. Usage Distribution (KM) */}
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">USAGE DISTRIBUTION (KM)</h3>
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">USAGE DISTRIBUTION (KM)</h3>
                     
                     <div className="flex items-center justify-between flex-1 gap-2">
                         {/* Donut Chart */}
@@ -451,19 +451,19 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
 
                 {/* 4. Informasi */}
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-                    <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-3">INFORMASI</h3>
+                    <h3 className="text-sm font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-3">INFORMASI</h3>
                     
-                    <p className="text-[10px] text-gray-600 mb-2 leading-relaxed">
+                    <p className="text-xs text-gray-600 mb-2 leading-relaxed">
                         Data pada menu ini merupakan riwayat ban yang telah selesai digunakan dan diganti pada unit/equipment.
                     </p>
                     
-                    <ul className="text-[10px] text-gray-600 space-y-1 list-disc pl-4 mb-4 leading-relaxed flex-1">
+                    <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4 mb-4 leading-relaxed flex-1">
                         <li>Pastikan data penggunaan ban diinput dengan benar.</li>
                         <li>Data biaya adalah total biaya pembelian ban.</li>
                         <li>Data usage diambil saat ban dilepas.</li>
                     </ul>
                     
-                    <div className="bg-green-50 border border-green-200 text-green-700 text-[10px] font-medium py-2 px-3 rounded-lg mt-auto">
+                    <div className="bg-green-50 border border-green-200 text-green-700 text-xs font-medium py-2 px-3 rounded-lg mt-auto">
                         Terakhir update: 30/08/2024 10:30 WIB
                     </div>
                 </div>
@@ -471,15 +471,15 @@ export default function Index({ auth, stats, bottomStats, data, reasons }) {
 
             {/* Bottom Action Buttons */}
             <div className="flex justify-end gap-3 mt-4 mb-10">
-                <button className="bg-white hover:bg-gray-50 border border-[#0a4d3c] text-[#0a4d3c] font-bold px-6 py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-sm">
+                <button className="bg-white hover:bg-gray-50 border border-[#0a4d3c] text-[#0a4d3c] font-bold px-6 py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
                     Export Excel
                 </button>
-                <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2.5 rounded-lg text-xs transition border border-gray-300 flex items-center justify-center gap-2 shadow-sm">
+                <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2.5 rounded-lg text-sm transition border border-gray-300 flex items-center justify-center gap-2 shadow-sm">
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd"/></svg>
                     Print
                 </button>
-                <button className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-6 py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-sm">
+                <button className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-6 py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                     Download Report
                 </button>

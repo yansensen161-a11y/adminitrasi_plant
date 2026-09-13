@@ -1,485 +1,559 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
+import Chart from 'chart.js/auto';
 
-export default function Index({ auth, stats, data, categories }) {
-    const [activeTab, setActiveTab] = useState('daftar');
+export default function ForecastPaIndex({
+    kpiBudget,
+    chartForecastRealisasi,
+    chartDistribusiKategori,
+    chartTopUnit,
+    tableDetailForecast,
+    rekapDepartment,
+    rekapKategori
+}) {
+    const forecastChartRef = useRef(null);
+    const distribusiChartRef = useRef(null);
+    const topUnitChartRef = useRef(null);
+
+    useEffect(() => {
+        let forecastInstance = null;
+        let distribusiInstance = null;
+        let topUnitInstance = null;
+
+        // --- BAR CHART: Forecast vs Realisasi ---
+        if (forecastChartRef.current) {
+            const ctx = forecastChartRef.current.getContext('2d');
+            forecastInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartForecastRealisasi.labels,
+                    datasets: [
+                        {
+                            label: 'Forecast 2026',
+                            data: chartForecastRealisasi.forecast,
+                            backgroundColor: '#10b981', // green
+                            borderRadius: 2,
+                            barPercentage: 0.7,
+                            categoryPercentage: 0.8
+                        },
+                        {
+                            label: 'Realisasi 2025',
+                            data: chartForecastRealisasi.realisasi,
+                            backgroundColor: '#0ea5e9', // blue
+                            borderRadius: 2,
+                            barPercentage: 0.7,
+                            categoryPercentage: 0.8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { usePointStyle: true, boxWidth: 8, font: { size: 10 } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 2000,
+                            ticks: { 
+                                font: { size: 9 },
+                                callback: function(value) {
+                                    return value + 'M';
+                                }
+                            },
+                            grid: { color: '#f3f4f6' },
+                            title: {
+                                display: true,
+                                text: 'Biaya (Rp)',
+                                font: { size: 9, weight: 'bold' }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 9 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- DOUGHNUT CHART: Distribusi Budget per Kategori ---
+        if (distribusiChartRef.current) {
+            const ctx = distribusiChartRef.current.getContext('2d');
+            distribusiInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: chartDistribusiKategori.map(item => item.name),
+                    datasets: [{
+                        data: chartDistribusiKategori.map(item => item.value),
+                        backgroundColor: chartDistribusiKategori.map(item => item.color),
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: { display: false },
+                    }
+                },
+                plugins: [{
+                    id: 'custom_text_dist',
+                    beforeDraw: function(chart) {
+                        const width = chart.width;
+                        const height = chart.height;
+                        const ctx = chart.ctx;
+                        ctx.restore();
+                        
+                        const chartArea = chart.chartArea;
+                        const centerX = (chartArea.left + chartArea.right) / 2;
+                        const centerY = (chartArea.top + chartArea.bottom) / 2;
+
+                        ctx.font = "bold 14px Arial";
+                        ctx.fillStyle = "#1f2937";
+                        ctx.textBaseline = "middle";
+                        const textVal = "Rp 12.65 M";
+                        const textValX = Math.round(centerX - ctx.measureText(textVal).width / 2);
+                        ctx.fillText(textVal, textValX, centerY - 6);
+
+                        ctx.font = "10px Arial";
+                        ctx.fillStyle = "#6b7280";
+                        const textTop = "Total Budget";
+                        const textTopX = Math.round(centerX - ctx.measureText(textTop).width / 2);
+                        ctx.fillText(textTop, textTopX, centerY + 10);
+                        
+                        ctx.save();
+                    }
+                }]
+            });
+        }
+
+        // --- HORIZONTAL BAR CHART: Top 5 Budget per Jenis Unit ---
+        if (topUnitChartRef.current) {
+            const ctx = topUnitChartRef.current.getContext('2d');
+            topUnitInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartTopUnit.map(item => item.name),
+                    datasets: [{
+                        data: chartTopUnit.map(item => item.value),
+                        backgroundColor: chartTopUnit.map(item => item.color),
+                        borderRadius: 4,
+                        barThickness: 14
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            display: false,
+                            max: 4000
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10 }, color: '#4b5563' },
+                            border: { display: false }
+                        }
+                    },
+                    animation: {
+                        onComplete: function(animation) {
+                            const chartInstance = animation.chart;
+                            const ctx = chartInstance.ctx;
+                            ctx.font = "bold 10px Arial";
+                            ctx.fillStyle = "#1f2937";
+                            ctx.textAlign = "left";
+                            ctx.textBaseline = "middle";
+
+                            chartInstance.data.datasets.forEach((dataset, i) => {
+                                const meta = chartInstance.getDatasetMeta(i);
+                                meta.data.forEach((bar, index) => {
+                                    const data = dataset.data[index];
+                                    ctx.fillText(`${data}M`, bar.x + 5, bar.y);
+                                });
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        return () => {
+            if (forecastInstance) forecastInstance.destroy();
+            if (distribusiInstance) distribusiInstance.destroy();
+            if (topUnitInstance) topUnitInstance.destroy();
+        };
+    }, [chartForecastRealisasi, chartDistribusiKategori, chartTopUnit]);
 
     return (
         <AuthenticatedLayout>
-            <Head title="Forecast PA Unit" />
-
-            <div className="mb-6 flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
-                <div className="flex items-center gap-3">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Forecast PA Unit</h1>
-                            <div className="w-5 h-5 rounded-full bg-[#0a4d3c] text-white flex items-center justify-center font-bold shrink-0 text-xs shadow-sm">
-                                i
+            <Head title="Forecast Budget Monthly" />
+            
+            <div className="space-y-4">
+                
+                {/* Header Section */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11V3H8v6H2v12h20V11h-6zm-6-6h4v14h-4V5zm-6 6h4v8H4v-8zm16 8h-4v-6h4v6z"/></svg>
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-black text-gray-900 tracking-tight">Forecast Budget Monthly</h1>
+                                <p className="text-sm text-gray-500">Perkiraan anggaran biaya maintenance berdasarkan historis, plan dan kebutuhan komponen</p>
                             </div>
                         </div>
-                        <p className="text-sm text-gray-500">Perkiraan kebutuhan part (PA) berdasarkan planning next service unit dan backlog/open temuan.</p>
-                    </div>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                    <div className="text-xs text-gray-400 hidden sm:flex items-center gap-1">
-                        <span>Dashboard</span>
-                        <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/></svg>
-                        <span>Planner</span>
-                        <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/></svg>
-                        <span className="font-semibold text-gray-600">Forecast PA Unit</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-[#0a4d3c] transition-colors">
-                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
-                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TOTAL KEBUTUHAN PA (QTY)</div>
-                        <div className="text-xl font-black text-gray-900 leading-none">{stats.total_qty}</div>
-                        <div className="text-[10px] text-gray-500 mt-1">Item</div>
-                    </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-[#0a4d3c] transition-colors">
-                    <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
-                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6h-2zm0-8h-2V7h2v2z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">ESTIMASI NILAI (IDR)</div>
-                        <div className="text-xl font-black text-gray-900 leading-none">Rp {stats.estimasi_nilai}</div>
-                        <div className="text-[10px] text-gray-500 mt-1">Total Estimasi</div>
-                    </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-[#0a4d3c] transition-colors">
-                    <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
-                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">UNIT AKAN SERVICE <span className="lowercase normal-case font-normal">(NEXT 3 BULAN)</span></div>
-                        <div className="text-xl font-black text-gray-900 leading-none">{stats.unit_akan_service}</div>
-                        <div className="text-[10px] text-gray-500 mt-1">Unit</div>
-                    </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-[#0a4d3c] transition-colors">
-                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
-                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">BACKLOG / OPEN TEMUAN</div>
-                        <div className="text-xl font-black text-gray-900 leading-none">{stats.backlog_open}</div>
-                        <div className="text-[10px] text-gray-500 mt-1">Item</div>
-                    </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-[#0a4d3c] transition-colors">
-                    <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
-                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">URGENT <span className="lowercase normal-case font-normal">(≤ 30 HARI)</span></div>
-                        <div className="text-xl font-black text-gray-900 leading-none">{stats.urgent}</div>
-                        <div className="text-[10px] text-gray-500 mt-1">Item</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Filters Row */}
-            <div className="bg-white shadow-sm sm:rounded-xl mb-6 p-4 border border-gray-100">
-                <div className="flex flex-col xl:flex-row gap-4 items-end">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1 w-full">
-                        <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Lokasi</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
-                                <option value="">Semua Lokasi</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Unit / Equipment</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
-                                <option value="">Semua Unit</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Tipe Service</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
-                                <option value="">Semua</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Periode Service (Next)</label>
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="text-xs text-gray-400 flex items-center gap-1">
+                                <span>Home</span> › <span>Budget</span> › <span className="text-gray-600 font-bold">Forecast Budget Monthly</span>
+                            </div>
                             <div className="flex items-center gap-2">
-                                <div className="relative w-full">
-                                    <input type="text" value="01/06/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
-                                    <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/></svg>
+                                <div className="flex items-center gap-2 mr-2">
+                                    <span className="text-xs font-bold text-gray-500 uppercase">Tahun</span>
+                                    <select className="text-sm border border-gray-300 text-gray-700 rounded-lg focus:ring-[#10b981] focus:border-[#10b981] px-2 py-1 h-8 font-bold">
+                                        <option>2026</option>
+                                        <option>2025</option>
+                                    </select>
                                 </div>
-                                <span className="text-[10px] font-bold text-gray-500">s/d</span>
-                                <div className="relative w-full">
-                                    <input type="text" value="31/08/2024" readOnly className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0a4d3c]" />
-                                    <svg className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/></svg>
-                                </div>
+                                <button className="bg-[#10b981] hover:bg-[#059669] text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm flex items-center gap-1.5 transition">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> 
+                                    Generate Forecast
+                                </button>
+                                <button className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm flex items-center gap-1.5 transition">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> Export Excel
+                                </button>
+                                <button className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm flex items-center gap-1.5 transition">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg> Print
+                                </button>
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Sumber</label>
-                            <select className="w-full bg-white border border-gray-200 text-gray-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c] appearance-none">
-                                <option value="">Semua</option>
-                            </select>
+                    </div>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Total Forecast */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-[#0ea5e9] opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="w-14 h-14 bg-[#0ea5e9] text-white rounded-lg flex items-center justify-center shadow-sm relative z-10">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2 1.5 3 4 3h8c2.5 0 4-1 4-3V7m-4-4v4H8V3M4 11h16M4 15h16"></path></svg>
+                        </div>
+                        <div className="relative z-10">
+                            <div className="text-sm font-bold text-gray-500">Total Forecast Budget</div>
+                            <div className="text-xl font-black text-gray-900 leading-tight tracking-tight mt-0.5">Rp {kpiBudget.total_forecast.amount}</div>
+                            <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                <span className="text-[#f97316] font-bold">↗ {kpiBudget.total_forecast.vs_realisasi}</span> vs Realisasi 2025
+                            </div>
                         </div>
                     </div>
-                    
-                    <div className="flex flex-col gap-2 w-full xl:w-auto shrink-0">
-                        <button className="bg-[#0a4d3c] hover:bg-[#08422c] text-white font-bold px-6 py-2 rounded-lg text-xs transition flex items-center justify-center gap-2 h-9 shadow-sm">
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd"/></svg>
-                            Filter
+
+                    {/* Planned Maintenance */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-[#10b981] opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="w-14 h-14 bg-[#10b981] text-white rounded-lg flex items-center justify-center shadow-sm relative z-10">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        </div>
+                        <div className="relative z-10">
+                            <div className="text-sm font-bold text-gray-500">Planned Maintenance</div>
+                            <div className="text-xl font-black text-gray-900 leading-tight tracking-tight mt-0.5">Rp {kpiBudget.planned_maintenance.amount}</div>
+                            <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                <span className="text-[#10b981] font-bold">{kpiBudget.planned_maintenance.pct}</span> dari total budget
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Corrective Maintenance */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-[#facc15] opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="w-14 h-14 bg-[#facc15] text-white rounded-lg flex items-center justify-center shadow-sm relative z-10">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        </div>
+                        <div className="relative z-10">
+                            <div className="text-sm font-bold text-gray-500">Corrective Maintenance</div>
+                            <div className="text-xl font-black text-gray-900 leading-tight tracking-tight mt-0.5">Rp {kpiBudget.corrective_maintenance.amount}</div>
+                            <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                <span className="text-[#f97316] font-bold">↗ {kpiBudget.corrective_maintenance.pct}</span> dari total budget
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Project / Improvement */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-[#ef4444] opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="w-14 h-14 bg-[#ef4444] text-white rounded-lg flex items-center justify-center shadow-sm relative z-10">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        </div>
+                        <div className="relative z-10">
+                            <div className="text-sm font-bold text-gray-500">Project / Improvement</div>
+                            <div className="text-xl font-black text-gray-900 leading-tight tracking-tight mt-0.5">Rp {kpiBudget.project_improvement.amount}</div>
+                            <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                <span className="text-[#ef4444] font-bold">{kpiBudget.project_improvement.pct}</span> dari total budget
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Charts Area */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    {/* Bar Chart: Forecast vs Realisasi */}
+                    <div className="lg:col-span-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col h-[280px]">
+                        <h3 className="font-bold text-gray-800 text-[12px] mb-2">Forecast vs Realisasi (Per Bulan)</h3>
+                        <div className="flex-1 relative w-full pt-2">
+                            <canvas ref={forecastChartRef}></canvas>
+                        </div>
+                    </div>
+
+                    {/* Doughnut Chart: Distribusi Budget */}
+                    <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col h-[280px]">
+                        <h3 className="font-bold text-gray-800 text-[12px] mb-4">Distribusi Budget per Kategori</h3>
+                        <div className="flex-1 flex flex-col items-center">
+                            <div className="w-full h-[140px] relative mb-4">
+                                <canvas ref={distribusiChartRef}></canvas>
+                            </div>
+                            <div className="w-full flex flex-col justify-center gap-1.5 text-xs">
+                                {chartDistribusiKategori.map((item, idx) => (
+                                    <div key={idx} className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <div className="w-2.5 h-2.5 rounded-sm mr-1.5 flex-shrink-0" style={{ backgroundColor: item.color }}></div>
+                                            <div className="flex flex-col">
+                                                <span className="text-gray-900 font-bold truncate">{item.name}</span>
+                                                <span className="text-gray-500 font-bold">Rp {Number(item.value).toLocaleString('id-ID')}0,000</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Horizontal Bar Chart: Top 5 */}
+                    <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col h-[280px]">
+                        <h3 className="font-bold text-gray-800 text-[12px] mb-4">Top 5 Budget per Jenis Unit</h3>
+                        <div className="flex-1 relative w-full pt-2">
+                            <canvas ref={topUnitChartRef}></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Filter Row */}
+                <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-wrap items-end gap-3">
+                    <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Department</label>
+                        <select className="w-full text-sm border border-gray-300 text-gray-700 rounded-lg focus:ring-[#10b981] focus:border-[#10b981] px-2 py-1.5 h-8">
+                            <option>Semua</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Jenis Unit</label>
+                        <select className="w-full text-sm border border-gray-300 text-gray-700 rounded-lg focus:ring-[#10b981] focus:border-[#10b981] px-2 py-1.5 h-8">
+                            <option>Semua</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Kategori</label>
+                        <select className="w-full text-sm border border-gray-300 text-gray-700 rounded-lg focus:ring-[#10b981] focus:border-[#10b981] px-2 py-1.5 h-8">
+                            <option>Semua</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1 min-w-[100px] max-w-[120px]">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Tahun</label>
+                        <select className="w-full text-sm border border-gray-300 text-gray-700 rounded-lg focus:ring-[#10b981] focus:border-[#10b981] px-2 py-1.5 h-8">
+                            <option>2026</option>
+                        </select>
+                    </div>
+                    <div className="relative min-w-[200px] flex-1">
+                        <input type="text" placeholder="Cari deskripsi, komponen, atau kode unit..." className="w-full text-sm border border-gray-300 text-gray-700 rounded-lg focus:ring-[#10b981] focus:border-[#10b981] px-2 py-1.5 pl-7 h-8"/>
+                        <svg className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <div className="flex gap-2">
+                        <button className="bg-[#10b981] hover:bg-[#059669] text-white px-4 py-1.5 rounded-lg text-sm font-bold transition shadow-sm h-8 flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> Cari
                         </button>
-                        <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2 rounded-lg text-xs transition border border-gray-200 flex items-center justify-center gap-2 h-9 shadow-sm">
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.75a9.25 9.25 0 1 0 4.737 17.197l-1.366-1.503A7.25 7.25 0 1 1 12 4.75v3.5L16.5 4.5 12 .75v2z"/></svg>
-                            Reset
+                        <button className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold transition shadow-sm h-8 flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Reset
                         </button>
                     </div>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_350px] gap-6">
-                
-                {/* Main Content Area (Left Column) */}
+                {/* Main Data Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-                    {/* Tabs */}
-                    <div className="flex px-6 pt-4 border-b border-gray-200 gap-6">
-                        <button 
-                            onClick={() => setActiveTab('daftar')}
-                            className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'daftar' ? 'border-[#0b5c3e] text-[#0b5c3e]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Daftar Forecast PA
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('tipe')}
-                            className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'tipe' ? 'border-[#0b5c3e] text-[#0b5c3e]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Ringkasan per Tipe Service
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('lokasi')}
-                            className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'lokasi' ? 'border-[#0b5c3e] text-[#0b5c3e]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Ringkasan per Lokasi
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('grafik')}
-                            className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'grafik' ? 'border-[#0b5c3e] text-[#0b5c3e]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Grafik & Analisa
-                        </button>
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                        <h2 className="font-bold text-gray-800 text-[13px] tracking-tight">Detail Forecast Budget Monthly</h2>
                     </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left whitespace-nowrap">
+                            <thead className="bg-gray-50/50 text-gray-600 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-3 py-2.5 font-bold text-center w-8">No</th>
+                                    <th className="px-3 py-2.5 font-bold">Bulan</th>
+                                    <th className="px-3 py-2.5 font-bold text-right">Planned Maintenance (Rp)</th>
+                                    <th className="px-3 py-2.5 font-bold text-right">Corrective Maintenance (Rp)</th>
+                                    <th className="px-3 py-2.5 font-bold text-right">Project / Improvement (Rp)</th>
+                                    <th className="px-3 py-2.5 font-bold text-right">Total Forecast (Rp)</th>
+                                    <th className="px-3 py-2.5 font-bold text-right">Realisasi 2025 (Rp)</th>
+                                    <th className="px-3 py-2.5 font-bold text-center">Selisih (%)</th>
+                                    <th className="px-3 py-2.5 font-bold text-center">Status</th>
+                                    <th className="px-3 py-2.5 font-bold text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-gray-600">
+                                {tableDetailForecast.map((item) => (
+                                    <tr key={item.id} className="hover:bg-blue-50/50 transition-colors">
+                                        <td className="px-3 py-2 text-center text-gray-400">{item.no}</td>
+                                        <td className="px-3 py-2 font-bold text-gray-900">{item.bulan}</td>
+                                        <td className="px-3 py-2 text-right font-mono text-gray-700">{item.planned}</td>
+                                        <td className="px-3 py-2 text-right font-mono text-gray-700">{item.corrective}</td>
+                                        <td className="px-3 py-2 text-right font-mono text-gray-700">{item.project}</td>
+                                        <td className="px-3 py-2 text-right font-mono font-bold text-gray-900">{item.total}</td>
+                                        <td className="px-3 py-2 text-right font-mono text-gray-600">{item.realisasi}</td>
+                                        <td className={`px-3 py-2 text-center font-bold ${item.selisih.startsWith('+') ? 'text-[#ef4444]' : 'text-[#10b981]'}`}>{item.selisih}</td>
+                                        <td className="px-3 py-2 text-center">
+                                            {item.status === 'On Track' && <span className="bg-[#10b981] text-white px-2 py-0.5 rounded text-[9px] font-bold">On Track</span>}
+                                        </td>
+                                        <td className="px-3 py-2 text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <button className="bg-[#3b82f6] text-white p-1 rounded shadow-sm hover:bg-blue-600"><svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg></button>
+                                                <button className="bg-[#facc15] text-white p-1 rounded shadow-sm hover:bg-yellow-500"><svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-gray-50 border-t-2 border-gray-200 text-gray-900 font-bold">
+                                <tr>
+                                    <td colSpan="2" className="px-3 py-2 text-center">Total</td>
+                                    <td className="px-3 py-2 text-right font-mono">7,820,000,000</td>
+                                    <td className="px-3 py-2 text-right font-mono">3,950,000,000</td>
+                                    <td className="px-3 py-2 text-right font-mono">880,000,000</td>
+                                    <td className="px-3 py-2 text-right font-mono">12,650,000,000</td>
+                                    <td className="px-3 py-2 text-right font-mono">11,270,000,000</td>
+                                    <td className="px-3 py-2 text-center text-[#ef4444]">+12.2%</td>
+                                    <td colSpan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
 
-                    {/* Table Area */}
-                    <div className="flex-1 p-6">
-                        <div className="overflow-x-auto border border-gray-100 rounded-lg">
-                            <table className="w-full text-[10px] text-left">
-                                <thead className="bg-[#0a4d3c] text-white">
+                {/* Footer 3 Panels */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Rekap Budget per Department */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50">
+                            <h2 className="font-bold text-gray-800 text-sm tracking-tight">Rekap Budget per Department</h2>
+                        </div>
+                        <div className="p-3">
+                            <table className="w-full text-xs text-left">
+                                <thead className="bg-gray-50/50 text-gray-600 border-b border-gray-100">
                                     <tr>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">No</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Code Unit</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Equipment</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Lokasi</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Tipe Service (Next)</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">HM Target</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Tanggal Estimasi</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Sumber</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Item PA</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Total Qty</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Estimasi Nilai (IDR)</th>
-                                        <th className="px-2 py-3 font-semibold text-center border-r border-[#0d614b]">Urgent</th>
-                                        <th className="px-2 py-3 font-semibold text-center">Action</th>
+                                        <th className="py-1 font-bold">No</th>
+                                        <th className="py-1 font-bold">Department</th>
+                                        <th className="py-1 font-bold text-right">Forecast (Rp)</th>
+                                        <th className="py-1 font-bold text-center">Persentase</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 text-gray-700">
-                                    {data.map((item, idx) => (
-                                        <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-2 py-2.5 text-center text-gray-500 font-medium">{idx + 1}</td>
-                                            <td className="px-2 py-2.5 text-center font-bold text-gray-900">{item.code_unit}</td>
-                                            <td className="px-2 py-2.5 text-center text-gray-600">{item.equipment}</td>
-                                            <td className="px-2 py-2.5 text-center">{item.lokasi}</td>
-                                            <td className="px-2 py-2.5 text-center font-bold text-gray-900">{item.tipe_service_next}</td>
-                                            <td className="px-2 py-2.5 text-center font-mono text-gray-600">{item.hm_target}</td>
-                                            <td className="px-2 py-2.5 text-center">{item.tanggal_estimasi}</td>
-                                            <td className="px-2 py-2.5 text-center text-gray-600">{item.sumber}</td>
-                                            <td className="px-2 py-2.5 text-center font-bold text-gray-900">{item.item_pa}</td>
-                                            <td className="px-2 py-2.5 text-center font-bold text-gray-900 bg-gray-50/50">{item.total_qty}</td>
-                                            <td className="px-2 py-2.5 text-right font-mono font-bold text-[#0b5c3e]">{item.estimasi_nilai}</td>
-                                            <td className="px-2 py-2.5 text-center">
-                                                {item.urgent ? (
-                                                    <span className="bg-red-50 text-red-600 font-bold px-2 py-0.5 rounded border border-red-200 text-[9px] uppercase tracking-wide">Ya</span>
-                                                ) : (
-                                                    <span className="text-gray-400 font-bold px-2 py-0.5 rounded border border-gray-200 text-[9px] uppercase tracking-wide">Tidak</span>
-                                                )}
-                                            </td>
-                                            <td className="px-2 py-2.5 text-center">
-                                                <button className="text-gray-400 hover:text-blue-600 p-1 border border-transparent hover:border-blue-200 rounded transition-all">
-                                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                                                </button>
-                                            </td>
+                                <tbody className="divide-y divide-gray-50 text-gray-600">
+                                    {rekapDepartment.map((item) => (
+                                        <tr key={item.no}>
+                                            <td className="py-1">{item.no}</td>
+                                            <td className="py-1">{item.dept}</td>
+                                            <td className="py-1 text-right font-mono">{item.forecast}</td>
+                                            <td className="py-1 text-center">{item.pct}</td>
                                         </tr>
                                     ))}
                                 </tbody>
+                                <tfoot className="border-t border-gray-200 font-bold text-gray-900">
+                                    <tr>
+                                        <td colSpan="2" className="py-1">Total</td>
+                                        <td className="py-1 text-right font-mono">12,650,000,000</td>
+                                        <td className="py-1 text-center">100%</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
-                        
-                        {/* Pagination */}
-                        <div className="pt-3 flex justify-between items-center text-xs text-gray-500 mb-8 border-t border-gray-100 mt-2">
-                            <div>
-                                Menampilkan 1 - 10 dari 86 data
-                            </div>
-                            <div className="flex gap-2 items-center">
-                                <div className="flex gap-1">
-                                    <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-400">&lt;</button>
-                                    <button className="w-7 h-7 flex items-center justify-center rounded bg-[#0a4d3c] text-white font-bold">1</button>
-                                    <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">2</button>
-                                    <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">3</button>
-                                    <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">4</button>
-                                    <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">5</button>
-                                    <span className="w-7 h-7 flex items-center justify-center text-gray-400">...</span>
-                                    <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">9</button>
-                                    <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600">&gt;</button>
-                                </div>
-                                <select className="ml-2 border border-gray-200 text-gray-600 text-xs rounded px-2 py-1 focus:outline-none bg-white">
-                                    <option>10 / halaman</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Bottom Section (Table & Notes) */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Top 5 Categories */}
-                            <div>
-                                <h3 className="text-[11px] font-extrabold text-gray-900 uppercase tracking-wider mb-3">TOP 5 KATEGORI COMPONENT</h3>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-[10px] text-left border border-gray-100 rounded">
-                                        <thead className="bg-[#0a4d3c] text-white">
-                                            <tr>
-                                                <th className="px-2 py-2 font-semibold">No.</th>
-                                                <th className="px-2 py-2 font-semibold">Kategori Component</th>
-                                                <th className="px-2 py-2 font-semibold text-center">Total Item</th>
-                                                <th className="px-2 py-2 font-semibold text-center">Total Qty</th>
-                                                <th className="px-2 py-2 font-semibold text-right">Estimasi Nilai (IDR)</th>
-                                                <th className="px-2 py-2 font-semibold text-right">% Nilai</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100 text-gray-700">
-                                            {categories.map((cat, idx) => (
-                                                <tr key={cat.id}>
-                                                    <td className="px-2 py-1.5">{idx + 1}.</td>
-                                                    <td className="px-2 py-1.5 font-medium">{cat.name}</td>
-                                                    <td className="px-2 py-1.5 text-center">{cat.total_item}</td>
-                                                    <td className="px-2 py-1.5 text-center">{cat.total_qty}</td>
-                                                    <td className="px-2 py-1.5 text-right font-mono">{cat.estimasi_nilai}</td>
-                                                    <td className="px-2 py-1.5 text-right font-bold text-gray-900">{cat.persen}</td>
-                                                </tr>
-                                            ))}
-                                            <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                                                <td colSpan="2" className="px-2 py-1.5">Total</td>
-                                                <td className="px-2 py-1.5 text-center">100</td>
-                                                <td className="px-2 py-1.5 text-center">774</td>
-                                                <td className="px-2 py-1.5 text-right font-mono">2.127.400.000</td>
-                                                <td className="px-2 py-1.5 text-right">77,4%</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            {/* Notes */}
-                            <div>
-                                <h3 className="text-[11px] font-extrabold text-green-700 uppercase tracking-wider mb-3">CATATAN</h3>
-                                <ul className="text-[11px] text-gray-600 space-y-1.5 list-disc pl-4 leading-relaxed">
-                                    <li>Forecast ini berdasarkan planning next service dan backlog/open temuan.</li>
-                                    <li>Estimasi nilai menggunakan harga standard part terbaru.</li>
-                                    <li>Periode forecast: Next 3 Bulan (01/06/2024 - 31/08/2024).</li>
-                                    <li>Data dapat berubah mengikuti update HM dan temuan terbaru.</li>
-                                </ul>
-                            </div>
-                        </div>
                     </div>
-                </div>
 
-                {/* Right Column (Widgets) */}
-                <div className="space-y-6">
-                    {/* Ringkasan Sumber Kebutuhan */}
-                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN SUMBER KEBUTUHAN</h3>
-                        
-                        <div className="flex flex-col items-center">
-                            {/* CSS-based Donut Chart Mock */}
-                            <div className="relative w-36 h-36 mb-6">
-                                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                                    {/* Inspection / Lainnya (8.1%) - Orange */}
-                                    <circle cx="18" cy="18" r="15.91549430918954" fill="transparent" stroke="#f59e0b" strokeWidth="6" strokeDasharray="8 92" strokeDashoffset="-92"></circle>
-                                    
-                                    {/* Backlog / Open Temuan (35.2%) - Blue */}
-                                    <circle cx="18" cy="18" r="15.91549430918954" fill="transparent" stroke="#3b82f6" strokeWidth="6" strokeDasharray="35 65" strokeDashoffset="-57"></circle>
-                                    
-                                    {/* Next Service (56.7%) - Green */}
-                                    <circle cx="18" cy="18" r="15.91549430918954" fill="transparent" stroke="#10b981" strokeWidth="6" strokeDasharray="57 43" strokeDashoffset="0"></circle>
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase">Total</span>
-                                    <span className="text-xl font-black text-gray-900 leading-none">1.256</span>
-                                    <span className="text-[9px] text-gray-400">Item</span>
-                                </div>
-                            </div>
-                            
-                            {/* Legend */}
-                            <div className="w-full space-y-3">
-                                <div className="flex items-center justify-between text-[10px]">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-                                        <span className="text-gray-700 font-medium">Next Service</span>
-                                    </div>
-                                    <div className="text-gray-500 font-medium">712 Item <span className="text-gray-400">(56,7%)</span></div>
-                                </div>
-                                <div className="flex items-center justify-between text-[10px]">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
-                                        <span className="text-gray-700 font-medium">Backlog / Open Temuan</span>
-                                    </div>
-                                    <div className="text-gray-500 font-medium">442 Item <span className="text-gray-400">(35,2%)</span></div>
-                                </div>
-                                <div className="flex items-center justify-between text-[10px]">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
-                                        <span className="text-gray-700 font-medium">Inspection / Lainnya</span>
-                                    </div>
-                                    <div className="text-gray-500 font-medium">102 Item <span className="text-gray-400">(8,1%)</span></div>
-                                </div>
-                            </div>
+                    {/* Rekap Budget per Kategori */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50">
+                            <h2 className="font-bold text-gray-800 text-sm tracking-tight">Rekap Budget per Kategori</h2>
+                        </div>
+                        <div className="p-3">
+                            <table className="w-full text-xs text-left">
+                                <thead className="bg-gray-50/50 text-gray-600 border-b border-gray-100">
+                                    <tr>
+                                        <th className="py-1 font-bold">No</th>
+                                        <th className="py-1 font-bold">Kategori</th>
+                                        <th className="py-1 font-bold text-right">Forecast (Rp)</th>
+                                        <th className="py-1 font-bold text-center">Persentase</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50 text-gray-600">
+                                    {rekapKategori.map((item) => (
+                                        <tr key={item.no}>
+                                            <td className="py-1">{item.no}</td>
+                                            <td className="py-1">{item.kategori}</td>
+                                            <td className="py-1 text-right font-mono">{item.forecast}</td>
+                                            <td className="py-1 text-center">{item.pct}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="border-t border-gray-200 font-bold text-gray-900">
+                                    <tr>
+                                        <td colSpan="2" className="py-1">Total</td>
+                                        <td className="py-1 text-right font-mono">12,650,000,000</td>
+                                        <td className="py-1 text-center">100%</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
                         </div>
                     </div>
 
-                    {/* Ringkasan Urgency */}
-                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-4">RINGKASAN URGENCY</h3>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <div className="flex justify-between text-[10px] mb-1">
-                                    <span className="font-bold text-gray-700">≤ 30 Hari (Urgent)</span>
-                                    <span className="text-gray-500 font-medium">37 Item <span className="text-gray-400 ml-1">(29,6%)</span></span>
-                                </div>
-                                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-red-500 rounded-full" style={{ width: '29.6%' }}></div>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <div className="flex justify-between text-[10px] mb-1">
-                                    <span className="font-bold text-gray-700">31 - 60 Hari</span>
-                                    <span className="text-gray-500 font-medium">58 Item <span className="text-gray-400 ml-1">(46,4%)</span></span>
-                                </div>
-                                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-orange-400 rounded-full" style={{ width: '46.4%' }}></div>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <div className="flex justify-between text-[10px] mb-1">
-                                    <span className="font-bold text-gray-700">&gt; 60 Hari</span>
-                                    <span className="text-gray-500 font-medium">30 Item <span className="text-gray-400 ml-1">(24,0%)</span></span>
-                                </div>
-                                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-[#0a4d3c] rounded-full" style={{ width: '24.0%' }}></div>
-                                </div>
-                            </div>
-                            
-                            <div className="flex justify-between text-[11px] pt-3 border-t border-gray-100 font-bold text-gray-900 mt-2">
-                                <span>Total</span>
-                                <span>125 Item</span>
-                            </div>
+                    {/* Catatan & Rekomendasi */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50">
+                            <h2 className="font-bold text-gray-800 text-sm tracking-tight">Catatan & Rekomendasi</h2>
                         </div>
-                    </div>
-
-                    {/* Estimasi Nilai Kebutuhan (IDR) */}
-                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 className="text-[11px] font-extrabold text-[#0b5c3e] uppercase tracking-wider mb-2">ESTIMASI NILAI KEBUTUHAN (IDR)</h3>
-                        <div className="text-[9px] text-gray-400 mb-4">Juta Rupiah</div>
-                        
-                        {/* Mock Line Chart */}
-                        <div className="relative h-32 w-full">
-                            {/* Y-Axis labels */}
-                            <div className="absolute inset-y-0 left-0 flex flex-col justify-between text-[9px] text-gray-400 pb-5 pt-1 pr-2 w-8 text-right">
-                                <span>1.000</span>
-                                <span>750</span>
-                                <span>500</span>
-                                <span>250</span>
-                                <span>0</span>
-                            </div>
-                            
-                            <div className="absolute inset-0 ml-8 pb-5">
-                                {/* Grid lines */}
-                                <div className="h-full w-full flex flex-col justify-between">
-                                    <div className="border-t border-gray-100 w-full h-0"></div>
-                                    <div className="border-t border-gray-100 w-full h-0"></div>
-                                    <div className="border-t border-gray-100 w-full h-0"></div>
-                                    <div className="border-t border-gray-100 w-full h-0"></div>
-                                    <div className="border-t border-gray-200 w-full h-0"></div>
-                                </div>
-                                
-                                {/* SVG Line */}
-                                <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
-                                    <path 
-                                        d="M 15 65 L 120 10 L 230 65" 
-                                        fill="none" 
-                                        stroke="#10b981" 
-                                        strokeWidth="2" 
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                    {/* Points */}
-                                    <circle cx="15" cy="65" r="4" fill="white" stroke="#10b981" strokeWidth="2" />
-                                    <circle cx="120" cy="10" r="4" fill="white" stroke="#10b981" strokeWidth="2" />
-                                    <circle cx="230" cy="65" r="4" fill="white" stroke="#10b981" strokeWidth="2" />
-                                </svg>
-                                
-                                {/* Value Labels */}
-                                <div className="absolute top-[48px] left-[5px] text-[9px] font-bold text-gray-600">820 Jt</div>
-                                <div className="absolute top-[-5px] left-[105px] text-[9px] font-bold text-gray-600">1.120 Jt</div>
-                                <div className="absolute top-[48px] left-[215px] text-[9px] font-bold text-gray-600">806 Jt</div>
-                            </div>
-                            
-                            {/* X-Axis labels */}
-                            <div className="absolute bottom-0 left-8 right-0 flex justify-between text-[9px] text-gray-500 font-medium px-2">
-                                <span>Jun 2024</span>
-                                <span>Jul 2024</span>
-                                <span>Aug 2024</span>
-                            </div>
+                        <div className="p-4 flex-1 flex flex-col justify-center">
+                            <ul className="space-y-3">
+                                <li className="flex items-start gap-2">
+                                    <div className="bg-[#10b981] text-white rounded-full p-0.5 mt-0.5 flex-shrink-0"><svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg></div>
+                                    <span className="text-xs text-gray-700">Forecast disusun berdasarkan historis 3 tahun terakhir</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <div className="bg-[#10b981] text-white rounded-full p-0.5 mt-0.5 flex-shrink-0"><svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg></div>
+                                    <span className="text-xs text-gray-700">Pertimbangkan kenaikan harga sparepart ±5-10%</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <div className="bg-[#10b981] text-white rounded-full p-0.5 mt-0.5 flex-shrink-0"><svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg></div>
+                                    <span className="text-xs text-gray-700">Monitor realisasi setiap bulan untuk penyesuaian</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <div className="bg-[#10b981] text-white rounded-full p-0.5 mt-0.5 flex-shrink-0"><svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg></div>
+                                    <span className="text-xs text-gray-700">Fokus pada peningkatan PM untuk menurunkan biaya corrective</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <div className="bg-[#10b981] text-white rounded-full p-0.5 mt-0.5 flex-shrink-0"><svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg></div>
+                                    <span className="text-xs text-gray-700">Review forecast setiap quarter</span>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </div>
 
             </div>
-
-            {/* Bottom Action Buttons */}
-            <div className="flex justify-end gap-3 mt-8 mb-10">
-                <button className="bg-white hover:bg-gray-50 border border-[#0a4d3c] text-[#0a4d3c] font-bold px-6 py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-sm">
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
-                    Export Excel
-                </button>
-                <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-6 py-2.5 rounded-lg text-xs transition border border-gray-300 flex items-center justify-center gap-2 shadow-sm">
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd"/></svg>
-                    Print
-                </button>
-                <button className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-6 py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-sm">
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                    Buat Forecast Baru
-                </button>
-            </div>
-
         </AuthenticatedLayout>
     );
 }

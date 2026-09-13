@@ -6,32 +6,24 @@ const ThemeContext = createContext({
 });
 
 export default function ThemeProvider({children}) {  
-  const persistedTheme = localStorage.getItem('theme');
-  const [theme, setTheme] = useState(persistedTheme || 'light');
+  // Always use light mode - remove dark from localStorage if set
+  const [theme, setTheme] = useState('light');
 
   const changeCurrentTheme = (newTheme) => {
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
+    // Only allow light mode
+    setTheme('light');
+    localStorage.setItem('theme', 'light');
   };
 
   useEffect(() => {
-    document.documentElement.classList.add('**:transition-none!');
-    if (theme === 'light') {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.style.colorScheme = 'light';
-    } else {
-      document.documentElement.classList.add('dark');
-      document.documentElement.style.colorScheme = 'dark';
-    }
-
-    const transitionTimeout = setTimeout(() => {
-      document.documentElement.classList.remove('**:transition-none!');
-    }, 1);
-    
-    return () => clearTimeout(transitionTimeout);
+    // Force remove dark class and set light mode always
+    localStorage.setItem('theme', 'light');
+    document.documentElement.classList.remove('dark');
+    document.documentElement.style.colorScheme = 'light';
   }, [theme]);
 
-  return <ThemeContext.Provider value={{ currentTheme: theme, changeCurrentTheme }}>{children}</ThemeContext.Provider>;
+  return <ThemeContext.Provider value={{ currentTheme: 'light', changeCurrentTheme }}>{children}</ThemeContext.Provider>;
 }
 
 export const useThemeProvider = () => useContext(ThemeContext);
+

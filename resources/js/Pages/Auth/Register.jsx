@@ -129,7 +129,7 @@ export default function Register() {
                                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:bg-white/10 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] focus:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
                                     placeholder="John Doe"
                                 />
-                                {errors.name && <p className="text-xs text-red-400 font-medium">{errors.name}</p>}
+                                {errors.name && <p className="text-sm text-red-400 font-medium">{errors.name}</p>}
                             </motion.div>
 
                             {/* Email Input */}
@@ -146,7 +146,7 @@ export default function Register() {
                                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:bg-white/10 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] focus:shadow-[0_0_15px_rgba(217,70,239,0.3)]"
                                     placeholder="you@example.com"
                                 />
-                                {errors.email && <p className="text-xs text-red-400 font-medium">{errors.email}</p>}
+                                {errors.email && <p className="text-sm text-red-400 font-medium">{errors.email}</p>}
                             </motion.div>
 
                             {/* Password Input */}
@@ -163,7 +163,7 @@ export default function Register() {
                                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:bg-white/10 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] focus:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
                                     placeholder="••••••••"
                                 />
-                                {errors.password && <p className="text-xs text-red-400 font-medium">{errors.password}</p>}
+                                {errors.password && <p className="text-sm text-red-400 font-medium">{errors.password}</p>}
                             </motion.div>
 
                             {/* Confirm Password Input */}
@@ -180,7 +180,7 @@ export default function Register() {
                                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none transition-all duration-300 focus:bg-white/10 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] focus:shadow-[0_0_15px_rgba(217,70,239,0.3)]"
                                     placeholder="••••••••"
                                 />
-                                {errors.password_confirmation && <p className="text-xs text-red-400 font-medium">{errors.password_confirmation}</p>}
+                                {errors.password_confirmation && <p className="text-sm text-red-400 font-medium">{errors.password_confirmation}</p>}
                             </motion.div>
 
                             {/* Submit Button */}

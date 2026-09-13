@@ -16,6 +16,7 @@ class PartCanibalPart extends Model
         'description',
         'qty',
         'component',
+        'life_time',
     ];
 
     public function partCanibal()

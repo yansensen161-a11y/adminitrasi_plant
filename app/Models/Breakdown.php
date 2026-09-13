@@ -19,6 +19,7 @@ class Breakdown extends Model
         'est_finish',
         'aging',
         'status',
+        'maintenance_order_id',
     ];
 
     public function unit()
@@ -29,5 +30,10 @@ class Breakdown extends Model
     public function tasks()
     {
         return $this->hasMany(BreakdownTask::class);
+    }
+
+    public function maintenanceOrder()
+    {
+        return $this->belongsTo(MaintenanceOrder::class, 'maintenance_order_id');
     }
 }

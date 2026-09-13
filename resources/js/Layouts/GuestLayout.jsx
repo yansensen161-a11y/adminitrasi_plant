@@ -54,7 +54,7 @@ export default function Guest({ children }) {
                     </div>
                     <div className="text-center">
                         <span className="font-extrabold text-3xl tracking-tight text-white block">System Plant</span>
-                        <span className="text-xs uppercase font-bold tracking-[0.3em] text-emerald-400/80 mt-1 block">Operations Platform</span>
+                        <span className="text-sm uppercase font-bold tracking-[0.3em] text-emerald-400/80 mt-1 block">Operations Platform</span>
                     </div>
                 </Link>
             </motion.div>
@@ -77,7 +77,7 @@ export default function Guest({ children }) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5, duration: 0.5 }}
-                className="z-10 mt-8 text-xs text-gray-600"
+                className="z-10 mt-8 text-sm text-gray-600"
             >
                 &copy; {new Date().getFullYear()} System Plant &mdash; All rights reserved.
             </motion.p>

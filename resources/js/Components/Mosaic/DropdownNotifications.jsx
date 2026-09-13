@@ -70,7 +70,7 @@ function DropdownNotifications({
           onFocus={() => setDropdownOpen(true)}
           onBlur={() => setDropdownOpen(false)}
         >
-          <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-4">Notifications</div>
+          <div className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-4">Notifications</div>
           <ul>
             <li className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
               <Link
@@ -79,7 +79,7 @@ function DropdownNotifications({
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <span className="block text-sm mb-2">📣 <span className="font-medium text-gray-800 dark:text-gray-100">Edit your information in a swipe</span> Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim.</span>
-                <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">Feb 12, 2024</span>
+                <span className="block text-sm font-medium text-gray-400 dark:text-gray-500">Feb 12, 2024</span>
               </Link>
             </li>
             <li className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
@@ -89,7 +89,7 @@ function DropdownNotifications({
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <span className="block text-sm mb-2">📣 <span className="font-medium text-gray-800 dark:text-gray-100">Edit your information in a swipe</span> Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim.</span>
-                <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">Feb 9, 2024</span>
+                <span className="block text-sm font-medium text-gray-400 dark:text-gray-500">Feb 9, 2024</span>
               </Link>
             </li>
             <li className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
@@ -99,7 +99,7 @@ function DropdownNotifications({
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <span className="block text-sm mb-2">🚀<span className="font-medium text-gray-800 dark:text-gray-100">Say goodbye to paper receipts!</span> Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim.</span>
-                <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">Jan 24, 2024</span>
+                <span className="block text-sm font-medium text-gray-400 dark:text-gray-500">Jan 24, 2024</span>
               </Link>
             </li>
           </ul>

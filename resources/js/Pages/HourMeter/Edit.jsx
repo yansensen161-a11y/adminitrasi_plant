@@ -69,11 +69,11 @@ export default function Edit({ log = {}, units = [] }) {
                             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                                 Edit Catatan Hour Meter Harian
                             </h2>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 Perbarui data jam pembacaan awal, akhir, operator, atau lokasi kerja.
                             </p>
                         </div>
-                        <span className="text-xs font-mono bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                        <span className="text-sm font-mono bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
                             {log.code_unit}
                         </span>
                     </div>
@@ -82,7 +82,7 @@ export default function Edit({ log = {}, units = [] }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             {/* Code Unit */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                     CODE UNIT <span className="text-red-500">*</span>
                                 </label>
                                 <select
@@ -97,12 +97,12 @@ export default function Edit({ log = {}, units = [] }) {
                                         </option>
                                     ))}
                                 </select>
-                                {errors.code_unit && <p className="text-xs text-red-500 mt-1">{errors.code_unit}</p>}
+                                {errors.code_unit && <p className="text-sm text-red-500 mt-1">{errors.code_unit}</p>}
                             </div>
 
                             {/* Date */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                     Tanggal Operasional (Date) <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -112,12 +112,12 @@ export default function Edit({ log = {}, units = [] }) {
                                     className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                     required
                                 />
-                                {errors.log_date && <p className="text-xs text-red-500 mt-1">{errors.log_date}</p>}
+                                {errors.log_date && <p className="text-sm text-red-500 mt-1">{errors.log_date}</p>}
                             </div>
 
                             {/* HM Start */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                     HM Awal (Start) <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -128,12 +128,12 @@ export default function Edit({ log = {}, units = [] }) {
                                     className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
                                     required
                                 />
-                                {errors.hm_start && <p className="text-xs text-red-500 mt-1">{errors.hm_start}</p>}
+                                {errors.hm_start && <p className="text-sm text-red-500 mt-1">{errors.hm_start}</p>}
                             </div>
 
                             {/* HM End */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                     HM Akhir (End) <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -144,27 +144,27 @@ export default function Edit({ log = {}, units = [] }) {
                                     className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
                                     required
                                 />
-                                {errors.hm_end && <p className="text-xs text-red-500 mt-1">{errors.hm_end}</p>}
+                                {errors.hm_end && <p className="text-sm text-red-500 mt-1">{errors.hm_end}</p>}
                             </div>
 
                             {/* Total Calculation */}
                             <div className="md:col-span-2 p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-between">
                                 <div>
-                                    <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase">
+                                    <div className="text-sm font-bold text-emerald-800 dark:text-emerald-300 uppercase">
                                         Total Jam Kerja Operasional (+HM)
                                     </div>
-                                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                                    <div className="text-sm text-emerald-600 dark:text-emerald-400">
                                         Dihitung otomatis: HM Akhir - HM Awal
                                     </div>
                                 </div>
                                 <div className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
-                                    +{Number(data.hm_total).toFixed(1)} <span className="text-xs font-normal">Jam</span>
+                                    +{Number(data.hm_total).toFixed(1)} <span className="text-sm font-normal">Jam</span>
                                 </div>
                             </div>
 
                             {/* Shift */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                     Shift Kerja
                                 </label>
                                 <select
@@ -181,7 +181,7 @@ export default function Edit({ log = {}, units = [] }) {
 
                             {/* Operator Name */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                     Nama Operator / Driver
                                 </label>
                                 <input
@@ -194,7 +194,7 @@ export default function Edit({ log = {}, units = [] }) {
 
                             {/* Location */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                     Lokasi / Site Kerja
                                 </label>
                                 <input
@@ -207,7 +207,7 @@ export default function Edit({ log = {}, units = [] }) {
 
                             {/* Remarks */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-1.5">
                                     Remarks / Catatan Kerja
                                 </label>
                                 <input
