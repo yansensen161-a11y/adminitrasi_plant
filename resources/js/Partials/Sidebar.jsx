@@ -17,6 +17,7 @@ const icons = {
   unit:        "M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z",
   hourMeter:   "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z",
   planInspect: "M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z",
+  inspectionCheck: "M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z",
   planComp:    "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z",
   analisa:     "M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z",
   mcc:         "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.21.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z",
@@ -25,6 +26,7 @@ const icons = {
   forecast:    "M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99l1.5 1.5z",
   canibal:     "M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.38v-6.71L5 9.19v6.72zm14 0v-6.72l-6 3.39v6.71l6-3.38z",
   magPlug:     "M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z",
+  battery:     "M17 5v2h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1V5h10zm-2 2H9v0h6zm3 4H6v6h12v-6zm-7 1v4h-2v-4h2zm4 0v4h-2v-4h2z",
   oil:         "M12 2c-.22 0-.42.1-.55.27l-7.79 9.68a7.84 7.84 0 1016.68 0L12.55 2.27A.7.7 0 0012 2zm0 2.92l5.77 7.18a6.34 6.34 0 11-11.54 0z",
   manpower:    "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z",
   org:         "M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z",
@@ -33,7 +35,9 @@ const icons = {
   cuti:        "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z",
   users:       "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-6 8v-1c0-2.21 1.79-4 4-4h4c2.21 0 4 1.79 4 4v1H6z",
   settings:    "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.21.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z",
+  gatepass:    "M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z M7.5 15c.83 0 1.5-.67 1.5-1.5S8.33 12 7.5 12 6 12.67 6 13.5 6.67 15 7.5 15zm9 0c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5z",
   logs:        "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 9h-2V9h2v2zm0 4h-2v-2h2v2z",
+  jsa:         "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z",
 };
 
 // ─── Sidebar Component ────────────────────────────────────────────────────────
@@ -46,10 +50,11 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
   const [openGroups, setOpenGroups] = useState(() => {
     const initial = {};
-    if (pathname.includes("master-data") || pathname.includes("units") || pathname.includes("master-pm")) initial["master-data"] = true;
-    if (pathname.includes("plan-service") || pathname.includes("pcr") || pathname.includes("forecast") || pathname.includes("abr")) initial["preventive"] = true;
-    if (pathname.includes("monitoring-orders") || pathname.includes("breakdown") || pathname.includes("backlog")) initial["maint-control"] = true;
-    if (pathname.includes("repair") || pathname.includes("part-canibal")) initial["component"] = true;
+    if (pathname.includes("units") || pathname.includes("gatepass-unit") || pathname.includes("toolroom")) initial["asset-management"] = true;
+    if (pathname.includes("master-data") || pathname.includes("form-penundaan-service") || pathname.includes("form-washing-unit") || pathname.includes("form-service-genset") || pathname.includes("form-service-dump-truck") || pathname.includes("form-oht773") || pathname.includes("form-inspection-bucket") || pathname.includes("form-check-sheet-service") || pathname.includes("form-check-sheet-dozer") || pathname.includes("form-check-sheet-motorgrader") || pathname.includes("form-pre-release-track-unit") || pathname.includes("form-request-asset-disposed") || pathname.includes("form-surat-permintaan-komponen") || pathname.includes("form-jsa") || pathname.includes("form-plant")) initial["master-data"] = true;
+    if (pathname.includes("pm-monitoring") || pathname.includes("inspection-unit") || pathname.includes("inspection-p2h") || pathname.includes("p2h") || pathname.includes("plan-inspections") || pathname.includes("plan-service") || pathname.includes("pcr") || pathname.includes("forecast") || pathname.includes("abr")) initial["preventive"] = true;
+    if (pathname.includes("monitoring-orders") || pathname.includes("breakdown") || pathname.includes("backlog") || pathname.includes("budget-monthly") || pathname.includes("forecast")) initial["maint-control"] = true;
+    if (pathname.includes("repair") || pathname.includes("part-canibal") || pathname.includes("ccr")) initial["component"] = true;
     if (pathname.includes("manpower") || pathname.includes("organization") || pathname.includes("cuti") || pathname.includes("roster")) initial["manpower"] = true;
     if (pathname.includes("users") || pathname.includes("roles") || pathname.includes("permissions") || pathname.includes("settings") || pathname.includes("profile") || pathname.includes("activity-logs") || pathname.includes("database-schema")) initial["system"] = true;
     return initial;
@@ -119,9 +124,9 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
     },
     amber: {
       text: baseText, hover: hoverText, activeText: activeText, shadowActive: "", shadowHover: "", collapsibleActive: collapsibleActiveBase,
-      activeBg: "bg-gradient-to-r from-amber-50/50 to-transparent border-l-amber-600 dark:from-amber-500/10 dark:border-l-amber-400 shadow-[inset_0_0_20px_rgba(245,158,11,0.1)]",
+      activeBg: "bg-gradient-to-r from-amber-50/50 to-transparent border-l-amber-500 dark:from-amber-500/10 dark:border-l-amber-400 shadow-[inset_0_0_20px_rgba(245,158,11,0.1)]",
       icon: "text-amber-500 dark:text-amber-400 dark:drop-shadow-[0_0_4px_rgba(245,158,11,0.5)] transition-transform group-hover:scale-110",
-      activeIcon: "text-amber-600 dark:text-amber-300 dark:drop-shadow-[0_0_12px_rgba(245,158,11,1)] scale-110",
+      activeIcon: "text-amber-500 dark:text-amber-300 dark:drop-shadow-[0_0_12px_rgba(245,158,11,1)] scale-110",
       glow: "bg-amber-400/20",
     },
     rose: {
@@ -158,13 +163,20 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
       icon: "text-orange-500 dark:text-orange-400 dark:drop-shadow-[0_0_4px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-110",
       activeIcon: "text-orange-600 dark:text-orange-300 dark:drop-shadow-[0_0_12px_rgba(249,115,22,1)] scale-110",
       glow: "bg-orange-400/20",
+    },
+    teal: {
+      text: baseText, hover: hoverText, activeText: activeText, shadowActive: "", shadowHover: "", collapsibleActive: collapsibleActiveBase,
+      activeBg: "bg-gradient-to-r from-teal-50/50 to-transparent border-l-teal-600 dark:from-teal-500/10 dark:border-l-teal-400 shadow-[inset_0_0_20px_rgba(20,184,166,0.1)]",
+      icon: "text-teal-500 dark:text-teal-400 dark:drop-shadow-[0_0_4px_rgba(20,184,166,0.5)] transition-transform group-hover:scale-110",
+      activeIcon: "text-teal-600 dark:text-teal-300 dark:drop-shadow-[0_0_12px_rgba(20,184,166,1)] scale-110",
+      glow: "bg-teal-400/20",
     }
   };
 
   // ─── MENU STRUCTURE ────────────────────────────────────────────────────────
   const menuSections = [
     {
-      label: "🏠 MAIN",
+      label: null,
       theme: themes.blue,
       items: [
         { name: "Dashboard", href: "/dashboard", iconKey: "dashboard" },
@@ -173,63 +185,13 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
       ],
     },
     {
-      label: "📁 MASTER DATA",
-      key: "master-data",
-      theme: themes.emerald,
-      activePaths: ["/master-data", "/units", "/master-pm"],
+      label: "🚜 ASSET MANAGEMENT",
+      key: "asset-management",
+      theme: themes.teal,
+      activePaths: ["/units", "/gatepass-unit", "/toolroom"],
       items: [
         { name: "Populasi Unit", href: "/units", iconKey: "unit" },
-      ],
-    },
-    {
-      label: "🔧 PREVENTIVE MAINTENANCE",
-      key: "preventive",
-      theme: themes.amber,
-      activePaths: ["/plan-inspections", "/plan-service", "/pcr", "/abr", "/forecast"],
-      items: [
-        { name: "Daily Maintenance Achievement", href: "/plan-inspections", iconKey: "planInspect" },
-        { name: "Plan PCR Undercarriage", href: "/pcr-uc", iconKey: "planComp" },
-        { name: "Plan PCR Component", href: "/pcr-component", iconKey: "planComp" },
-        { name: "Analisa Biaya Repair", href: "/abr", iconKey: "analisa" },
-      ],
-    },
-    {
-      label: "🚨 MAINTENANCE CONTROL",
-      key: "maint-control",
-      theme: themes.rose,
-      activePaths: ["/work-orders", "/monitoring-orderan", "/breakdown", "/backlog"],
-      items: [
-        { 
-          name: "Work Order", 
-          iconKey: "mcc", 
-          subItems: [
-            { name: "Monitoring Breakdown", href: "/work-orders?tab=breakdown", iconKey: "mcc" },
-            { name: "Plan Schedule Unit", href: "/work-orders?tab=plan", iconKey: "planInspect" },
-          ]
-        },
-        { name: "Monitoring Order List", href: "/monitoring-orderan", iconKey: "planComp" },
-        { name: "Failure Analysis (FAR)", href: "/failure-analysis", iconKey: "far" },
-        { name: "Forecast Budget Monthly", href: "/forecast-pa", iconKey: "forecast" },
-      ],
-    },
-    {
-      label: "⚙️ COMPONENT & CONDITION MONITORING",
-      key: "component",
-      theme: themes.purple,
-      activePaths: ["/part-canibals", "/repair", "/tyres"],
-      items: [
-        { name: "Monitoring Part Canibal", href: "/part-canibals", iconKey: "canibal" },
-        { name: "Tyre Management", href: "/tyres", iconKey: "forecast" },
-        { name: "Magnetic Plug", href: "/repair/magnetic-plug", iconKey: "magPlug" },
-        { name: "Oil Consumption", href: "/repair/oil-consumption", iconKey: "oil" },
-      ],
-    },
-    {
-      label: "🛠️ MONITORING TOOL",
-      key: "toolroom",
-      theme: themes.orange,
-      activePaths: ["/toolroom"],
-      items: [
+        { name: "Gatepass Unit", href: "/gatepass-unit", iconKey: "gatepass" },
         {
           name: "Monitoring Tool",
           href: "/toolroom",
@@ -245,6 +207,109 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
         },
       ],
     },
+    {
+      label: "📋 MASTER DATA",
+      key: "master-data",
+      theme: themes.emerald,
+      activePaths: [
+        "/master-data",
+        "/form-penundaan-service",
+        "/form-washing-unit",
+        "/form-service-genset",
+        "/form-service-dump-truck",
+        "/form-oht773",
+        "/form-inspection-bucket",
+        "/form-check-sheet-service",
+        "/form-check-sheet-dozer",
+        "/form-check-sheet-motorgrader",
+        "/form-pre-release-track-unit",
+        "/form-request-asset-disposed",
+        "/form-surat-permintaan-komponen",
+        "/form-jsa",
+        "/form-plant"
+      ],
+      items: [
+        { name: "Master Data Hub", href: "/master-data", iconKey: "masterData" },
+        {
+          name: "Master Form",
+          iconKey: "inspectionCheck",
+          subItems: [
+            { name: "Form Penundaan Service", href: "/form-penundaan-service", iconKey: "inspectionCheck" },
+            { name: "Form Washing Unit", href: "/form-washing-unit", iconKey: "inspectionCheck" },
+            { name: "Form Service Genset", href: "/form-service-genset", iconKey: "inspectionCheck" },
+            { name: "Form Service Dump Truck", href: "/form-service-dump-truck", iconKey: "inspectionCheck" },
+            { name: "Form OHT 773", href: "/form-oht773", iconKey: "inspectionCheck" },
+            { name: "Form Inspection Bucket", href: "/form-inspection-bucket", iconKey: "inspectionCheck" },
+            { name: "Check Sheet Service", href: "/form-check-sheet-service", iconKey: "inspectionCheck" },
+            { name: "Check Sheet Service Dozer", href: "/form-check-sheet-dozer", iconKey: "inspectionCheck" },
+            { name: "Check Sheet Service Motorgrader", href: "/form-check-sheet-motorgrader", iconKey: "inspectionCheck" },
+            { name: "Pre Release Check List Track Unit", href: "/form-pre-release-track-unit", iconKey: "inspectionCheck" },
+            { name: "Request Asset Disposed Form", href: "/form-request-asset-disposed", iconKey: "inspectionCheck" },
+            { name: "Surat Permintaan Komponen", href: "/form-surat-permintaan-komponen", iconKey: "inspectionCheck" },
+          ],
+        },
+        {
+          name: "Form JSA",
+          iconKey: "jsa",
+          subItems: [
+            { name: "Overhaul Starting Motor", href: "/form-jsa/overhaul-starting-motor", iconKey: "jsa" },
+            { name: "Maintenance AC System DT", href: "/form-jsa/maintenance-ac-dump-truck", iconKey: "jsa" },
+            { name: "Radiator Medium Truck", href: "/form-jsa/radiator-medium-truck", iconKey: "jsa" },
+            { name: "Welding Chasis Medium Truck", href: "/form-jsa/welding-chasis-medium-truck", iconKey: "jsa" },
+          ],
+        },
+      ],
+    },
+    {
+      label: "🔧 PREVENTIVE MAINTENANCE",
+      key: "preventive",
+      theme: themes.amber,
+      activePaths: ["/pm-monitoring", "/inspection-unit", "/inspection-p2h", "/monitoring/p2h", "/plan-inspections", "/plan-service", "/pcr", "/abr", "/forecast"],
+      items: [
+        { name: "PM Monitoring", href: "/pm-monitoring", iconKey: "planInspect" },
+        { name: "Inspection Unit", href: "/inspection-unit", iconKey: "inspectionCheck" },
+        { name: "Daily Maintenance Achievement", href: "/plan-inspections", iconKey: "planInspect" },
+        { name: "Plan PCR Undercarriage", href: "/pcr-uc", iconKey: "planComp" },
+        { name: "Plan PCR Component", href: "/pcr-component", iconKey: "planComp" },
+        { name: "Analisa Biaya Repair", href: "/abr", iconKey: "analisa" },
+      ],
+    },
+    {
+      label: "🚨 MAINTENANCE CONTROL",
+      key: "maint-control",
+      theme: themes.rose,
+      activePaths: ["/work-orders", "/monitoring-orderan", "/breakdown", "/backlog", "/backlogs", "/forecast-budget-monthly"],
+      items: [
+        { 
+          name: "Work Order", 
+          iconKey: "mcc", 
+          subItems: [
+            { name: "Monitoring Breakdown", href: "/work-orders?tab=breakdown", iconKey: "mcc" },
+            { name: "Historical WO Closed", href: "/work-orders?tab=historical", iconKey: "perhitungan" },
+          ]
+        },
+        { name: "Monitoring Order List", href: "/monitoring-orderan", iconKey: "planComp" },
+        { name: "Monitoring Backlog", href: "/backlogs", iconKey: "planInspect" },
+        { name: "Failure Analysis (FAR)", href: "/failure-analysis", iconKey: "far" },
+        { name: "Forecast Budget Monthly", href: "/forecast-budget-monthly", iconKey: "forecast" },
+      ],
+    },
+    {
+      label: "⚙️ COMPONENT & CONDITION MONITORING",
+      key: "component",
+      theme: themes.purple,
+      activePaths: ["/part-canibals", "/repair", "/tyres", "/oil-consumption", "/ccr"],
+      items: [
+        { name: "Conditions Component Report (CCR)", href: "/ccr", iconKey: "planComp" },
+        { name: "Monitoring Part Canibal", href: "/part-canibals", iconKey: "canibal" },
+        { name: "Monitoring Replace Battery", href: "/repair/battery", iconKey: "battery" },
+        { name: "Tyre Management", href: "/tyres", iconKey: "forecast" },
+        { name: "WO Outside Repair", href: "/repair/job-outside", iconKey: "mcc" },
+        { name: "Magnetic Plug", href: "/repair/magnetic-plug", iconKey: "magPlug" },
+        { name: "Oil Consumption", href: "/oil-consumption", iconKey: "oil" },
+      ],
+    },
+
     {
       label: "👷 MANPOWER & ORGANIZATION",
       key: "manpower",
@@ -264,8 +329,16 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
       theme: themes.indigo,
       activePaths: ["/users", "/roles", "/permissions", "/settings", "/profile", "/activity-logs", "/database-schema"],
       items: [
-        { name: "User Management", href: "/users", iconKey: "users" },
-        { name: "Pengaturan", href: "/settings/mail", iconKey: "settings" },
+        {
+          name: "User & Access Control",
+          iconKey: "users",
+          subItems: [
+            { name: "Data Pengguna", href: "/users", iconKey: "users" },
+            { name: "Roles / Peran", href: "/roles", iconKey: "users" },
+            { name: "Hak Akses (Permissions)", href: "/permissions", iconKey: "users" },
+          ],
+        },
+        { name: "Pengaturan Sistem", href: "/settings/mail", iconKey: "settings" },
         { name: "Activity Logs", href: "/activity-logs", iconKey: "logs" },
         { name: "Database Relasi 3D", href: "/database-schema", iconKey: "dashboard" },
       ],
@@ -335,7 +408,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
               <div key={sIdx} className={sIdx > 0 ? "mt-4" : ""}>
                 {/* Static Section header */}
                 {hasKey && (
-                  <div className="px-4 mt-2 mb-2 text-[10.5px] font-semibold tracking-wider text-gray-500 dark:text-slate-500 uppercase">
+                  <div className="px-4 mt-2 mb-2 text-[12px] font-semibold tracking-wider text-gray-500 dark:text-slate-500 uppercase">
                     {section.label.replace(/[^a-zA-Z &]/g, '').trim()}
                   </div>
                 )}
@@ -380,32 +453,46 @@ function NavCollapsible({ item, isActive, icons, pathname, theme }) {
     if (isAnyChildActive) setIsOpen(true);
   }, [pathname, isAnyChildActive]);
 
+  const safeTheme = {
+    collapsibleActive: "bg-blue-50/80 text-blue-800 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30",
+    text: "text-gray-700 dark:text-slate-300",
+    hover: "hover:bg-gray-100/80 dark:hover:bg-white/5",
+    activeText: "text-blue-700 dark:text-blue-400 font-black",
+    activeBg: "bg-gradient-to-r from-blue-50/50 to-transparent border-l-blue-600 dark:from-blue-500/10 dark:border-l-blue-400",
+    icon: "text-gray-400 dark:text-slate-400",
+    activeIcon: "text-blue-600 dark:text-blue-300",
+    glow: "bg-blue-400/20",
+    shadowActive: "",
+    shadowHover: "",
+    ...(theme || {}),
+  };
+
   return (
     <div className="flex flex-col">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-3 px-4 py-[11px] mx-2 rounded-lg text-[13px] font-bold transition-all duration-300 group relative overflow-hidden ${
+        className={`flex items-center justify-between gap-3 px-4 py-[11px] mx-2 rounded-lg text-[15px] font-bold transition-all duration-300 group relative overflow-hidden ${
           isAnyChildActive
-            ? `${theme.collapsibleActive} shadow-sm dark:shadow-none border`
-            : `${theme.text} ${theme.hover} border border-transparent`
+            ? `${safeTheme.collapsibleActive} shadow-sm dark:shadow-none border`
+            : `${safeTheme.text} ${safeTheme.hover} border border-transparent`
         }`}
       >
         <div className="flex items-center gap-3">
           <span className={`w-5 h-5 flex items-center justify-center shrink-0 relative z-10 transition-all duration-300 ${
-            isAnyChildActive ? `${theme.activeIcon} ${theme.shadowActive}` : `${theme.icon} ${theme.shadowHover}`
+            isAnyChildActive ? `${safeTheme.activeIcon} ${safeTheme.shadowActive}` : `${safeTheme.icon} ${safeTheme.shadowHover}`
           }`}>
-            <svg className="w-[18px] h-[18px] fill-current" viewBox="0 0 24 24">
+            <svg className="w-[20px] h-[20px] fill-current" viewBox="0 0 24 24">
               <path d={icons[item.iconKey] || icons.logs} />
             </svg>
           </span>
-          <span className={`leading-tight tracking-wide truncate relative z-10 ${
-            isAnyChildActive ? theme.shadowActive : theme.shadowHover
+          <span className={`leading-tight tracking-wide whitespace-normal relative z-10 ${
+            isAnyChildActive ? safeTheme.shadowActive : safeTheme.shadowHover
           }`}>
             {item.name}
           </span>
         </div>
         <svg 
-          className={`w-4 h-4 transition-transform duration-300 ${isOpen ? "rotate-90 " + theme.activeIcon : ""}`} 
+          className={`w-4 h-4 transition-transform duration-300 ${isOpen ? "rotate-90 " + safeTheme.activeIcon : ""}`} 
           viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
         >
           <polyline points="9 18 15 12 9 6"></polyline>
@@ -421,7 +508,7 @@ function NavCollapsible({ item, isActive, icons, pathname, theme }) {
             className="overflow-hidden flex flex-col space-y-1 mt-1"
           >
             {item.subItems.map((subItem, idx) => (
-              <NavItem key={idx} item={{...subItem, isSubItem: true}} isActive={isActive(subItem.href)} icons={icons} theme={theme} />
+              <NavItem key={idx} item={{...subItem, isSubItem: true}} isActive={isActive(subItem.href)} icons={icons} theme={safeTheme} />
             ))}
           </motion.div>
         )}
@@ -436,35 +523,49 @@ function NavItem({ item, isActive, icons, theme }) {
   const hrefValue = item.href || "#";
   const isSub = item.isSubItem;
 
+  const safeTheme = {
+    collapsibleActive: "bg-blue-50/80 text-blue-800 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30",
+    text: "text-gray-700 dark:text-slate-300",
+    hover: "hover:bg-gray-100/80 dark:hover:bg-white/5",
+    activeText: "text-blue-700 dark:text-blue-400 font-black",
+    activeBg: "bg-gradient-to-r from-blue-50/50 to-transparent border-l-blue-600 dark:from-blue-500/10 dark:border-l-blue-400",
+    icon: "text-gray-400 dark:text-slate-400",
+    activeIcon: "text-blue-600 dark:text-blue-300",
+    glow: "bg-blue-400/20",
+    shadowActive: "",
+    shadowHover: "",
+    ...(theme || {}),
+  };
+
   return (
     <Link
       href={hrefValue}
-      className={`flex items-center gap-3 py-[11px] mx-2 rounded-lg text-[13px] font-bold transition-all duration-300 group relative overflow-hidden ${
-        isSub ? "px-6 text-[12px] opacity-90" : "px-4"
+      className={`flex items-center gap-3 py-[11px] mx-2 rounded-lg text-[15px] font-bold transition-all duration-300 group relative overflow-hidden ${
+        isSub ? "px-6 text-[14px] opacity-90" : "px-4"
       } ${
         isActive
-          ? `${theme.activeText} ${theme.activeBg} border-transparent border-l-[3px]`
-          : `${theme.text} ${theme.hover} border border-transparent border-l-[3px]`
+          ? `${safeTheme.activeText} ${safeTheme.activeBg} border-transparent border-l-[3px]`
+          : `${safeTheme.text} ${safeTheme.hover} border border-transparent border-l-[3px]`
       }`}
     >
       {/* Glow effect backplate for dark mode active */}
       {isActive && (
-          <div className={`absolute inset-0 ${theme.glow} blur-xl opacity-0 dark:opacity-100 pointer-events-none transition-opacity duration-500`}></div>
+          <div className={`absolute inset-0 ${safeTheme.glow} blur-xl opacity-0 dark:opacity-100 pointer-events-none transition-opacity duration-500`}></div>
       )}
 
       {/* Icon container */}
       <span className={`w-5 h-5 flex items-center justify-center shrink-0 relative z-10 transition-all duration-300 ${
         isActive
-          ? `${theme.activeIcon} ${theme.shadowActive}`
-          : `${theme.icon} ${theme.shadowHover}`
+          ? `${safeTheme.activeIcon} ${safeTheme.shadowActive}`
+          : `${safeTheme.icon} ${safeTheme.shadowHover}`
       }`}>
-        <svg className="w-[18px] h-[18px] fill-current" viewBox="0 0 24 24">
+        <svg className="w-[20px] h-[20px] fill-current" viewBox="0 0 24 24">
           <path d={icons[item.iconKey] || icons.logs} />
         </svg>
       </span>
 
-      <span className={`leading-tight tracking-wide truncate relative z-10 transition-all duration-300 ${
-        isActive ? theme.shadowActive : theme.shadowHover
+      <span className={`leading-tight tracking-wide whitespace-normal relative z-10 transition-all duration-300 ${
+        isActive ? safeTheme.shadowActive : safeTheme.shadowHover
       }`}>
         {item.name}
       </span>
@@ -473,3 +574,4 @@ function NavItem({ item, isActive, icons, theme }) {
 }
 
 export default Sidebar;
+

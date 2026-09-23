@@ -3,12 +3,20 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import Chart from 'chart.js/auto';
 
-export default function Index({ units, stats, unitsByType, locations, engineMakes, filters }) {
-    const { flash } = usePage().props;
+export default function Index({ units, stats, unitsByType, locations, engineMakes, filters, allUnitsList = [] }) {
+    const { flash, errors } = usePage().props;
     const [search, setSearch] = useState(filters.search || '');
     const [statusFilter, setStatusFilter] = useState(filters.status || '');
     const [locationFilter, setLocationFilter] = useState(filters.location || '');
     const [typeFilter, setTypeFilter] = useState(filters.type_unit || '');
+
+    // Multi-sheet Excel export modal states
+    const [showMultiSheetModal, setShowMultiSheetModal] = useState(false);
+    const [selectedExportUnitId, setSelectedExportUnitId] = useState('');
+    const [unitModalSearch, setUnitModalSearch] = useState('');
+
+    const fileInputRef = useRef(null);
+    const [isImporting, setIsImporting] = useState(false);
 
     const typeChartRef = useRef(null);
     const statusChartRef = useRef(null);
@@ -19,6 +27,49 @@ export default function Index({ units, stats, unitsByType, locations, engineMake
     const [isStatusExpanded, setIsStatusExpanded] = useState(false);
 
     const { delete: destroy } = useForm();
+
+    const getExportExcelUrl = () => {
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (statusFilter) params.append('status', statusFilter);
+        if (locationFilter) params.append('location', locationFilter);
+        if (typeFilter) params.append('type_unit', typeFilter);
+        const qs = params.toString();
+        return route('units.export.excel') + (qs ? `?${qs}` : '');
+    };
+
+    const getExportPdfUrl = () => {
+        const params = new URLSearchParams();
+        if (statusFilter) params.append('status', statusFilter);
+        if (locationFilter) params.append('location', locationFilter);
+        const qs = params.toString();
+        return route('units.export.pdf') + (qs ? `?${qs}` : '');
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsImporting(true);
+        router.post(route('units.import'), {
+            file: file,
+        }, {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            },
+            onError: () => {
+                setIsImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            },
+        });
+    };
 
     const handleSearch = (e) => {
         if(e) e.preventDefault();
@@ -117,6 +168,22 @@ export default function Index({ units, stats, unitsByType, locations, engineMake
         };
     }, [unitsByType, stats]);
 
+    // Units available for multi-sheet export (all units in fleet or current page fallback)
+    const availableUnitsForExport = (allUnitsList && allUnitsList.length > 0)
+        ? allUnitsList
+        : (units.data || []);
+
+    const filteredModalUnits = availableUnitsForExport.filter(u => {
+        if (!unitModalSearch) return true;
+        const q = unitModalSearch.toLowerCase();
+        return (u.code_unit && u.code_unit.toLowerCase().includes(q)) ||
+               (u.model && u.model.toLowerCase().includes(q)) ||
+               (u.type_unit && u.type_unit.toLowerCase().includes(q)) ||
+               (u.location && u.location.toLowerCase().includes(q));
+    });
+
+    const selectedUnitObj = availableUnitsForExport.find(u => String(u.id) === String(selectedExportUnitId));
+
     return (
         <AuthenticatedLayout>
             <Head title="Populasi Unit" />
@@ -126,6 +193,12 @@ export default function Index({ units, stats, unitsByType, locations, engineMake
                 <div className="mb-4 p-4 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 text-sm font-bold flex items-center gap-3">
                     <svg className="w-5 h-5 fill-current shrink-0" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" /></svg>
                     <span>{flash.message}</span>
+                </div>
+            )}
+            {errors && Object.keys(errors).length > 0 && (
+                <div className="mb-4 p-4 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-bold flex items-center gap-3">
+                    <svg className="w-5 h-5 fill-current shrink-0" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    <span>{Object.values(errors).join(', ')}</span>
                 </div>
             )}
 
@@ -139,22 +212,76 @@ export default function Index({ units, stats, unitsByType, locations, engineMake
                     <p className="text-gray-500 text-sm mt-1">Data seluruh unit alat berat, kendaraan dan equipment di area kerja</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Link href={route('units.create')} className="bg-[#10b981] hover:bg-[#059669] text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition">
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        accept=".xlsx,.xls,.csv" 
+                        className="hidden" 
+                    />
+
+                    <Link href={route('units.create')} className="bg-[#10b981] hover:bg-[#059669] text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
                         Tambah Unit
                     </Link>
-                    <button className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        Import Excel
+                    <button 
+                        onClick={handleImportClick}
+                        disabled={isImporting}
+                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm disabled:opacity-50"
+                        title="Unggah file Excel untuk menambah / memperbarui populasi unit"
+                    >
+                        {isImporting ? (
+                            <svg className="animate-spin w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : (
+                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        )}
+                        {isImporting ? 'Mengimpor...' : 'Import Excel'}
                     </button>
-                    <button className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <a 
+                        href={route('units.download.template')} 
+                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm"
+                        title="Download Template Format Excel untuk Import"
+                    >
+                        <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                        Template Excel
+                    </a>
+                    <a 
+                        href={getExportExcelUrl()} 
+                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm"
+                        title="Download Excel Populasi Unit (Data Terfilter / Seluruh Data)"
+                    >
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Export Excel
+                    </a>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (!selectedExportUnitId && availableUnitsForExport.length > 0) {
+                                setSelectedExportUnitId(String(availableUnitsForExport[0].id));
+                            }
+                            setShowMultiSheetModal(true);
+                        }}
+                        className="bg-[#059669] hover:bg-[#047857] text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm"
+                        title="Download Excel Lengkap Multi-Sheet (Riwayat HM, Component, Breakdown, Servis, Backlog, Budget PA, Magnetic Plug)"
+                    >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                        </svg>
+                        Export Riwayat Unit (Multi-Sheet)
                     </button>
-                    <button className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    <a 
+                        href={getExportPdfUrl()} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm"
+                        title="Cetak Laporan PDF Populasi Unit"
+                    >
+                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         Print
-                    </button>
+                    </a>
                 </div>
             </div>
 
@@ -453,6 +580,15 @@ export default function Index({ units, stats, unitsByType, locations, engineMake
                                             </td>
                                             <td className="px-4 py-3 text-center whitespace-nowrap">
                                                 <div className="flex items-center justify-center gap-1.5">
+                                                    <a
+                                                        href={route('units.export.multi-sheet', { unit_id: unit.id })}
+                                                        className="w-8 h-8 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded transition shadow-sm"
+                                                        title={`Download Excel Multi-Sheet (${unit.code_unit})`}
+                                                    >
+                                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                                        </svg>
+                                                    </a>
                                                     <Link
                                                         href={route('units.edit', unit.id)}
                                                         className="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded transition"
@@ -481,7 +617,7 @@ export default function Index({ units, stats, unitsByType, locations, engineMake
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="11" className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan="12" className="px-6 py-8 text-center text-gray-500">
                                         Tidak ada data unit yang ditemukan.
                                     </td>
                                 </tr>
@@ -522,6 +658,165 @@ export default function Index({ units, stats, unitsByType, locations, engineMake
                     </div>
                 )}
             </div>
+
+            {/* Modal Pilih Unit untuk Export Excel Multi-Sheet */}
+            {showMultiSheetModal && (
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-2xl w-full p-6 relative animate-in fade-in zoom-in-95 duration-200">
+                        {/* Close button */}
+                        <button
+                            type="button"
+                            onClick={() => setShowMultiSheetModal(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+
+                        {/* Modal Header */}
+                        <div className="flex items-start gap-4 mb-5">
+                            <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-sm">
+                                <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-gray-900">Export Riwayat Lengkap Unit (Excel)</h3>
+                                <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                                    Pilih unit untuk mengekspor buku kerja Excel lengkap berisi sheet riwayat sesuai tab monitoring.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Sheet badges list */}
+                        <div className="mb-5 p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-100">
+                            <div className="text-xs font-bold text-emerald-900 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                                <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
+                                8 Sheet yang akan digenerate otomatis:
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                                    📄 Info Unit
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                                    📊 Riwayat HM
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                                    🧩 Component
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                                    ⚠️ Riwayat Breakdown
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                                    ⚙️ Riwayat Servis
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                                    📋 Riwayat Backlog
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                                    🎯 Budget PA
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                                    🧲 Magnetic Plug
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Unit Selector Form */}
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                                    Cari & Pilih Unit:
+                                </label>
+                                <div className="space-y-2">
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={unitModalSearch}
+                                            onChange={e => setUnitModalSearch(e.target.value)}
+                                            placeholder="Ketik kode unit, model, atau tipe..."
+                                            className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition"
+                                        />
+                                    </div>
+
+                                    <select
+                                        value={selectedExportUnitId}
+                                        onChange={e => setSelectedExportUnitId(e.target.value)}
+                                        className="w-full py-2.5 px-3 text-sm bg-white border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                        size={Math.min(6, Math.max(3, filteredModalUnits.length + 1))}
+                                    >
+                                        <option value="" disabled>-- Klik untuk memilih salah satu unit --</option>
+                                        {filteredModalUnits.map(u => (
+                                            <option key={u.id} value={u.id} className="py-1.5 px-2">
+                                                {u.code_unit} — {u.model || u.type_unit || 'Unit'} ({u.location || 'Lokasi -'}) [HM: {Number(u.hm || 0).toLocaleString('id-ID')}]
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Selected unit preview card */}
+                            {selectedUnitObj && (
+                                <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2.5 py-0.5 bg-gray-900 text-white font-mono font-bold rounded text-sm">
+                                                {selectedUnitObj.code_unit}
+                                            </span>
+                                            <span className="text-xs text-gray-500 font-semibold uppercase">
+                                                {selectedUnitObj.type_unit || '-'}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-gray-600 mt-1">
+                                            Model: <strong className="text-gray-800">{selectedUnitObj.model || '-'}</strong> | SN: {selectedUnitObj.sn_chassis || '-'}
+                                        </div>
+                                    </div>
+                                    <div className="flex sm:flex-col items-center sm:items-end gap-2 text-right">
+                                        <span className="text-xs text-gray-500">
+                                            HM: <strong className="text-gray-900 font-mono">{Number(selectedUnitObj.hm || 0).toLocaleString('id-ID')}</strong>
+                                        </span>
+                                        <span className="px-2 py-0.5 text-xs font-bold rounded bg-emerald-100 text-emerald-800">
+                                            {selectedUnitObj.status || 'Active'}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                            <button
+                                type="button"
+                                onClick={() => setShowMultiSheetModal(false)}
+                                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                            >
+                                Batal
+                            </button>
+
+                            <a
+                                href={selectedExportUnitId ? route('units.export.multi-sheet', { unit_id: selectedExportUnitId }) : '#'}
+                                onClick={() => {
+                                    if (selectedExportUnitId) {
+                                        setTimeout(() => setShowMultiSheetModal(false), 500);
+                                    }
+                                }}
+                                className={`px-5 py-2 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow-sm transition ${
+                                    selectedExportUnitId
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                                        : 'bg-gray-300 cursor-not-allowed pointer-events-none'
+                                }`}
+                            >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                </svg>
+                                <span>Download Excel ({selectedUnitObj ? selectedUnitObj.code_unit : 'Pilih Unit'})</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AuthenticatedLayout>
     );
 }

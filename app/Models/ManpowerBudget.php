@@ -17,6 +17,10 @@ class ManpowerBudget extends Model
         'remarks',
     ];
 
+    protected $appends = [
+        'deviasi',
+    ];
+
     public function getDeviasiAttribute()
     {
         return $this->tersedia - $this->plan_mp;

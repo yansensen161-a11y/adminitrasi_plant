@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 const TABS = [
@@ -325,6 +325,7 @@ function InventoryTab({ tools, categories, stats, nextAssetNo }) {
 
 // ─── TAB: PEMINJAMAN ──────────────────────────────────────────────────────────
 function BorrowTab({ transactions, tools }) {
+    const { manpowerList = [] } = usePage().props;
     const [showAdd, setShowAdd] = useState(false);
     const [showReturn, setShowReturn] = useState(null);
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -404,11 +405,34 @@ function BorrowTab({ transactions, tools }) {
                                 </select>
                             </FormGroup>
                         </div>
-                        <FormGroup label="NRP" error={errors.mechanic_badge}>
-                            <input className={inputClass} value={data.mechanic_badge} onChange={e => setData('mechanic_badge', e.target.value)} />
-                        </FormGroup>
                         <FormGroup label="Nama Peminjam *" error={errors.mechanic_name}>
-                            <input className={inputClass} value={data.mechanic_name} onChange={e => setData('mechanic_name', e.target.value)} required />
+                            <select 
+                                className={selectClass} 
+                                value={data.mechanic_name} 
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    const found = (manpowerList || []).find(m => m.nama === val);
+                                    setData(prev => ({
+                                        ...prev,
+                                        mechanic_name: val,
+                                        mechanic_badge: found?.nrp || prev.mechanic_badge || ''
+                                    }));
+                                }} 
+                                required
+                            >
+                                <option value="">— Pilih Mekanik / Manpower —</option>
+                                {(manpowerList || []).map(mp => (
+                                    <option key={mp.id} value={mp.nama}>
+                                        {mp.nama} {mp.nrp ? `(${mp.nrp})` : ''} {mp.bagian ? `- ${mp.bagian}` : ''}
+                                    </option>
+                                ))}
+                                {data.mechanic_name && !manpowerList?.some(mp => mp.nama === data.mechanic_name) && (
+                                    <option value={data.mechanic_name}>{data.mechanic_name}</option>
+                                )}
+                            </select>
+                        </FormGroup>
+                        <FormGroup label="NRP" error={errors.mechanic_badge}>
+                            <input className={inputClass} value={data.mechanic_badge} onChange={e => setData('mechanic_badge', e.target.value)} placeholder="Terisi otomatis..." />
                         </FormGroup>
                         <FormGroup label="Tgl. Pinjam *">
                             <input className={inputClass} type="date" value={data.borrow_date} onChange={e => setData('borrow_date', e.target.value)} required />
@@ -685,6 +709,7 @@ function ScrapTab({ scrapped }) {
 
 // ─── TAB: GATE PASS ───────────────────────────────────────────────────────────
 function GatePassTab({ gatePasses, tools }) {
+    const { manpowerList = [] } = usePage().props;
     const [showAdd, setShowAdd] = useState(false);
     const { data, setData, post, processing, errors, reset } = useForm({
         tool_id: '', type: 'OUT', date: new Date().toISOString().split('T')[0],
@@ -755,7 +780,22 @@ function GatePassTab({ gatePasses, tools }) {
                             <input className={inputClass} type="date" value={data.date} onChange={e => setData('date', e.target.value)} required />
                         </FormGroup>
                         <FormGroup label="PIC (Penanggung Jawab) *" error={errors.pic}>
-                            <input className={inputClass} value={data.pic} onChange={e => setData('pic', e.target.value)} required />
+                            <select 
+                                className={selectClass} 
+                                value={data.pic} 
+                                onChange={e => setData('pic', e.target.value)} 
+                                required
+                            >
+                                <option value="">— Pilih PIC / Mekanik —</option>
+                                {(manpowerList || []).map(mp => (
+                                    <option key={mp.id} value={mp.nama}>
+                                        {mp.nama} {mp.bagian ? `(${mp.bagian})` : ''}
+                                    </option>
+                                ))}
+                                {data.pic && !manpowerList?.some(mp => mp.nama === data.pic) && (
+                                    <option value={data.pic}>{data.pic}</option>
+                                )}
+                            </select>
                         </FormGroup>
                         <FormGroup label="Tujuan">
                             <input className={inputClass} value={data.destination} onChange={e => setData('destination', e.target.value)} placeholder="Workshop luar, vendor, dll." />

@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Manpower;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -36,8 +38,12 @@ class HandleInertiaRequests extends Middleware
             ],
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
+                'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'manpowerList' => fn () => Schema::hasTable('manpowers')
+                ? Manpower::orderBy('nama', 'asc')->get(['id', 'nama', 'nrp', 'bagian', 'departemen'])
+                : [],
         ];
     }
 }

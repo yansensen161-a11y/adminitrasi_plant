@@ -11,7 +11,9 @@ return new class extends Migration
     public function up(): void
     {
         // Change the status column from enum to string
-        DB::statement("ALTER TABLE part_canibals MODIFY status VARCHAR(255) DEFAULT 'Waiting part'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE part_canibals MODIFY status VARCHAR(255) DEFAULT 'Waiting part'");
+        }
         DB::statement("UPDATE part_canibals SET status = 'Waiting part'");
     }
 

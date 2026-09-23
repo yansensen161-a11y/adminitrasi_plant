@@ -30,7 +30,12 @@ export default function Mail({ settings }) {
 
     const handleSave = (e) => {
         e.preventDefault();
-        post(route('settings.mail.update'));
+        post(route('settings.mail.update'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setData('mail_password', '');
+            },
+        });
     };
 
     const handleSendTest = (e) => {
@@ -177,14 +182,24 @@ export default function Mail({ settings }) {
 
                             {/* Password */}
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase mb-2">
-                                    Password
-                                </label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase">
+                                        Password
+                                    </label>
+                                    {settings.has_mail_password && (
+                                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                            Tersimpan & Terenkripsi
+                                        </span>
+                                    )}
+                                </div>
                                 <input
                                     type="password"
                                     value={data.mail_password}
                                     onChange={(e) => setData('mail_password', e.target.value)}
-                                    placeholder="••••••••••••"
+                                    placeholder={settings.has_mail_password ? "•••••••••••• (Kosongkan jika tidak ingin mengubah)" : "Masukkan password SMTP"}
                                     className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                                 {errors.mail_password && (

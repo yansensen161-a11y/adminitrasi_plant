@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
     DndContext, 
     closestCorners, 
@@ -6,7 +7,8 @@ import {
     PointerSensor, 
     useSensor, 
     useSensors, 
-    DragOverlay 
+    DragOverlay,
+    useDroppable
 } from '@dnd-kit/core';
 import { 
     SortableContext, 
@@ -23,22 +25,7 @@ const COLUMNS = [
     { id: 'CANCELLED / ON HOLD', title: 'CANCELLED / ON HOLD', color: 'bg-gray-100', headerText: 'text-gray-700', dot: 'bg-gray-400' }
 ];
 
-const SortableItem = ({ item, onClick, isReadonly }) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging
-    } = useSortable({ id: item.id, disabled: isReadonly });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.4 : 1,
-    };
-
+const ItemCard = React.forwardRef(({ item, onClick, isReadonly, isDragging, style, ...props }, ref) => {
     const firstPart = item.parts && item.parts.length > 0 ? item.parts[0] : null;
 
     let priorityBadge = <span className="bg-amber-100 text-amber-600 text-[9px] px-2 py-0.5 rounded font-bold">Medium</span>;
@@ -47,10 +34,10 @@ const SortableItem = ({ item, onClick, isReadonly }) => {
 
     return (
         <div 
-            ref={setNodeRef} 
+            ref={ref} 
             style={style} 
-            className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 cursor-grab active:cursor-grabbing mb-3"
-            {...(isReadonly ? {} : { ...attributes, ...listeners })}
+            className={`bg-white rounded-lg shadow-sm border border-slate-200 p-3 mb-3 ${isDragging ? 'opacity-40' : ''} ${isReadonly ? '' : 'cursor-grab active:cursor-grabbing'}`}
+            {...props}
             onClick={() => onClick(item)}
         >
             <div className="flex justify-between items-start mb-1">
@@ -59,7 +46,7 @@ const SortableItem = ({ item, onClick, isReadonly }) => {
                     <span className="text-slate-400 text-xs">{item.unit?.model || '-'}</span>
                 </div>
                 {item.maintenance_order?.no_order && (
-                    <a href={`/monitoring-orders?search=${item.maintenance_order.no_order}`} className="text-blue-500 hover:underline text-[9px] font-bold">
+                    <a href={`/monitoring-orders?search=${item.maintenance_order.no_order}`} className="text-blue-500 hover:underline text-[9px] font-bold" onClick={e => e.stopPropagation()}>
                         {item.maintenance_order.no_order}
                     </a>
                 )}
@@ -86,6 +73,79 @@ const SortableItem = ({ item, onClick, isReadonly }) => {
             {isReadonly && (
                 <div className="absolute top-0 right-0 bg-slate-800 text-white text-[8px] px-1 py-0.5 rounded-bl opacity-50">AUTO</div>
             )}
+        </div>
+    );
+});
+
+const SortableItem = ({ item, onClick, isReadonly }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: String(item.id), disabled: isReadonly });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <ItemCard 
+            ref={setNodeRef}
+            style={style}
+            item={item}
+            onClick={onClick}
+            isReadonly={isReadonly}
+            isDragging={isDragging}
+            {...(isReadonly ? {} : { ...attributes, ...listeners })}
+        />
+    );
+};
+
+const DroppableColumn = ({ column, items, openViewModal, openEditModal }) => {
+    const { setNodeRef } = useDroppable({ id: column.id });
+    
+    return (
+        <div className="flex flex-col h-full bg-white/50 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className={`${column.color} px-4 py-3 flex items-center justify-between border-b border-white/50`}>
+                <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${column.dot}`}></div>
+                    <h3 className={`font-bold text-sm uppercase tracking-wider ${column.headerText}`}>
+                        {column.title}
+                    </h3>
+                </div>
+                <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${column.dot} text-white`}>
+                    {items.length}
+                </div>
+            </div>
+            
+            <div ref={setNodeRef} className="p-3 flex-1 min-h-[300px]">
+                <SortableContext 
+                    id={column.id}
+                    items={items.map(i => String(i.id))}
+                    strategy={verticalListSortingStrategy}
+                >
+                    {items.length > 0 ? (
+                        items.map(item => (
+                            <SortableItem 
+                                key={item.id} 
+                                item={item} 
+                                onClick={() => item.is_readonly ? openViewModal(item) : openEditModal(item)}
+                                isReadonly={item.is_readonly}
+                            />
+                        ))
+                    ) : (
+                        <div className="h-full min-h-[150px] border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 p-4 text-center">
+                            <svg className="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+                            <p className="text-xs font-medium">Tidak ada data</p>
+                            <p className="text-[9px] mt-1 opacity-75">Drag & drop card ke sini</p>
+                        </div>
+                    )}
+                </SortableContext>
+            </div>
         </div>
     );
 };
@@ -145,20 +205,15 @@ export default function PartCanibalBoard({ canibals, openViewModal, openEditModa
         ));
 
         // Call backend API to update status
-        fetch(`/part-canibals/${activeItem.id}/status`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: JSON.stringify({ status: overColumn })
-        }).then(res => res.json()).then(data => {
-            router.reload({ only: ['canibals', 'canibalStats'] });
-        }).catch(err => {
-            console.error("Failed to update status", err);
-            // Revert on failure
-            router.reload({ only: ['canibals'] });
-        });
+        axios.put(`/part-canibals/${activeItem.id}/status`, { status: overColumn })
+            .then(() => {
+                router.reload({ only: ['canibals', 'canibalStats'] });
+            })
+            .catch(err => {
+                console.error("Failed to update status", err);
+                // Revert on failure
+                router.reload({ only: ['canibals'] });
+            });
     };
 
     const getItemsByColumn = (columnId) => items.filter(i => i.kanbanStatus === columnId);
@@ -177,51 +232,14 @@ export default function PartCanibalBoard({ canibals, openViewModal, openEditModa
                     {COLUMNS.map(column => {
                         const columnItems = getItemsByColumn(column.id);
                         return (
-                            <div key={column.id} className="flex flex-col h-full bg-white/50 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className={`${column.color} px-4 py-3 flex items-center justify-between border-b border-white/50`}>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-3 h-3 rounded-full ${column.dot}`}></div>
-                                        <h3 className={`font-bold text-sm uppercase tracking-wider ${column.headerText}`}>
-                                            {column.title}
-                                        </h3>
-                                    </div>
-                                    <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${column.dot} text-white`}>
-                                        {columnItems.length}
-                                    </div>
-                                </div>
-                                
-                                <div className="p-3 flex-1 min-h-[300px]">
-                                    <SortableContext 
-                                        id={column.id}
-                                        items={columnItems.map(i => String(i.id))}
-                                        strategy={verticalListSortingStrategy}
-                                    >
-                                        {columnItems.length > 0 ? (
-                                            columnItems.map(item => (
-                                                <SortableItem 
-                                                    key={item.id} 
-                                                    item={item} 
-                                                    onClick={() => item.is_readonly ? openViewModal(item) : openEditModal(item)}
-                                                    isReadonly={item.is_readonly}
-                                                />
-                                            ))
-                                        ) : (
-                                            <div className="h-full min-h-[150px] border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                                                <svg className="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
-                                                <p className="text-xs font-medium">Tidak ada data</p>
-                                                <p className="text-[9px] mt-1 opacity-75">Drag & drop card ke sini</p>
-                                            </div>
-                                        )}
-                                    </SortableContext>
-                                </div>
-                            </div>
+                            <DroppableColumn key={column.id} column={column} items={columnItems} openViewModal={openViewModal} openEditModal={openEditModal} />
                         );
                     })}
                 </div>
 
                 <DragOverlay>
                     {activeItem ? (
-                        <SortableItem item={activeItem} onClick={() => {}} isReadonly={false} />
+                        <ItemCard item={activeItem} onClick={() => {}} isReadonly={false} isDragging={true} />
                     ) : null}
                 </DragOverlay>
             </DndContext>

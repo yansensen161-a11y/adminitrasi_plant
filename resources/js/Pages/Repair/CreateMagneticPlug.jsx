@@ -1,17 +1,29 @@
 import React from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 
-export default function CreateMagneticPlug({ auth, units }) {
+export default function CreateMagneticPlug({ auth, units = [] }) {
+    const { url } = usePage();
+    const queryParams = new URLSearchParams(url.split('?')[1] || '');
+    const preUnitId = queryParams.get('unit_id') || '';
+    const preHm = queryParams.get('hm') || '';
+    const preNoWo = queryParams.get('no_wo') || '';
+    const returnTo = queryParams.get('return_to') || '';
+    const preDate = queryParams.get('date') || new Date().toISOString().split('T')[0];
+
+    const initialUnit = units.find(u => u.id.toString() === preUnitId.toString()) || null;
+    const initialHm = preHm || (initialUnit ? (initialUnit.hm || initialUnit.current_hm || '') : '');
+
     const { data, setData, post, processing, errors } = useForm({
-        unit_id: '',
-        hm: '',
-        date: '',
+        unit_id: preUnitId,
+        hm: initialHm,
+        date: preDate,
         metode_filter: '',
         component: '',
         rating: '',
-        remarks: '',
+        remarks: preNoWo ? `Ref WO: ${preNoWo}` : '',
         photo: null,
+        return_to: returnTo,
     });
 
     const submit = (e) => {
@@ -28,11 +40,29 @@ export default function CreateMagneticPlug({ auth, units }) {
                     <h1 className="text-xl font-black text-[#0b132b] uppercase tracking-tight">Input Data Magnetic Plug</h1>
                     <p className="text-sm font-medium text-gray-500 mt-0.5">Formulir penambahan data inspeksi magnetic plug</p>
                 </div>
-                <Link href={route('repair.magnetic-plug')} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-bold px-4 py-2 rounded-lg text-sm shadow-sm flex items-center gap-2">
+                <Link href={returnTo || route('repair.magnetic-plug')} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-bold px-4 py-2 rounded-lg text-sm shadow-sm flex items-center gap-2">
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-                    Kembali
+                    {returnTo ? 'Kembali ke Work Order' : 'Kembali'}
                 </Link>
             </div>
+
+            {returnTo && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 px-5 py-3 rounded-xl mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-2.5 text-sm font-medium">
+                        <span className="text-base">🧲</span>
+                        <span>
+                            Form Magnetic Plug ini terhubung dengan <strong>Work Order {preNoWo ? `(${preNoWo})` : ''}</strong>. 
+                            Setelah disimpan, Anda akan diarahkan kembali ke Work Order secara otomatis.
+                        </span>
+                    </div>
+                    <Link
+                        href={returnTo}
+                        className="text-xs font-bold bg-white text-amber-800 px-3 py-1.5 rounded-lg border border-amber-300 hover:bg-amber-100 transition whitespace-nowrap self-start sm:self-auto text-center"
+                    >
+                        &larr; Batalkan & Kembali ke WO
+                    </Link>
+                </div>
+            )}
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <form onSubmit={submit}>
@@ -45,7 +75,15 @@ export default function CreateMagneticPlug({ auth, units }) {
                                 <select 
                                     className="w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0b5c3e] focus:ring-1 focus:ring-[#0b5c3e]"
                                     value={data.unit_id} 
-                                    onChange={e => setData('unit_id', e.target.value)}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        const found = units.find(u => u.id.toString() === val.toString());
+                                        setData(prev => ({
+                                            ...prev,
+                                            unit_id: val,
+                                            hm: (!prev.hm && found) ? (found.hm || found.current_hm || '') : prev.hm,
+                                        }));
+                                    }}
                                     required
                                 >
                                     <option value="">Pilih Unit</option>
@@ -164,8 +202,8 @@ export default function CreateMagneticPlug({ auth, units }) {
                     </div>
 
                     <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-                        <Link href={route('repair.magnetic-plug')} className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold px-5 py-2.5 rounded-lg text-sm transition">
-                            Batal
+                        <Link href={returnTo || route('repair.magnetic-plug')} className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold px-5 py-2.5 rounded-lg text-sm transition">
+                            {returnTo ? 'Kembali ke WO' : 'Batal'}
                         </Link>
                         <button type="submit" disabled={processing} className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-5 py-2.5 rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-2">
                             {processing ? 'Menyimpan...' : 'Simpan Data'}

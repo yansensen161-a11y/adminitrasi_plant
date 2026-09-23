@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import Transition from '@/utils/Transition';
 
-import UserAvatar from '@/images/user-avatar-32.png';
 
 function DropdownProfile({
   align
@@ -44,10 +43,10 @@ function DropdownProfile({
         onClick={() => setDropdownOpen(!dropdownOpen)}
         aria-expanded={dropdownOpen}
       >
-        <img className="w-8 h-8 rounded-full" src={UserAvatar} width="32" height="32" alt="User" />
+        <img className="w-12 h-12 rounded-full object-cover border-2 border-cyan-500 shadow-md" src="/images/planner_logo.jpg" alt="User" />
         <div className="flex items-center truncate">
-          <span className="truncate ml-2 text-sm font-medium text-gray-600 dark:text-gray-100 group-hover:text-gray-800 dark:group-hover:text-white">{user?.name || 'User'}</span>
-          <svg className="w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500" viewBox="0 0 12 12">
+          <span className="truncate ml-3 text-lg font-bold text-gray-700 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400">{user?.name || 'User'}</span>
+          <svg className="w-4 h-4 shrink-0 ml-2 fill-current text-gray-400 dark:text-gray-500" viewBox="0 0 12 12">
             <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
           </svg>
         </div>

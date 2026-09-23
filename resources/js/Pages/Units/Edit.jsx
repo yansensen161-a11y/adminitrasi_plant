@@ -29,30 +29,30 @@ export default function Edit({ unit }) {
     });
 
     useEffect(() => {
-        if (data.code_unit) {
+        if (data.code_unit && (!data.type_unit || data.code_unit !== unit.code_unit)) {
             const code = data.code_unit.toUpperCase();
             let detectedType = '';
             
-            if (code.startsWith('MEO') || code.startsWith('ME0')) detectedType = 'EXCAVATOR';
-            else if (code.startsWith('MD0') || code.startsWith('MDO')) detectedType = 'DOZER';
-            else if (code.startsWith('MG0') || code.startsWith('MGO')) detectedType = 'MOTORGRADER';
-            else if (code.startsWith('MCP0') || code.startsWith('MCPO')) detectedType = 'COMPACTOR';
-            else if (code.startsWith('OHT')) detectedType = 'HAULER';
-            else if (code.startsWith('MDT')) detectedType = 'DUMP TRUCK';
-            else if (code.startsWith('LV')) detectedType = 'LIGHT VEHICLE';
+            if (['ME023', 'ME053', 'MSC001'].includes(code) || code.startsWith('MSC')) detectedType = 'CRUSHER';
+            else if (['ME049', 'ME055', 'ME056'].includes(code)) detectedType = 'EXCAVATOR BIG DIGGER';
+            else if (code.startsWith('ME0') || code.startsWith('MEO') || code.startsWith('EX')) detectedType = 'EXCAVATOR SMALL DIGGER';
+            else if (code.startsWith('MD0') || code.startsWith('MDO') || code.startsWith('MD')) detectedType = 'BULLDOZER';
+            else if (code.startsWith('OHT')) detectedType = 'HAULER TRUCK';
+            else if (code.startsWith('MDT') || code.startsWith('DT')) detectedType = 'DUMP TRUCK';
+            else if (code.startsWith('MG0') || code.startsWith('MGO') || code.startsWith('MG')) detectedType = 'MOTOR GRADER';
+            else if (code.startsWith('MCP0') || code.startsWith('MCPO') || code.startsWith('MCP')) detectedType = 'COMPACTOR';
             else if (code.startsWith('MTL')) detectedType = 'TOWER LAMP';
-            else if (code.startsWith('MGS')) detectedType = 'GENSET';
-            else if (code.startsWith('MWM')) detectedType = 'WELDING MACHINE';
-            else if (code.startsWith('MCM')) detectedType = 'AIR COMPRESSOR';
-            else if (code.startsWith('MSC')) detectedType = 'CRUSHER STONE';
-            else if (code.startsWith('MLT')) detectedType = 'LUBECAR';
+            else if (code.startsWith('MLT')) detectedType = 'SERVICE TRUCK';
             else if (code.startsWith('MFT')) detectedType = 'FUEL TRUCK';
             else if (code.startsWith('MWT')) detectedType = 'WATER TRUCK';
-            else if (code.startsWith('MCT') || code.startsWith('MC 02') || code.startsWith('MC02')) detectedType = 'CRANE TRUCK';
-            else if (code.startsWith('MWP')) detectedType = 'DEWATERING';
-            else if (code.startsWith('MWF')) detectedType = 'WATERFILL';
-            else if (code.startsWith('MB0') || code.startsWith('MBO')) detectedType = 'BIS';
-            else if (code.startsWith('MMH')) detectedType = 'MAINHAUL';
+            else if (code.startsWith('MCT') || code.startsWith('MC 02') || code.startsWith('MC02')) detectedType = 'CRANE TRUCK & LOWBOY';
+            else if (code.startsWith('MWP') || code.startsWith('MWF')) detectedType = 'DEWATERING PUMP';
+            else if (code.startsWith('MB0') || code.startsWith('MBO') || code.startsWith('MMH')) detectedType = 'SARANA BUS';
+            else if (code.startsWith('MGS') || code.startsWith('MCM') || code.startsWith('MWM')) detectedType = 'GENSET - COMPRESSOR - WELDING MACHINE';
+            else if (code.startsWith('LV') || code === 'HO-06' || code.startsWith('T-') || code.startsWith('A-') || code.startsWith('B-') || code.startsWith('D-') || code.startsWith('G-') || code.startsWith('E-') || code.startsWith('F-') || code.startsWith('H-')) detectedType = 'LIGHT VEHICLE';
+            else if (code.startsWith('MFS')) detectedType = 'FUEL STORAGE';
+            else if (code.startsWith('BOX KONTAINER') || code.startsWith('KONTAINER')) detectedType = 'CONTAINER';
+            else if (code.startsWith('CHAINSAW')) detectedType = 'CHAINSAW';
 
             if (detectedType && data.type_unit !== detectedType) {
                 setData('type_unit', detectedType);

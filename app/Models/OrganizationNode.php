@@ -14,6 +14,14 @@ class OrganizationNode extends Model
         'jabatan',
         'name',
         'is_vacant',
+        'members',
+        'section',
+        'order_index',
+    ];
+
+    protected $casts = [
+        'members' => 'array',
+        'is_vacant' => 'boolean',
     ];
 
     public function parent()

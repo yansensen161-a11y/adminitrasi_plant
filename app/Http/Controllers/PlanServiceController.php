@@ -14,7 +14,20 @@ class PlanServiceController extends Controller
     {
         $codeUnit = $request->input('code_unit', '');
 
-        $query = Unit::with(['lastService', 'nextService.maintenanceOrder']);
+        $query = Unit::with(['lastService', 'nextService.maintenanceOrder'])
+            ->where('code_unit', 'not like', 'BOX KONTAINER%')
+            ->where('code_unit', 'not like', 'BOX %')
+            ->where('code_unit', 'not like', 'Chainsaw%')
+            ->whereNotIn('code_unit', [
+                'GORONG2 BESI',
+                'MACHINE WELDING +PEMANAS hdpe',
+                'MFS001',
+                'MFS009',
+                'MFS010',
+                'MFS011',
+                'MFS012',
+                'PIPE HDPE',
+            ]);
 
         if ($codeUnit) {
             $query->where('code_unit', 'like', "%{$codeUnit}%");
@@ -93,6 +106,8 @@ class PlanServiceController extends Controller
 
     public function complete(Request $request, Unit $unit)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk mengupdate status service.');
+
         $request->validate([
             'actual_hm' => 'required|numeric',
             'actual_date' => 'required|date',

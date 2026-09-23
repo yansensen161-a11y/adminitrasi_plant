@@ -28,6 +28,11 @@ class MaintenanceOrderPart extends Model
         return $this->belongsTo(MaintenanceOrder::class, 'maintenance_order_id');
     }
 
+    public function maintenanceOrder()
+    {
+        return $this->belongsTo(MaintenanceOrder::class, 'maintenance_order_id');
+    }
+
     public function swapToUnit()
     {
         return $this->belongsTo(Unit::class, 'swap_to_unit_id');

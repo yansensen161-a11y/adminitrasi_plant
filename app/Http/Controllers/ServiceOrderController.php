@@ -51,6 +51,8 @@ class ServiceOrderController extends Controller
 
     public function storeBulk(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menyimpan service order.');
+
         $request->validate([
             'unit_id' => 'required|exists:units,id',
             'orders' => 'required|array|min:1',
@@ -101,6 +103,8 @@ class ServiceOrderController extends Controller
 
     public function update(Request $request, ServiceOrder $service_order)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk mengubah service order.');
+
         $request->validate([
             'tanggal' => 'required|date',
             'unit_id' => 'required|exists:units,id',
@@ -124,6 +128,8 @@ class ServiceOrderController extends Controller
 
     public function destroy(ServiceOrder $service_order)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menghapus service order.');
+
         $service_order->delete();
 
         return redirect()->back()->with('success', 'Data historis berhasil dihapus.');

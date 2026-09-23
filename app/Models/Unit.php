@@ -42,6 +42,15 @@ class Unit extends Model
         'tahun_perakitan' => 'integer',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function ($unit) {
+            if ($unit->hm === null || $unit->hm === '') {
+                $unit->hm = 0;
+            }
+        });
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
@@ -57,16 +66,32 @@ class Unit extends Model
 
     public function lastService()
     {
-        return $this->hasOne(ServiceLog::class)->where('status', 'completed')->latestOfMany('id');
+        return $this->hasOne(ServiceLog::class)->where('status', 'completed')->latestOfMany(['actual_date', 'id']);
     }
 
     public function nextService()
     {
-        return $this->hasOne(ServiceLog::class)->where('status', 'scheduled')->latestOfMany('id');
+        return $this->hasOne(ServiceLog::class)->where('status', 'scheduled')->latestOfMany(['target_date', 'id']);
     }
 
     public function abrs()
     {
         return $this->hasMany(Abr::class);
+    }
+
+    public function maintenanceOrders()
+    {
+        return $this->hasMany(MaintenanceOrder::class);
+    }
+
+    public function backlogOrders()
+    {
+        return $this->hasMany(MaintenanceOrder::class)
+            ->where(function ($q) {
+                $q->whereNull('wo_type')
+                    ->orWhere('wo_type', '!=', 'PCR');
+            })
+            ->where('no_order', 'not like', 'PCR-%')
+            ->whereNotIn('status', ['COMPLETED', 'CLOSED', 'CANCEL ORDER']);
     }
 }

@@ -98,6 +98,8 @@ class PartCanibalController extends Controller
 
     public function store(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $validated = $request->validate([
             'tanggal' => 'required|date',
             'unit_id' => 'required|exists:units,id',
@@ -114,7 +116,7 @@ class PartCanibalController extends Controller
             'parts.*.qty' => 'required|integer|min:1',
             'parts.*.description' => 'nullable|string',
             'parts.*.life_time' => 'nullable|string',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
         ]);
 
         $data = Arr::except($validated, ['parts', 'image']);
@@ -147,6 +149,8 @@ class PartCanibalController extends Controller
 
     public function update(Request $request, PartCanibal $partCanibal)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $validated = $request->validate([
             'tanggal' => 'required|date',
             'unit_id' => 'required|exists:units,id',
@@ -164,7 +168,7 @@ class PartCanibalController extends Controller
             'parts.*.description' => 'nullable|string',
             'parts.*.life_time' => 'nullable|string',
             'parts.*.component' => 'nullable|string',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
         ]);
 
         $data = Arr::except($validated, ['parts', 'image']);
@@ -198,6 +202,8 @@ class PartCanibalController extends Controller
 
     public function destroy(PartCanibal $partCanibal)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         if ($partCanibal->image) {
             Storage::disk('public')->delete($partCanibal->image);
         }
@@ -215,6 +221,8 @@ class PartCanibalController extends Controller
 
     public function updateStatus(Request $request, PartCanibal $partCanibal)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $validated = $request->validate([
             'status' => 'required|in:WAITING MANPOWER,IN PROGRES,COMPLETED,CANCELLED / ON HOLD,AVAILABLE,USED,UNAVAILABLE',
         ]);

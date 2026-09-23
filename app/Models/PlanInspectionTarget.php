@@ -13,4 +13,9 @@ class PlanInspectionTarget extends Model
         'year',
         'target_value',
     ];
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class, 'unit_id');
+    }
 }

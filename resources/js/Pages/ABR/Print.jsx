@@ -87,7 +87,7 @@ export default function Print({ abr }) {
                             {hasPartNumber && <td className="text-center">{item.part_number || '-'}</td>}
                             <td>{item.description || '-'}</td>
                             <td className="text-right">{item.price ? formatRp(item.price) : '0'}</td>
-                            <td className="text-center">{item.qty || '1'}</td>
+                            <td className="text-center">{item.qty || '-'}</td>
                             <td className="text-center">{item.satuan || '-'}</td>
                             <td className="text-right">{item.amount ? formatRp(item.amount) : '0'}</td>
                         </tr>
@@ -110,10 +110,17 @@ export default function Print({ abr }) {
                         @page { margin: 10mm; }
                         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                         .no-print { display: none !important; }
+                        .print-page-break { page-break-before: always !important; break-before: page !important; margin-top: 0 !important; }
                     }
-                    .abr-table { border-collapse: collapse; width: 100%; border: 1px solid #000; font-size: 10px; }
-                    .abr-table th, .abr-table td { border: 1px solid #000; padding: 3px 6px; }
-                    .abr-table th { font-weight: bold; text-align: center; background-color: #fff; }
+                    .abr-paper {
+                        background-color: #ffffff !important;
+                        backdrop-filter: none !important;
+                        -webkit-backdrop-filter: none !important;
+                        color: #111827 !important;
+                    }
+                    .abr-table { border-collapse: collapse !important; width: 100% !important; border: 1px solid #4b5563 !important; font-size: 10px !important; }
+                    .abr-table th, .abr-table td { border: 1px solid #6b7280 !important; padding: 3px 6px !important; color: #111827 !important; }
+                    .abr-table th { font-weight: bold !important; text-align: center !important; background-color: #e5e7eb !important; color: #1f2937 !important; border-bottom: 2px solid #4b5563 !important; }
                     .info-box { border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; font-size: 10px; }
                     .info-title { font-weight: bold; font-size: 10px; margin-bottom: 8px; color: #374151; }
                     .info-row { display: flex; margin-bottom: 4px; }
@@ -125,16 +132,23 @@ export default function Print({ abr }) {
             <div className="max-w-[210mm] mx-auto mb-4 flex justify-between items-center no-print">
                 <Link href={route('abr.index')} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow">Kembali</Link>
                 <div className="flex gap-2">
-                    <button onClick={handleDownloadPdf} disabled={isDownloading} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow">
-                        {isDownloading ? 'Memproses...' : 'Download PDF'}
-                    </button>
+                    <a
+                        href={route('abr.download.pdf', abr.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow inline-flex items-center gap-1.5"
+                        title="Download Dokumen PDF Resmi"
+                    >
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        Download PDF
+                    </a>
                     <button onClick={() => window.print()} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded shadow">
                         Print
                     </button>
                 </div>
             </div>
 
-            <div ref={printAreaRef} className="bg-white mx-auto p-8 shadow-lg print:shadow-none" style={{ width: '210mm', minHeight: '297mm' }}>
+            <div ref={printAreaRef} className="abr-paper bg-white mx-auto p-8 shadow-lg print:shadow-none" style={{ width: '210mm', minHeight: '297mm' }}>
                 
                 {/* Header */}
                 <div className="flex items-center border-b-[2px] border-black pb-2 mb-6">
@@ -228,17 +242,32 @@ export default function Print({ abr }) {
                     </div>
                 </div>
 
-                <div className="border-t-2 border-dashed border-gray-300 my-8"></div>
-
-                <div className="font-bold text-center text-[14px] mb-6">LAMPIRAN DOKUMENTASI</div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                    {abr.images && abr.images.map(img => (
-                        <div key={img.id} className="border p-2 rounded">
-                            <img src={img.file_path} alt="Lampiran" className="w-full h-auto object-cover rounded" />
+                {abr.images && abr.images.length > 0 && (
+                    <div className="print-page-break mt-10 pt-6">
+                        <div className="hidden print:flex items-center justify-between border-b-2 border-black pb-2 mb-6">
+                            <div>
+                                <div className="font-bold text-base uppercase tracking-wide">PT. MITRA ABADI MAHAKAM</div>
+                                <div className="font-bold text-xs text-gray-700">LAMPIRAN DOKUMENTASI - ANALISA BIAYA REPAIR (ABR)</div>
+                            </div>
+                            <div className="text-right text-xs font-bold">
+                                <div>NO ABR : {abr.no_abr}</div>
+                                <div>UNIT : {abr.unit?.code_unit || abr.manual_unit_code || '-'}</div>
+                            </div>
                         </div>
-                    ))}
-                </div>
+
+                        <div className="border-t-2 border-dashed border-gray-300 my-8 print:hidden"></div>
+
+                        <div className="font-bold text-center text-[14px] mb-6 print:hidden">LAMPIRAN DOKUMENTASI</div>
+                        
+                        <div className={`grid gap-4 ${abr.images.length === 1 ? 'grid-cols-1 max-w-4xl mx-auto' : 'grid-cols-2'}`}>
+                            {abr.images.map(img => (
+                                <div key={img.id} className="border border-gray-300 p-2 rounded bg-gray-50 flex items-center justify-center">
+                                    <img src={img.file_path} alt="Lampiran" className={`w-full h-auto object-contain rounded ${abr.images.length === 1 ? 'max-h-[800px]' : 'max-h-[420px]'}`} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
             </div>
         </div>

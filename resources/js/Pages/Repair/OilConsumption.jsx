@@ -1,11 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { 
     Droplet, 
-    ClipboardList,
-    Shield,
-    Receipt,
     Calendar,
     Download,
     Printer,
@@ -15,653 +12,1772 @@ import {
     Eye,
     Edit3,
     Trash2,
-    Filter
+    X,
+    CheckCircle2,
+    AlertTriangle,
+    Upload,
+    FileSpreadsheet,
+    Gauge,
+    Layers,
+    Clock,
+    FileText,
+    User,
+    BarChart3,
+    PieChart,
+    TrendingUp,
+    Truck,
+    Cpu,
+    Activity,
+    SlidersHorizontal,
+    Table,
+    ArrowUpRight,
+    Sparkles,
+    Tractor,
+    Zap,
+    Wrench,
+    Check
 } from 'lucide-react';
 import Chart from 'chart.js/auto';
 
-export default function OilConsumption({ tableData, chartData, summary }) {
-    // FIX: Define all missing state variables that caused the white screen crash
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [codeUnitFilter, setCodeUnitFilter] = useState('');
-    const [modelFilter, setModelFilter] = useState('');
-    const [typeOliFilter, setTypeOliFilter] = useState('');
-    const [departmentFilter, setDepartmentFilter] = useState('');
-    const [hmFromFilter, setHmFromFilter] = useState('');
-    const [hmToFilter, setHmToFilter] = useState('');
+export default function OilConsumption({ 
+    tableData = [], 
+    pagination = {}, 
+    summary = {}, 
+    unitTypeDashboards = {},
+    allUnitTypes = [],
+    standardOilGrades = [],
+    perGradeAnalytics = [],
+    units = [], 
+    oilTypes = [], 
+    components = [], 
+    modelOptions = [], 
+    departmentOptions = [], 
+    filters = {} 
+}) {
+    const { manpowerList = [] } = usePage().props;
 
-    const trendChartRef = useRef(null);
-    const distChartRef = useRef(null);
-    const topUnitChartRef = useRef(null);
+    // Active Top Tab: 'analytics' (Dark Comparison Dashboard) | 'data' (Data Table & CRUD)
+    const [activeTab, setActiveTab] = useState('analytics');
+
+    // Selected Unit Type for Dark Dashboard
+    const defaultUnitType = (allUnitTypes && allUnitTypes.length > 0) ? allUnitTypes[0] : 'EXCAVATOR';
+    const [selectedUnitType, setSelectedUnitType] = useState(defaultUnitType);
+
+    // Selected Oil Grade Filter for Dark Dashboard
+    const [selectedOilGrade, setSelectedOilGrade] = useState('Semua');
+
+    // Filter states for Table Tab
+    const [search, setSearch] = useState(filters.search || '');
+    const [dateFrom, setDateFrom] = useState(filters.dateFrom || '');
+    const [dateTo, setDateTo] = useState(filters.dateTo || '');
+    const [codeUnitFilter, setCodeUnitFilter] = useState(filters.codeUnitFilter || '');
+    const [modelFilter, setModelFilter] = useState(filters.modelFilter || '');
+    const [typeOliFilter, setTypeOliFilter] = useState(filters.typeOliFilter || '');
+    const [componentFilter, setComponentFilter] = useState(filters.componentFilter || '');
+    const [departmentFilter, setDepartmentFilter] = useState(filters.departmentFilter || '');
+    const [statusFilter, setStatusFilter] = useState(filters.statusFilter || '');
+    const [hmFromFilter, setHmFromFilter] = useState(filters.hmFromFilter || '');
+    const [hmToFilter, setHmToFilter] = useState(filters.hmToFilter || '');
+
+    // Modal States
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
+    const [selectedId, setSelectedId] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Detail Modal State
+    const [viewData, setViewData] = useState(null);
+
+    // Import Modal State
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [isImporting, setIsImporting] = useState(false);
+
+    // Form data state
+    const todayStr = new Date().toISOString().split('T')[0];
+    const initialFormState = {
+        unit_id: '',
+        code_unit: '',
+        model: '',
+        department: 'Mining',
+        date: todayStr,
+        hm_prev: '',
+        hm: '',
+        component: 'Engine',
+        type_oli: 'SAE 15W-40',
+        service_type: 'Schedule',
+        pengisian: '',
+        remarks: 'Normal top-up berkala',
+        pic: 'Admin Plant',
+        update_unit_hm: true,
+    };
+    const [formData, setFormData] = useState(initialFormState);
+
+    // Chart Refs
+    const darkComparisonChartRef = useRef(null);
+    const gradeDonutRef = useRef(null);
     const chartInstances = useRef({});
 
+    // Filter submit & reset for Table tab
     const handleReset = () => {
+        setSearch('');
         setDateFrom('');
         setDateTo('');
         setCodeUnitFilter('');
         setModelFilter('');
         setTypeOliFilter('');
+        setComponentFilter('');
         setDepartmentFilter('');
+        setStatusFilter('');
         setHmFromFilter('');
         setHmToFilter('');
-        router.get(route('repair.oil-consumption'));
+        router.get(route('oil-consumption.index'));
     };
 
-    const handleFilterSubmit = () => {
-        router.get(route('repair.oil-consumption'), {
-            dateFrom, dateTo, codeUnitFilter, modelFilter, typeOliFilter, departmentFilter, hmFromFilter, hmToFilter
-        }, { preserveState: true });
+    const handleFilterSubmit = (e) => {
+        if (e) e.preventDefault();
+        router.get(route('oil-consumption.index'), {
+            search,
+            dateFrom,
+            dateTo,
+            codeUnitFilter,
+            modelFilter,
+            typeOliFilter,
+            componentFilter,
+            departmentFilter,
+            statusFilter,
+            hmFromFilter,
+            hmToFilter
+        }, { preserveState: true, replace: true });
     };
 
+    // Open Form Modal for Create
+    const handleOpenCreateModal = () => {
+        setModalMode('create');
+        setSelectedId(null);
+        setFormData(initialFormState);
+        setIsFormModalOpen(true);
+    };
+
+    // Open Form Modal for Edit
+    const handleOpenEditModal = (row) => {
+        setModalMode('edit');
+        setSelectedId(row.id);
+        setFormData({
+            unit_id: row.unit_id || '',
+            code_unit: row.code_unit || '',
+            model: row.model || '',
+            department: row.department || 'Mining',
+            date: row.date_raw || todayStr,
+            hm_prev: row.hm_prev_raw || 0,
+            hm: row.hm_raw || 0,
+            component: row.component || 'Engine',
+            type_oli: row.type_oli || 'SAE 15W-40',
+            service_type: row.service_type || 'Schedule',
+            pengisian: row.pengisian_raw || 0,
+            remarks: row.remarks || 'Normal',
+            pic: row.pic || 'Admin Plant',
+            update_unit_hm: false,
+        });
+        setIsFormModalOpen(true);
+    };
+
+    // Handle Unit Selection in Modal
+    const handleUnitSelect = (e) => {
+        const selectedCode = e.target.value;
+        const found = units.find(u => u.code_unit === selectedCode);
+        if (found) {
+            setFormData(prev => ({
+                ...prev,
+                code_unit: found.code_unit,
+                unit_id: found.id,
+                model: found.model,
+                department: found.location,
+                hm_prev: found.current_hm,
+                hm: found.current_hm > 0 ? found.current_hm : '',
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                code_unit: selectedCode,
+                unit_id: '',
+            }));
+        }
+    };
+
+    // Live Ratio Calculation in Modal
+    const liveCalculation = useMemo(() => {
+        const hmPrev = parseFloat(formData.hm_prev || 0);
+        const hmAkhir = parseFloat(formData.hm || 0);
+        const hmDiff = Math.max(0, hmAkhir - hmPrev);
+        const refill = parseFloat(formData.pengisian || 0);
+        
+        const ratio = hmDiff > 0 ? ((refill / hmDiff) * 100).toFixed(2) : '0.00';
+        
+        const isHauler = (formData.model || '').toUpperCase().includes('HAULER') ||
+                         (formData.code_unit || '').toUpperCase().startsWith('OHT') ||
+                         (formData.model || '').toUpperCase().includes('HD');
+        
+        const batas = isHauler ? 0.60 : 0.50;
+        const ratioNum = parseFloat(ratio);
+        
+        let status = 'Normal';
+        let statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+        if (ratioNum > batas) {
+            status = 'Over Limit';
+            statusColor = 'text-red-700 bg-red-50 border-red-200';
+        } else if (ratioNum > (batas * 0.8)) {
+            status = 'Perlu Monitoring';
+            statusColor = 'text-amber-700 bg-amber-50 border-amber-200';
+        }
+
+        return { hmDiff, ratio, batas, status, statusColor };
+    }, [formData.hm_prev, formData.hm, formData.pengisian, formData.model, formData.code_unit]);
+
+    // Handle Form Submit
+    const handleFormSubmit = (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+
+        if (modalMode === 'create') {
+            router.post(route('oil-consumption.store'), formData, {
+                onSuccess: () => {
+                    setIsFormModalOpen(false);
+                    setIsSubmitting(false);
+                },
+                onError: () => setIsSubmitting(false),
+            });
+        } else {
+            router.put(route('oil-consumption.update', selectedId), formData, {
+                onSuccess: () => {
+                    setIsFormModalOpen(false);
+                    setIsSubmitting(false);
+                },
+                onError: () => setIsSubmitting(false),
+            });
+        }
+    };
+
+    // Handle Delete
+    const handleDelete = (row) => {
+        if (confirm(`Apakah Anda yakin ingin menghapus catatan konsumsi oli unit ${row.code_unit} tanggal ${row.date}?`)) {
+            router.delete(route('oil-consumption.destroy', row.id));
+        }
+    };
+
+    // Handle Import
+    const handleImportSubmit = (e) => {
+        e.preventDefault();
+        if (!importFile) return;
+
+        const data = new FormData();
+        data.append('file', importFile);
+        setIsImporting(true);
+
+        router.post(route('oil-consumption.import'), data, {
+            onSuccess: () => {
+                setIsImportModalOpen(false);
+                setImportFile(null);
+                setIsImporting(false);
+            },
+            onError: () => setIsImporting(false),
+        });
+    };
+
+    // =========================================================================
+    // DYNAMIC DATA FOR DARK COMPARISON DASHBOARD
+    // =========================================================================
+    const activeDashboard = useMemo(() => {
+        const raw = unitTypeDashboards[selectedUnitType] || {
+            unit_type: selectedUnitType,
+            total_units: 0,
+            active_units: 0,
+            total_schedule: 0,
+            total_unschedule: 0,
+            total_consumption: 0,
+            schedule_pct_change: '+12% vs last period',
+            unschedule_pct_change: '+5% vs last period',
+            consumption_pct_change: '+10% vs last period',
+            highest_consumer: { code_unit: '-', total_liters: 0, schedule_liters: 0, unschedule_liters: 0 },
+            highest_unscheduled: { code_unit: '-', unschedule_liters: 0, pct_of_total: 0 },
+            units: [],
+        };
+
+        // If specific oil grade filter is active
+        if (selectedOilGrade !== 'Semua') {
+            let totalS = 0;
+            let totalU = 0;
+            const filteredUnits = (raw.units || []).map(u => {
+                const gradeInfo = u.by_grade && u.by_grade[selectedOilGrade] 
+                    ? u.by_grade[selectedOilGrade] 
+                    : { schedule: 0, unschedule: 0, total: 0 };
+                
+                totalS += gradeInfo.schedule;
+                totalU += gradeInfo.unschedule;
+
+                return {
+                    code_unit: u.code_unit,
+                    model: u.model,
+                    schedule_liters: gradeInfo.schedule,
+                    unschedule_liters: gradeInfo.unschedule,
+                    total_liters: gradeInfo.total,
+                };
+            });
+
+            const totalC = totalS + totalU;
+            const sortedByTotal = [...filteredUnits].sort((a, b) => b.total_liters - a.total_liters);
+            const sortedByU = [...filteredUnits].sort((a, b) => b.unschedule_liters - a.unschedule_liters);
+
+            const highestC = sortedByTotal[0] || { code_unit: '-', total_liters: 0, schedule_liters: 0, unschedule_liters: 0 };
+            const highestU = sortedByU[0] || { code_unit: '-', unschedule_liters: 0, total_liters: 0 };
+            const highestUPct = totalC > 0 ? Math.round((highestU.unschedule_liters / totalC) * 100) : 0;
+
+            return {
+                ...raw,
+                total_schedule: Math.round(totalS * 10) / 10,
+                total_unschedule: Math.round(totalU * 10) / 10,
+                total_consumption: Math.round(totalC * 10) / 10,
+                highest_consumer: {
+                    code_unit: highestC.code_unit,
+                    total_liters: highestC.total_liters,
+                    schedule_liters: highestC.schedule_liters,
+                    unschedule_liters: highestC.unschedule_liters,
+                },
+                highest_unscheduled: {
+                    code_unit: highestU.code_unit,
+                    unschedule_liters: highestU.unschedule_liters,
+                    pct_of_total: highestUPct,
+                },
+                units: filteredUnits,
+            };
+        }
+
+        return raw;
+    }, [unitTypeDashboards, selectedUnitType, selectedOilGrade]);
+
+    // Unit Type Icon Helper
+    const getUnitTypeIcon = (typeName) => {
+        const u = (typeName || '').toUpperCase();
+        if (u.includes('EXCAVATOR')) return <Tractor className="w-4 h-4 text-amber-400" />;
+        if (u.includes('HAULER') || u.includes('DUMP')) return <Truck className="w-4 h-4 text-blue-400" />;
+        if (u.includes('DOZER')) return <Layers className="w-4 h-4 text-purple-400" />;
+        if (u.includes('GRADER')) return <SlidersHorizontal className="w-4 h-4 text-emerald-400" />;
+        if (u.includes('CRUSHER')) return <Cpu className="w-4 h-4 text-rose-400" />;
+        if (u.includes('COMPACTOR')) return <Gauge className="w-4 h-4 text-yellow-400" />;
+        if (u.includes('TOWER')) return <Sparkles className="w-4 h-4 text-amber-300" />;
+        if (u.includes('SERVICE') || u.includes('FUEL') || u.includes('WATER') || u.includes('PUMP')) return <Droplet className="w-4 h-4 text-cyan-400" />;
+        if (u.includes('CRANE') || u.includes('LOWBOY')) return <Wrench className="w-4 h-4 text-indigo-400" />;
+        if (u.includes('GENSET') || u.includes('COMPRESSOR') || u.includes('WELDING')) return <Zap className="w-4 h-4 text-orange-400" />;
+        return <Activity className="w-4 h-4 text-teal-400" />;
+    };
+
+    // =========================================================================
+    // CHART.JS INITIALIZATION FOR THE DARK DASHBOARD & DONUT
+    // =========================================================================
     useEffect(() => {
-        if (chartInstances.current.trend) chartInstances.current.trend.destroy();
-        if (chartInstances.current.dist) chartInstances.current.dist.destroy();
-        if (chartInstances.current.top) chartInstances.current.top.destroy();
+        if (activeTab !== 'analytics') return;
 
-        // 1. Trend Chart (Mixed: Bar + Line)
-        if (trendChartRef.current) {
-            chartInstances.current.trend = new Chart(trendChartRef.current, {
+        // Destroy previous chart instances
+        Object.keys(chartInstances.current).forEach(key => {
+            if (chartInstances.current[key]) {
+                chartInstances.current[key].destroy();
+            }
+        });
+
+        // 1. Dark Comparison Bar Chart: Schedule vs Unschedule per Unit
+        if (darkComparisonChartRef.current) {
+            const chartUnits = activeDashboard.units || [];
+            const labels = chartUnits.map(u => u.code_unit);
+            const scheduleData = chartUnits.map(u => u.schedule_liters || 0);
+            const unscheduleData = chartUnits.map(u => u.unschedule_liters || 0);
+
+            // Custom Plugin to draw the numeric labels on top of each bar (exact like screenshot)
+            const valueLabelsPlugin = {
+                id: 'valueLabelsPlugin',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    chart.data.datasets.forEach((dataset, datasetIndex) => {
+                        const meta = chart.getDatasetMeta(datasetIndex);
+                        meta.data.forEach((bar, index) => {
+                            const val = dataset.data[index];
+                            if (val !== undefined && val !== null) {
+                                ctx.save();
+                                ctx.fillStyle = '#f8fafc';
+                                ctx.font = 'bold 11px Inter, system-ui, -apple-system, sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'bottom';
+                                // Draw above bar if val > 0, or right on baseline if 0
+                                const yPos = val > 0 ? bar.y - 4 : bar.y - 2;
+                                ctx.fillText(val > 0 ? val.toString() : '0', bar.x, yPos);
+                                ctx.restore();
+                            }
+                        });
+                    });
+                }
+            };
+
+            chartInstances.current.comparison = new Chart(darkComparisonChartRef.current, {
                 type: 'bar',
                 data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep'],
+                    labels: labels,
                     datasets: [
                         {
-                            type: 'line',
-                            label: 'Rata-rata (L/100 HM)',
-                            data: [0.26, 0.25, 0.24, 0.23, 0.22, 0.20, 0.21, 0.23, 0.22],
-                            borderColor: '#3b82f6', // blue-500
-                            backgroundColor: '#3b82f6',
-                            borderWidth: 2,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#3b82f6',
-                            yAxisID: 'y1'
+                            label: 'Schedule',
+                            data: scheduleData,
+                            backgroundColor: '#10b981',
+                            hoverBackgroundColor: '#059669',
+                            borderRadius: { topLeft: 6, topRight: 6 },
+                            barPercentage: 0.85,
+                            categoryPercentage: 0.70,
                         },
                         {
-                            type: 'bar',
-                            label: 'Total Konsumsi (Liter)',
-                            data: [620, 580, 710, 650, 520, 480, 510, 560, 520],
-                            backgroundColor: '#10b981', // emerald-500
-                            barThickness: 16,
-                            yAxisID: 'y'
+                            label: 'Unschedule',
+                            data: unscheduleData,
+                            backgroundColor: '#ef4444',
+                            hoverBackgroundColor: '#dc2626',
+                            borderRadius: { topLeft: 6, topRight: 6 },
+                            barPercentage: 0.85,
+                            categoryPercentage: 0.70,
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 26, bottom: 8, left: 6, right: 6 }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
                     scales: {
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: { display: true, text: 'Konsumsi (Liter)', font: { size: 10 } },
-                            min: 0, max: 1000
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.04)',
+                                drawBorder: false,
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { size: 11, weight: 'bold' },
+                                padding: 6,
+                            }
                         },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: { display: true, text: 'L/1000 HM', font: { size: 10 } },
-                            min: 0, max: 1.0,
-                            grid: { drawOnChartArea: false }
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.07)',
+                                drawBorder: false,
+                            },
+                            title: {
+                                display: true,
+                                text: 'LITER (L)',
+                                color: '#94a3b8',
+                                font: { size: 11, weight: 'bold' }
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { size: 10 }
+                            },
+                            beginAtZero: true,
                         }
                     },
                     plugins: {
-                        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } } }
+                        legend: {
+                            display: false, // HTML custom legend matching screenshot
+                        },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#e2e8f0',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            padding: 10,
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} L`
+                            }
+                        }
                     }
-                }
+                },
+                plugins: [valueLabelsPlugin]
             });
         }
 
-        // 2. Distribusi Chart
-        if (distChartRef.current) {
-            chartInstances.current.dist = new Chart(distChartRef.current, {
+        // 2. Donut Chart: Proporsi Grade Oli Seluruh Armada
+        if (gradeDonutRef.current) {
+            const labels = (perGradeAnalytics || []).map(g => g.grade);
+            const values = (perGradeAnalytics || []).map(g => g.total_liter);
+            const colors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b', '#14b8a6', '#f97316', '#6366f1'];
+
+            chartInstances.current.gradeDonut = new Chart(gradeDonutRef.current, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Excavator', 'Hauler', 'Dozer', 'Motor Grader', 'Truck', 'Lainnya'],
+                    labels: labels,
                     datasets: [{
-                        data: [1620, 980, 620, 480, 460, 360],
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'],
-                        borderWidth: 0,
-                        cutout: '65%'
+                        data: values,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                        cutout: '64%'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: false }
-                    }
-                },
-                plugins: [{
-                    id: 'textCenter',
-                    beforeDraw: function(chart) {
-                        var width = chart.width, height = chart.height, ctx = chart.ctx;
-                        ctx.restore();
-                        var fontSize = (height / 100).toFixed(2);
-                        ctx.font = "bold " + fontSize + "em sans-serif";
-                        ctx.textBaseline = "middle";
-                        ctx.textAlign = "center";
-                        ctx.fillStyle = "#1e293b";
-                        var text = "4,520", textX = width / 2, textY = height / 2 - 10;
-                        ctx.fillText(text, textX, textY);
-                        ctx.font = (fontSize * 0.4) + "em sans-serif";
-                        ctx.fillStyle = "#64748b";
-                        ctx.fillText("Liter", textX, textY + 20);
-                        ctx.save();
-                    }
-                }]
-            });
-        }
-
-        // 3. Top 5 Unit Chart
-        if (topUnitChartRef.current) {
-            chartInstances.current.top = new Chart(topUnitChartRef.current, {
-                type: 'bar',
-                data: {
-                    labels: ['EX-057', 'HD785-12', 'TRK-03', 'D85-01', 'GD655-01'],
-                    datasets: [{
-                        data: [0.92, 0.88, 0.76, 0.65, 0.62],
-                        backgroundColor: ['#ef4444', '#f97316', '#facc15', '#3b82f6', '#0ea5e9'],
-                        barThickness: 16
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { 
-                        x: { display: false, max: 1.0 },
-                        y: { border: { display: false }, grid: { display: false } }
-                    },
-                    plugins: { 
-                        legend: { display: false }
-                    },
-                    animation: {
-                        onComplete: function() {
-                            const ctx = this.ctx;
-                            ctx.font = "bold 11px sans-serif";
-                            ctx.fillStyle = "#1e293b";
-                            ctx.textAlign = "left";
-                            ctx.textBaseline = "middle";
-                            this.data.datasets.forEach((dataset, i) => {
-                                const meta = this.getDatasetMeta(i);
-                                meta.data.forEach((bar, index) => {
-                                    const data = dataset.data[index];
-                                    ctx.fillText(data, bar.x + 5, bar.y);
-                                });
-                            });
-                        }
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11, weight: '600' } } }
                     }
                 }
             });
         }
 
         return () => {
-            if (chartInstances.current.trend) chartInstances.current.trend.destroy();
-            if (chartInstances.current.dist) chartInstances.current.dist.destroy();
-            if (chartInstances.current.top) chartInstances.current.top.destroy();
+            Object.keys(chartInstances.current).forEach(key => {
+                if (chartInstances.current[key]) {
+                    chartInstances.current[key].destroy();
+                }
+            });
         };
-    }, []);
-
-    const getColorForHM = (val) => {
-        const num = parseFloat(val);
-        if (num <= 6) return 'text-emerald-600';
-        if (num <= 10) return 'text-amber-500';
-        return 'text-red-600';
-    };
+    }, [activeTab, selectedUnitType, selectedOilGrade, activeDashboard, perGradeAnalytics]);
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-white shadow-sm">
-                            <Droplet size={24} strokeWidth={2.5} />
+                <div className="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-800 to-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-700/20">
+                            <Droplet size={28} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-extrabold text-gray-800 dark:text-gray-100 uppercase tracking-tight">
-                                OIL CONSUMPTION
-                            </h2>
-                            <div className="text-sm text-gray-500 font-medium mt-0.5">
-                                Home <span className="mx-1">&gt;</span> Component & Condition Monitoring <span className="mx-1">&gt;</span> <span className="text-gray-800 font-bold">Oil Consumption</span>
+                            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight">
+                                OIL CONSUMPTION MONITORING
+                            </h1>
+                            <div className="text-sm text-gray-500 font-semibold mt-0.5 flex items-center gap-2">
+                                <span>Component &amp; Condition Monitoring</span>
+                                <span className="text-gray-300">&bull;</span>
+                                <span className="text-emerald-700 font-bold">Pencatatan &amp; Analisis Konsumsi Pelumas Alat Berat</span>
                             </div>
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                        <button className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all">
-                            <Plus size={16} />
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        {/* Tombol Input Data */}
+                        <button 
+                            type="button"
+                            onClick={handleOpenCreateModal}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-black rounded-xl shadow-md shadow-emerald-600/30 transition-all transform hover:-translate-y-0.5"
+                        >
+                            <Plus size={18} strokeWidth={3} />
                             <span>Input Data</span>
                         </button>
-                        <button className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-semibold rounded-lg shadow-sm transition-all">
-                            <Download size={16} />
+
+                        {/* Tombol Import Excel */}
+                        <button 
+                            type="button"
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-sm font-bold rounded-xl shadow-sm transition-all"
+                        >
+                            <Upload size={16} className="text-emerald-600" />
                             <span>Import Excel</span>
                         </button>
-                        <button className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-semibold rounded-lg shadow-sm transition-all">
-                            <Download size={16} />
+
+                        {/* Tombol Export Excel */}
+                        <a 
+                            href={route('oil-consumption.export')}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-sm font-bold rounded-xl shadow-sm transition-all"
+                        >
+                            <Download size={16} className="text-blue-600" />
                             <span>Export Excel</span>
-                        </button>
-                        <button className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-semibold rounded-lg shadow-sm transition-all">
-                            <Printer size={16} />
+                        </a>
+
+                        {/* Tombol Print */}
+                        <button 
+                            type="button"
+                            onClick={() => window.print()}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-sm font-bold rounded-xl shadow-sm transition-all"
+                        >
+                            <Printer size={16} className="text-gray-600" />
                             <span>Print</span>
                         </button>
                     </div>
                 </div>
             }
         >
-            <Head title="Oil Consumption" />
+            <Head title="Oil Consumption Monitoring" />
 
-            <div className="space-y-6">
+            {/* FULL SCREEN WIDTH CONTAINER */}
+            <div className="w-full px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
                 
-                {/* KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {/* Total Unit */}
-                    <div className="bg-blue-50/80 rounded-xl border border-blue-100 p-4 flex items-center gap-4">
-                        <div className="text-blue-500 flex items-center justify-center shrink-0">
-                            <svg className="w-10 h-10 fill-current" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-                        </div>
-                        <div>
-                            <div className="text-sm font-bold text-gray-800 uppercase tracking-wide">Total Unit</div>
-                            <div className="flex flex-col">
-                                <div className="text-2xl font-black text-gray-800">86</div>
-                                <div className="text-sm text-gray-600 font-medium">Unit</div>
-                            </div>
-                        </div>
+                {/* TOP NAVIGATION TABS */}
+                <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-1.5 flex items-center justify-between gap-2 overflow-x-auto">
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('analytics')}
+                            className={`flex items-center gap-2.5 px-6 py-3 rounded-xl font-black text-sm transition-all ${
+                                activeTab === 'analytics'
+                                    ? 'bg-slate-900 text-white shadow-md shadow-slate-900/30'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                        >
+                            <BarChart3 size={18} className={activeTab === 'analytics' ? 'text-amber-400' : ''} />
+                            <span>Dashboard Grafik: Schedule vs Unscheduled (Per Tipe Unit)</span>
+                            <span className="flex h-2 w-2 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('data')}
+                            className={`flex items-center gap-2.5 px-6 py-3 rounded-xl font-black text-sm transition-all ${
+                                activeTab === 'data'
+                                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                        >
+                            <Table size={18} />
+                            <span>Data Tabel &amp; Monitoring</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                activeTab === 'data' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+                            }`}>
+                                {summary.total_pengisian || 0}
+                            </span>
+                        </button>
                     </div>
 
-                    {/* Total Konsumsi Oli */}
-                    <div className="bg-emerald-50/80 rounded-xl border border-emerald-100 p-4 flex items-center gap-4">
-                        <div className="text-emerald-600 flex items-center justify-center shrink-0">
-                            <Droplet size={40} className="fill-emerald-600 text-emerald-600" />
-                        </div>
-                        <div>
-                            <div className="text-sm font-bold text-gray-800 uppercase tracking-wide">Total Konsumsi Oli</div>
-                            <div className="flex items-end gap-3">
-                                <div className="flex flex-col">
-                                    <div className="text-2xl font-black text-gray-800">4,520</div>
-                                    <div className="text-sm text-gray-600 font-medium">Liter</div>
-                                </div>
-                                <div className="flex flex-col pb-1">
-                                    <span className="text-emerald-600 flex items-center text-xs font-bold"><svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg> -12%</span>
-                                    <span className="text-gray-500 text-[9px]">dari bulan lalu</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Rata-rata Konsumsi */}
-                    <div className="bg-amber-50/80 rounded-xl border border-amber-100 p-4 flex items-center gap-4">
-                        <div className="text-amber-500 flex items-center justify-center shrink-0">
-                            <svg className="w-10 h-10 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                        </div>
-                        <div>
-                            <div className="text-sm font-bold text-gray-800 uppercase tracking-wide">Rata-rata Konsumsi</div>
-                            <div className="flex flex-col">
-                                <div className="text-2xl font-black text-gray-800">0.38</div>
-                                <div className="text-sm text-gray-600 font-medium">Liter / 100 HM</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Unit Over Limit */}
-                    <div className="bg-rose-50/80 rounded-xl border border-rose-100 p-4 flex items-center gap-4">
-                        <div className="text-rose-600 flex items-center justify-center shrink-0">
-                            <svg className="w-10 h-10 fill-current" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-                        </div>
-                        <div>
-                            <div className="text-sm font-bold text-gray-800 uppercase tracking-wide">Unit Over Limit</div>
-                            <div className="flex flex-col">
-                                <div className="text-2xl font-black text-rose-600">12</div>
-                                <div className="text-sm text-rose-600 font-medium">Unit (14.0%)</div>
-                            </div>
-                        </div>
+                    <div className="hidden lg:flex items-center gap-2 pr-3 text-xs font-bold text-gray-500">
+                        <Activity size={14} className="text-emerald-600" />
+                        <span>Live Database Refreshed</span>
                     </div>
                 </div>
 
-                {/* Filter Section */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4 items-end">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Periode</label>
-                            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                                <div className="pl-3 pr-2 text-gray-400">
-                                    <Calendar size={14} />
-                                </div>
-                                <input type="text" placeholder="01/09/2026 - 30/09/2026" className="w-full text-sm border-0 py-1.5 focus:ring-0 text-gray-600" />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Jenis Unit</label>
-                            <select value={modelFilter} onChange={e => setModelFilter(e.target.value)} className="w-full text-sm border-gray-200 py-1.5 rounded-lg focus:ring-[#0b5c3e] focus:border-[#0b5c3e] text-gray-600">
-                                <option value="">Semua</option>
-                                <option value="Excavator">Excavator</option>
-                                <option value="Hauler">Hauler</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Model</label>
-                            <select value={codeUnitFilter} onChange={e => setCodeUnitFilter(e.target.value)} className="w-full text-sm border-gray-200 py-1.5 rounded-lg focus:ring-[#0b5c3e] focus:border-[#0b5c3e] text-gray-600">
-                                <option value="">Semua</option>
-                                <option value="EX-057">EX-057</option>
-                                <option value="HD785-12">HD785-12</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Department</label>
-                            <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="w-full text-sm border-gray-200 py-1.5 rounded-lg focus:ring-[#0b5c3e] focus:border-[#0b5c3e] text-gray-600">
-                                <option value="">Semua</option>
-                                <option value="Mining">Mining</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Status</label>
-                            <select className="w-full text-sm border-gray-200 py-1.5 rounded-lg focus:ring-[#0b5c3e] focus:border-[#0b5c3e] text-gray-600">
-                                <option value="">Semua</option>
-                                <option value="Over Limit">Over Limit</option>
-                                <option value="Normal">Normal</option>
-                            </select>
-                        </div>
-                        
-                        <div className="col-span-1 lg:col-span-3"></div>
+                {/* ========================================================================= */}
+                {/* TAB 1: ALL GRAFIK & ANALITIK PER TIPE UNIT (SCHEDULE VS UNSCHEDULE)      */}
+                {/* ========================================================================= */}
+                {activeTab === 'analytics' && (
+                    <div className="space-y-6">
 
-                        <div className="col-span-1 lg:col-span-2 flex justify-end gap-2">
-                            <div className="flex-1 flex items-center border border-gray-200 rounded-lg bg-white overflow-hidden">
-                                <div className="pl-3 pr-2 text-gray-400">
-                                    <Search size={14} />
+                        {/* 1. TIPE UNIT SELECTOR PILL BAR */}
+                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-lg">
+                            <div className="flex items-center justify-between px-2 pb-2.5 border-b border-slate-800 mb-2.5">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                                        <Layers size={14} />
+                                        PILIH TIPE UNIT ALAT BERAT ({allUnitTypes.length} KATEGORI):
+                                    </span>
                                 </div>
-                                <input type="text" placeholder="Cari kode unit atau deskripsi..." className="w-full text-sm border-0 py-1.5 focus:ring-0 text-gray-600" />
-                            </div>
-                            <button onClick={handleFilterSubmit} className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition-colors shadow-sm shrink-0">
-                                <Search size={14} />
-                                <span>Cari</span>
-                            </button>
-                            <button onClick={handleReset} className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-lg transition-colors shrink-0">
-                                <RefreshCw size={14} />
-                                <span>Reset</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Charts Area */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Trend Chart */}
-                    <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5 col-span-1">
-                        <h3 className="text-sm font-extrabold text-gray-800 mb-4">Trend Konsumsi Oli</h3>
-                        <div className="h-48">
-                            <canvas ref={trendChartRef}></canvas>
-                        </div>
-                    </div>
-
-                    {/* Distribusi Chart */}
-                    <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5 col-span-1 flex flex-col">
-                        <h3 className="text-sm font-extrabold text-gray-800 mb-2">Distribusi Konsumsi per Jenis Unit</h3>
-                        <div className="h-48 relative flex-1 flex items-center">
-                            <div className="w-1/2 h-full flex justify-center">
-                                <canvas ref={distChartRef}></canvas>
-                            </div>
-                            <div className="w-1/2 flex flex-col justify-center gap-1.5 pl-2">
-                                <div className="flex items-center text-xs font-bold text-gray-700 w-full justify-between">
-                                    <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500 shrink-0"></span> Excavator</div>
-                                    <div className="text-right">1,620 <span className="text-gray-400 font-medium">(35.8%)</span></div>
-                                </div>
-                                <div className="flex items-center text-xs font-bold text-gray-700 w-full justify-between">
-                                    <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 shrink-0"></span> Hauler</div>
-                                    <div className="text-right">980 <span className="text-gray-400 font-medium">(21.7%)</span></div>
-                                </div>
-                                <div className="flex items-center text-xs font-bold text-gray-700 w-full justify-between">
-                                    <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500 shrink-0"></span> Dozer</div>
-                                    <div className="text-right">620 <span className="text-gray-400 font-medium">(13.7%)</span></div>
-                                </div>
-                                <div className="flex items-center text-xs font-bold text-gray-700 w-full justify-between">
-                                    <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-500 shrink-0"></span> Motor Grader</div>
-                                    <div className="text-right">480 <span className="text-gray-400 font-medium">(10.6%)</span></div>
-                                </div>
-                                <div className="flex items-center text-xs font-bold text-gray-700 w-full justify-between">
-                                    <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-purple-500 shrink-0"></span> Truck</div>
-                                    <div className="text-right">460 <span className="text-gray-400 font-medium">(10.2%)</span></div>
-                                </div>
-                                <div className="flex items-center text-xs font-bold text-gray-700 w-full justify-between">
-                                    <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-slate-500 shrink-0"></span> Lainnya</div>
-                                    <div className="text-right">360 <span className="text-gray-400 font-medium">(8.0%)</span></div>
+                                <div className="text-xs text-slate-400 font-semibold">
+                                    Aktif: <span className="text-white font-bold">{selectedUnitType}</span> ({activeDashboard.total_units} unit terdaftar)
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Top 5 Unit Chart */}
-                    <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5 col-span-1">
-                        <h3 className="text-sm font-extrabold text-gray-800 mb-4">Top 5 Unit dengan Konsumsi Tertinggi <span className="text-gray-500 font-medium text-sm">(L/100 HM)</span></h3>
-                        <div className="h-44">
-                            <canvas ref={topUnitChartRef}></canvas>
-                        </div>
-                    </div>
-                </div>
+                            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700">
+                                {allUnitTypes.map(uType => {
+                                    const isSelected = selectedUnitType === uType;
+                                    const dInfo = unitTypeDashboards[uType];
+                                    const count = dInfo ? dInfo.total_units : 0;
 
-                {/* Main Table Card */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="px-5 py-4 flex justify-between items-center bg-white">
-                        <h3 className="text-sm font-extrabold text-gray-800">Data Oil Consumption</h3>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-center">
-                            <thead>
-                                <tr className="text-sm font-bold text-gray-600 bg-gray-50 border-y border-gray-200">
-                                    <th className="px-3 py-3 border-r border-gray-200">No</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">Tanggal</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">Kode Unit</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">Equipment</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">HM Awal</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">HM Akhir</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">HM Jalan</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">Oil Refill (Liter)</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">Konsumsi (L/100 HM)</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">Batas Normal</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">Status</th>
-                                    <th className="px-3 py-3 border-r border-gray-200">Keterangan</th>
-                                    <th className="px-3 py-3">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 bg-white">
-                                {tableData && tableData.length > 0 ? tableData.map((row, idx) => {
-                                    const batasNormal = row.department?.toLowerCase().includes('hauler') || row.model?.toLowerCase().includes('hauler') ? 0.60 : 0.50;
-                                    const val = parseFloat(row.l_per_1000 || 0);
-                                    const isOverLimit = val > batasNormal;
-                                    
                                     return (
-                                        <tr key={row.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
-                                            <td className="px-3 py-3 text-gray-500 font-medium text-sm">{idx + 1}</td>
-                                            <td className="px-3 py-3 text-gray-800 font-medium text-sm whitespace-nowrap">{row.date}</td>
-                                            <td className="px-3 py-3 text-gray-600 text-sm">{row.code_unit}</td>
-                                            <td className="px-3 py-3 text-gray-600 text-sm">{row.model}</td>
-                                            <td className="px-3 py-3 text-gray-600 text-sm">{row.hm_prev}</td>
-                                            <td className="px-3 py-3 text-gray-600 text-sm">{row.hm}</td>
-                                            <td className="px-3 py-3 text-gray-800 text-sm">{row.hm_diff}</td>
-                                            <td className="px-3 py-3 text-gray-600 text-sm">{row.pengisian}</td>
-                                            
-                                            <td className={`px-3 py-3 font-bold text-sm ${isOverLimit ? 'text-red-600' : 'text-gray-800'}`}>
-                                                {row.l_per_1000}
-                                            </td>
-                                            <td className="px-3 py-3 text-gray-600 text-sm">{batasNormal.toFixed(2)}</td>
-                                            
-                                            <td className="px-3 py-3">
-                                                {isOverLimit ? (
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-500 text-white text-xs font-bold uppercase tracking-wider">
-                                                        Over Limit
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider">
-                                                        Normal
-                                                    </span>
-                                                )}
-                                            </td>
-                                            
-                                            <td className="px-3 py-3 text-gray-600 text-xs text-left">{row.remarks || 'Normal'}</td>
-                                            
-                                            <td className="px-3 py-3">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    <button className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded flex items-center justify-center transition-colors">
-                                                        <Eye size={12} />
-                                                    </button>
-                                                    <button className="bg-amber-500 hover:bg-amber-600 text-white p-1 rounded flex items-center justify-center transition-colors">
-                                                        <Edit3 size={12} />
-                                                    </button>
-                                                    <button className="bg-red-500 hover:bg-red-600 text-white p-1 rounded flex items-center justify-center transition-colors">
-                                                        <Trash2 size={12} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <button
+                                            key={uType}
+                                            type="button"
+                                            onClick={() => setSelectedUnitType(uType)}
+                                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all ${
+                                                isSelected
+                                                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/20 scale-[1.02]'
+                                                    : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60'
+                                            }`}
+                                        >
+                                            {getUnitTypeIcon(uType)}
+                                            <span>{uType}</span>
+                                            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                                                isSelected ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-700 text-slate-300'
+                                            }`}>
+                                                {count}
+                                            </span>
+                                        </button>
                                     );
-                                }) : (
-                                    <tr>
-                                        <td colSpan="13" className="px-3 py-6 text-center text-gray-500 text-sm">Tidak ada data</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                })}
+                            </div>
+                        </div>
 
-                    {/* Pagination */}
-                    <div className="px-5 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="text-sm text-gray-500 font-medium">
-                            Menampilkan 1 - {tableData ? tableData.length : 0} dari {summary?.total_pengisian || 0} data
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50">&lt;</button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded bg-emerald-600 text-white font-bold">1</button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium">2</button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium">3</button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium">4</button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium">5</button>
-                            <span className="text-gray-400 px-1 text-sm">...</span>
-                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium">9</button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50">&gt;</button>
-                            <select className="ml-2 text-sm border-gray-200 rounded py-1 focus:ring-[#0b5c3e] focus:border-[#0b5c3e]">
-                                <option>10 / halaman</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+                        {/* 2. GRADE OIL SELECTOR BAR (14 SAE GRADES) */}
+                        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                                <div className="flex items-center gap-2">
+                                    <Droplet size={18} className="text-emerald-600" />
+                                    <span className="text-sm font-black text-gray-900 uppercase tracking-tight">
+                                        Filter Grade Pelumas &amp; Cairan:
+                                    </span>
+                                </div>
+                                <span className="text-xs text-gray-500 font-semibold">
+                                    Menampilkan data: <strong className="text-emerald-700 font-black">{selectedOilGrade === 'Semua' ? 'Semua Grade Pelumas' : selectedOilGrade}</strong>
+                                </span>
+                            </div>
 
-                {/* Bottom Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Standar Batas Konsumsi Oli */}
-                    <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5">
-                        <h3 className="text-sm font-extrabold text-gray-800 mb-4 border-b pb-2">Standar Batas Konsumsi Oli <span className="text-gray-500 font-medium text-sm">(L/100 HM)</span></h3>
-                        <div className="flex flex-col gap-2">
-                            <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-                                <span className="font-bold text-gray-700">Jenis Unit</span>
-                                <span className="font-bold text-gray-700">Batas Normal</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-                                <span className="text-gray-600">Excavator</span><span className="font-medium text-gray-800">0.50</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-                                <span className="text-gray-600">Hauler</span><span className="font-medium text-gray-800">0.60</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-                                <span className="text-gray-600">Dozer</span><span className="font-medium text-gray-800">0.50</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-                                <span className="text-gray-600">Motor Grader</span><span className="font-medium text-gray-800">0.50</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-                                <span className="text-gray-600">Truck</span><span className="font-medium text-gray-800">0.50</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-                                <span className="text-gray-600">Compactor</span><span className="font-medium text-gray-800">0.50</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-gray-600">Lainnya</span><span className="font-medium text-gray-800">0.50</span>
-                            </div>
-                        </div>
-                    </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedOilGrade('Semua')}
+                                    className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
+                                        selectedOilGrade === 'Semua'
+                                            ? 'bg-emerald-600 text-white shadow-sm'
+                                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                    }`}
+                                >
+                                    Semua Grade Pelumas
+                                </button>
 
-                    {/* Analisa & Rekomendasi */}
-                    <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5">
-                        <h3 className="text-sm font-extrabold text-gray-800 mb-4 border-b pb-2">Analisa & Rekomendasi</h3>
-                        <div className="flex flex-col gap-3">
-                            <div className="flex gap-3">
-                                <div className="mt-0.5 text-amber-500 shrink-0">
-                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>
-                                </div>
-                                <div className="text-sm text-gray-700 leading-relaxed">
-                                    <span className="font-bold text-gray-800">12 unit (14.0%)</span> melebihi batas konsumsi normal
-                                </div>
-                            </div>
-                            <div className="flex gap-3">
-                                <div className="mt-0.5 text-emerald-500 shrink-0">
-                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                </div>
-                                <div className="text-sm text-gray-700 leading-relaxed">
-                                    Rata-rata konsumsi oli bulan ini 0.38 L/100 HM (turun 12%)
-                                </div>
-                            </div>
-                            <div className="flex gap-3">
-                                <div className="mt-0.5 text-emerald-500 shrink-0">
-                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                </div>
-                                <div className="text-sm text-gray-700 leading-relaxed">
-                                    Lakukan inspeksi pada unit dengan konsumsi tinggi
-                                </div>
-                            </div>
-                            <div className="flex gap-3">
-                                <div className="mt-0.5 text-emerald-500 shrink-0">
-                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                </div>
-                                <div className="text-sm text-gray-700 leading-relaxed">
-                                    Periksa kemungkinan kebocoran pada seal, gasket, dan filter oli
-                                </div>
-                            </div>
-                            <div className="flex gap-3">
-                                <div className="mt-0.5 text-emerald-500 shrink-0">
-                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                </div>
-                                <div className="text-sm text-gray-700 leading-relaxed">
-                                    Gunakan oli sesuai spesifikasi pabrikan
-                                </div>
-                            </div>
-                            <div className="flex gap-3">
-                                <div className="mt-0.5 text-emerald-500 shrink-0">
-                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                </div>
-                                <div className="text-sm text-gray-700 leading-relaxed">
-                                    Monitor tren konsumsi secara berkala
-                                </div>
+                                {standardOilGrades.map(grade => {
+                                    const isSel = selectedOilGrade === grade;
+                                    return (
+                                        <button
+                                            key={grade}
+                                            type="button"
+                                            onClick={() => setSelectedOilGrade(grade)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                isSel
+                                                    ? 'bg-emerald-600 text-white shadow-sm font-black'
+                                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                            }`}
+                                        >
+                                            {grade}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
-                    </div>
 
-                    {/* Foto / Bukti */}
-                    <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5">
-                        <h3 className="text-sm font-extrabold text-gray-800 mb-4 border-b pb-2">Foto / Bukti</h3>
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="flex flex-col items-center">
-                                <div className="aspect-[4/3] bg-gray-100 rounded-lg w-full mb-2 overflow-hidden flex items-center justify-center">
-                                    <img src="https://images.unsplash.com/photo-1635889396347-1065ea0e9cc0?w=200&h=150&fit=crop" alt="Kebocoran" className="w-full h-full object-cover" />
-                                </div>
-                                <span className="text-xs text-gray-600 font-medium">Kebocoran Seal</span>
+                        {/* 3. THE HIGH-TECH DARK COMPARISON DASHBOARD (EXACT SCREENSHOT REPLICA) */}
+                        <div className="relative rounded-3xl bg-gradient-to-br from-[#0B132B] via-[#090F22] to-[#050914] border border-cyan-900/40 shadow-2xl p-6 sm:p-8 text-white overflow-hidden">
+                            
+                            {/* Subtle Radial Glow & Background Watermark Silhouette */}
+                            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                            
+                            {/* Machinery Silhouette Watermark on the Right */}
+                            <div className="absolute right-6 bottom-16 opacity-10 pointer-events-none hidden md:block">
+                                <svg width="340" height="200" viewBox="0 0 400 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M40 180H340V210H40V180Z" fill="currentColor"/>
+                                    <path d="M70 140H220V180H70V140Z" fill="currentColor"/>
+                                    <path d="M110 90H180V140H110V90Z" fill="currentColor"/>
+                                    <path d="M180 120L310 40L330 60L230 140H180V120Z" fill="currentColor"/>
+                                    <path d="M310 40L360 90L340 100L300 60L310 40Z" fill="currentColor"/>
+                                    <circle cx="90" cy="195" r="18" fill="#000" stroke="currentColor" strokeWidth="4"/>
+                                    <circle cx="160" cy="195" r="18" fill="#000" stroke="currentColor" strokeWidth="4"/>
+                                    <circle cx="230" cy="195" r="18" fill="#000" stroke="currentColor" strokeWidth="4"/>
+                                    <circle cx="300" cy="195" r="18" fill="#000" stroke="currentColor" strokeWidth="4"/>
+                                </svg>
                             </div>
-                            <div className="flex flex-col items-center">
-                                <div className="aspect-[4/3] bg-gray-100 rounded-lg w-full mb-2 overflow-hidden flex items-center justify-center">
-                                    <img src="https://images.unsplash.com/photo-1621516087532-61d02c65aeb0?w=200&h=150&fit=crop" alt="Kondisi Oli" className="w-full h-full object-cover" />
+
+                            {/* TOP HEADER SECTION */}
+                            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-800/80">
+                                
+                                {/* Left Title & Icon & Legend */}
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-md shadow-amber-500/10 flex-shrink-0">
+                                        <Tractor size={32} strokeWidth={2.2} />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase">
+                                                OIL CONSUMPTION - <span className="text-amber-400">{selectedUnitType}</span>
+                                            </h2>
+                                            
+                                            {/* Date Range Badge */}
+                                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-xs font-bold text-slate-300">
+                                                <Calendar size={13} className="text-slate-400" />
+                                                <span>01 Sep 2026 - 18 Sep 2026</span>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-sm font-semibold text-slate-400">
+                                            Comparison Schedule vs Unscheduled | Per Unit {selectedOilGrade !== 'Semua' ? `[Filter: ${selectedOilGrade}]` : ''}
+                                        </p>
+
+                                        {/* Legend (Schedule vs Unschedule) */}
+                                        <div className="flex items-center gap-5 pt-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
+                                                <span className="text-xs font-bold text-slate-200">Schedule</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50"></span>
+                                                <span className="text-xs font-bold text-slate-200">Unschedule</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <span className="text-xs text-gray-600 font-medium">Kondisi Oli</span>
+
+                                {/* Right: 3 KPI Cards */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    
+                                    {/* 1. TOTAL SCHEDULE */}
+                                    <div className="bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 shadow-lg flex items-center gap-3 min-w-[170px]">
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                                            <Droplet size={20} strokeWidth={2.5} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">TOTAL SCHEDULE</div>
+                                            <div className="text-2xl font-black text-white font-mono mt-0.5">
+                                                {activeDashboard.total_schedule} <span className="text-sm font-bold text-slate-400">L</span>
+                                            </div>
+                                            <div className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 mt-0.5">
+                                                <span>▲</span>
+                                                <span>+12% vs last period</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. TOTAL UNSCHEDULE */}
+                                    <div className="bg-gradient-to-br from-rose-950/40 to-slate-900 border border-rose-500/30 rounded-2xl p-4 shadow-lg flex items-center gap-3 min-w-[170px]">
+                                        <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0">
+                                            <Droplet size={20} strokeWidth={2.5} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">TOTAL UNSCHEDULE</div>
+                                            <div className="text-2xl font-black text-white font-mono mt-0.5">
+                                                {activeDashboard.total_unschedule} <span className="text-sm font-bold text-slate-400">L</span>
+                                            </div>
+                                            <div className="text-[11px] font-bold text-rose-400 flex items-center gap-1 mt-0.5">
+                                                <span>▲</span>
+                                                <span>+5% vs last period</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. TOTAL CONSUMPTION */}
+                                    <div className="bg-gradient-to-br from-blue-950/40 to-slate-900 border border-blue-500/30 rounded-2xl p-4 shadow-lg flex items-center gap-3 min-w-[170px]">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center flex-shrink-0 font-black text-lg">
+                                            &Sigma;
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">TOTAL CONSUMPTION</div>
+                                            <div className="text-2xl font-black text-white font-mono mt-0.5">
+                                                {activeDashboard.total_consumption} <span className="text-sm font-bold text-slate-400">L</span>
+                                            </div>
+                                            <div className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 mt-0.5">
+                                                <span>▲</span>
+                                                <span>+10% vs last period</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
                             </div>
-                            <div className="flex flex-col items-center">
-                                <div className="aspect-[4/3] bg-gray-100 rounded-lg w-full mb-2 overflow-hidden flex items-center justify-center">
-                                    <img src="https://images.unsplash.com/photo-1600705680196-857e43486337?w=200&h=150&fit=crop" alt="Filter Oli" className="w-full h-full object-cover" />
+
+                            {/* MAIN CANVAS: HIGH RESOLUTION SCHEDULE VS UNSCHEDULE PER UNIT */}
+                            <div className="relative z-10 my-6">
+                                <div className="h-[360px] sm:h-[400px] w-full">
+                                    <canvas ref={darkComparisonChartRef}></canvas>
                                 </div>
-                                <span className="text-xs text-gray-600 font-medium">Filter Oli</span>
+                                <div className="text-center text-[11px] font-black tracking-widest text-slate-500 uppercase mt-2">
+                                    UNIT CODE
+                                </div>
+                            </div>
+
+                            {/* BOTTOM METRIC STRIP */}
+                            <div className="relative z-10 pt-4 border-t border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex flex-wrap items-center gap-4">
+                                    
+                                    {/* Highest Consumer */}
+                                    <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                                            <BarChart3 size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase">UNIT WITH HIGHEST CONSUMPTION</div>
+                                            <div className="text-sm font-black text-white flex items-center gap-2">
+                                                <span className="text-amber-400 font-mono text-base">{activeDashboard.highest_consumer?.code_unit || '-'}</span>
+                                                <span>{activeDashboard.highest_consumer?.total_liters || 0} L</span>
+                                                <span className="text-xs font-normal text-slate-400">
+                                                    (Schedule {activeDashboard.highest_consumer?.schedule_liters || 0} L | Unschedule {activeDashboard.highest_consumer?.unschedule_liters || 0} L)
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Highest Unscheduled */}
+                                    <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                                            <Droplet size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase">HIGHEST UNSCHEDULED</div>
+                                            <div className="text-sm font-black text-white flex items-center gap-2">
+                                                <span className="text-amber-400 font-mono text-base">{activeDashboard.highest_unscheduled?.code_unit || '-'}</span>
+                                                <span>{activeDashboard.highest_unscheduled?.unschedule_liters || 0} L</span>
+                                                <span className="text-xs font-normal text-slate-400">
+                                                    {activeDashboard.highest_unscheduled?.pct_of_total || 0}% of total
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Total Units */}
+                                    <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                                            <Gauge size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase">TOTAL UNIT</div>
+                                            <div className="text-base font-black text-amber-400">
+                                                {activeDashboard.total_units} Unit
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                {/* Tagline */}
+                                <div className="text-right text-xs font-medium italic text-slate-500 tracking-wider">
+                                    Keep The Plant Running
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* 4. CROSS-TABULATION MATRIX TABLE (Per Grade Oil & Per Tipe Unit) */}
+                        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                                        <FileSpreadsheet size={20} className="text-emerald-600" />
+                                        <span>Rincian Matriks Konsumsi Pelumas: {selectedUnitType}</span>
+                                    </h3>
+                                    <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                                        Breakdown volume pemakaian pelumas terjadwal (Schedule) dan tak terjadwal (Unschedule) per unit
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                                <table className="w-full text-left text-sm border-collapse">
+                                    <thead className="bg-gray-50 border-b border-gray-200 text-xs font-black text-gray-600 uppercase tracking-wider">
+                                        <tr>
+                                            <th className="py-3.5 px-4">No</th>
+                                            <th className="py-3.5 px-4">Kode Unit</th>
+                                            <th className="py-3.5 px-4">Model / Equipment</th>
+                                            <th className="py-3.5 px-4 text-right">Schedule (L)</th>
+                                            <th className="py-3.5 px-4 text-right">Unschedule (L)</th>
+                                            <th className="py-3.5 px-4 text-right font-black">Total Liter</th>
+                                            <th className="py-3.5 px-4 text-center">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {(activeDashboard.units || []).map((u, idx) => (
+                                            <tr key={u.code_unit} className="hover:bg-slate-50/80 transition-colors">
+                                                <td className="py-3 px-4 text-gray-500 font-semibold text-xs">{idx + 1}</td>
+                                                <td className="py-3 px-4 font-black text-gray-900 font-mono">{u.code_unit}</td>
+                                                <td className="py-3 px-4 text-gray-700 font-semibold text-xs">{u.model}</td>
+                                                <td className="py-3 px-4 text-right font-bold text-emerald-700 font-mono">{u.schedule_liters} L</td>
+                                                <td className="py-3 px-4 text-right font-bold text-rose-700 font-mono">{u.unschedule_liters} L</td>
+                                                <td className="py-3 px-4 text-right font-black text-gray-900 font-mono text-base">{u.total_liters} L</td>
+                                                <td className="py-3 px-4 text-center">
+                                                    {u.total_liters > 0 ? (
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                                            <Check size={12} /> Aktif
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+                                                            0 Liter
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot className="bg-slate-100 font-black text-gray-900 border-t-2 border-gray-300">
+                                        <tr>
+                                            <td colSpan={3} className="py-3.5 px-4 uppercase text-xs">Total Armada {selectedUnitType}</td>
+                                            <td className="py-3.5 px-4 text-right font-mono text-emerald-800 text-base">{activeDashboard.total_schedule} L</td>
+                                            <td className="py-3.5 px-4 text-right font-mono text-rose-800 text-base">{activeDashboard.total_unschedule} L</td>
+                                            <td className="py-3.5 px-4 text-right font-mono text-blue-900 text-lg">{activeDashboard.total_consumption} L</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
                             </div>
                         </div>
+
                     </div>
-                </div>
+                )}
+
+                {/* ========================================================================= */}
+                {/* TAB 2: DATA TABEL & MONITORING PENGISIAN                                  */}
+                {/* ========================================================================= */}
+                {activeTab === 'data' && (
+                    <div className="space-y-6">
+
+                        {/* Summary KPI Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-sm">
+                                <div className="flex items-center justify-between text-gray-500 text-xs font-bold uppercase tracking-wider">
+                                    <span>Total Konsumsi Pelumas</span>
+                                    <Droplet size={18} className="text-emerald-600" />
+                                </div>
+                                <div className="mt-2 text-3xl font-black text-gray-900 font-mono">
+                                    {summary.total_konsumsi || 0} <span className="text-base font-bold text-gray-500">Liter</span>
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500 font-semibold">
+                                    {summary.total_unit || 0} Unit &bull; {summary.total_pengisian || 0} Refill
+                                </div>
+                            </div>
+
+                            <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-sm">
+                                <div className="flex items-center justify-between text-gray-500 text-xs font-bold uppercase tracking-wider">
+                                    <span>Rata-Rata Rasio Pelumas</span>
+                                    <Gauge size={18} className="text-blue-600" />
+                                </div>
+                                <div className="mt-2 text-3xl font-black text-gray-900 font-mono">
+                                    {summary.avg_1000 || '0.00'} <span className="text-base font-bold text-gray-500">L / 100 HM</span>
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500 font-semibold">
+                                    Target Standar: <span className="font-bold text-emerald-600">&le; 0.50 L/100 HM</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-sm">
+                                <div className="flex items-center justify-between text-gray-500 text-xs font-bold uppercase tracking-wider">
+                                    <span>Unit Over Limit (Waspada)</span>
+                                    <AlertTriangle size={18} className="text-red-500" />
+                                </div>
+                                <div className="mt-2 text-3xl font-black text-red-600 font-mono">
+                                    {summary.over_limit_count || 0} <span className="text-base font-bold text-gray-500">Kasus</span>
+                                </div>
+                                <div className="mt-1 text-xs text-red-600 font-semibold">
+                                    {summary.over_limit_pct || 0}% Dari total pengisian
+                                </div>
+                            </div>
+
+                            <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-sm">
+                                <div className="flex items-center justify-between text-gray-500 text-xs font-bold uppercase tracking-wider">
+                                    <span>Kondisi Normal</span>
+                                    <CheckCircle2 size={18} className="text-emerald-600" />
+                                </div>
+                                <div className="mt-2 text-3xl font-black text-emerald-600 font-mono">
+                                    {(summary.total_pengisian || 0) - (summary.over_limit_count || 0)} <span className="text-base font-bold text-gray-500">Refill</span>
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500 font-semibold">
+                                    Kepatuhan pelumasan optimal
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Search & Filter Panel */}
+                        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-5">
+                            <form onSubmit={handleFilterSubmit} className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                    {/* Search Input */}
+                                    <div className="col-span-1 sm:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                            Pencarian Cepat
+                                        </label>
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Cari kode unit, model, pelumas, pic..."
+                                                value={search}
+                                                onChange={e => setSearch(e.target.value)}
+                                                className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Date From */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                            Dari Tanggal
+                                        </label>
+                                        <input 
+                                            type="date"
+                                            value={dateFrom}
+                                            onChange={e => setDateFrom(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                                        />
+                                    </div>
+
+                                    {/* Date To */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                            Sampai Tanggal
+                                        </label>
+                                        <input 
+                                            type="date"
+                                            value={dateTo}
+                                            onChange={e => setDateTo(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                                        />
+                                    </div>
+
+                                    {/* Type Pelumas */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                            Grade Pelumas
+                                        </label>
+                                        <select
+                                            value={typeOliFilter}
+                                            onChange={e => setTypeOliFilter(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                                        >
+                                            <option value="">Semua Pelumas</option>
+                                            {standardOilGrades.map(o => (
+                                                <option key={o} value={o}>{o}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Status */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                            Status Rasio
+                                        </label>
+                                        <select
+                                            value={statusFilter}
+                                            onChange={e => setStatusFilter(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                                        >
+                                            <option value="">Semua Status</option>
+                                            <option value="Normal">Normal</option>
+                                            <option value="Perlu Monitoring">Perlu Monitoring</option>
+                                            <option value="Over Limit">Over Limit</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                                    <button
+                                        type="button"
+                                        onClick={handleReset}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
+                                    >
+                                        <RefreshCw size={14} />
+                                        <span>Reset Filter</span>
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition"
+                                    >
+                                        <Search size={14} />
+                                        <span>Terapkan Filter</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Data Table */}
+                        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden">
+                            <div className="p-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div>
+                                    <h3 className="text-base font-black text-gray-900 tracking-tight">
+                                        Tabel Riwayat Pengisian &amp; Konsumsi Oli
+                                    </h3>
+                                    <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                                        Menampilkan catatan pemakaian pelumas, rasio per 100 HM, status, dan jenis service (Schedule / Unschedule)
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm border-collapse">
+                                    <thead className="bg-emerald-50/60 border-b border-gray-200 text-xs font-black text-emerald-950 uppercase tracking-wider">
+                                        <tr>
+                                            <th className="py-4 px-4">No</th>
+                                            <th className="py-4 px-4">Tanggal</th>
+                                            <th className="py-4 px-4">Kode Unit</th>
+                                            <th className="py-4 px-4">Model / Equipment</th>
+                                            <th className="py-4 px-4">Komponen</th>
+                                            <th className="py-4 px-4">Tipe Service</th>
+                                            <th className="py-4 px-4">Tipe Pelumas</th>
+                                            <th className="py-4 px-4 text-right">HM Awal</th>
+                                            <th className="py-4 px-4 text-right">HM Akhir</th>
+                                            <th className="py-4 px-4 text-right">HM Jalan</th>
+                                            <th className="py-4 px-4 text-right">Refill (L)</th>
+                                            <th className="py-4 px-4 text-right">L / 100 HM</th>
+                                            <th className="py-4 px-4 text-center">Status</th>
+                                            <th className="py-4 px-4">PIC</th>
+                                            <th className="py-4 px-4 text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-150">
+                                        {tableData.length > 0 ? (
+                                            tableData.map((row) => (
+                                                <tr key={row.id} className="hover:bg-emerald-50/30 transition-colors">
+                                                    <td className="py-3.5 px-4 font-semibold text-gray-500 text-xs">{row.no}</td>
+                                                    <td className="py-3.5 px-4 font-bold text-gray-900 whitespace-nowrap">{row.date}</td>
+                                                    <td className="py-3.5 px-4 font-black text-emerald-700 font-mono">{row.code_unit}</td>
+                                                    <td className="py-3.5 px-4 font-semibold text-gray-700 text-xs">{row.model}</td>
+                                                    <td className="py-3.5 px-4">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700">
+                                                            {row.component}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black ${
+                                                            row.service_type === 'Unschedule' 
+                                                                ? 'bg-rose-100 text-rose-800 border border-rose-200' 
+                                                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                        }`}>
+                                                            {row.service_type || 'Schedule'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4 font-bold text-gray-800 text-xs">{row.type_oli}</td>
+                                                    <td className="py-3.5 px-4 text-right font-mono text-gray-600 text-xs">{row.hm_prev}</td>
+                                                    <td className="py-3.5 px-4 text-right font-mono text-gray-900 font-bold text-xs">{row.hm}</td>
+                                                    <td className="py-3.5 px-4 text-right font-mono text-emerald-700 font-bold text-xs">{row.hm_diff}</td>
+                                                    <td className="py-3.5 px-4 text-right font-mono text-base font-black text-gray-900">{row.pengisian}</td>
+                                                    <td className="py-3.5 px-4 text-right font-mono text-xs font-bold text-gray-800">{row.l_per_1000}</td>
+                                                    <td className="py-3.5 px-4 text-center">
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black ${
+                                                            row.status === 'Over Limit'
+                                                                ? 'bg-red-100 text-red-800'
+                                                                : row.status === 'Perlu Monitoring'
+                                                                ? 'bg-amber-100 text-amber-800'
+                                                                : 'bg-emerald-100 text-emerald-800'
+                                                        }`}>
+                                                            {row.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4 font-semibold text-gray-600 text-xs">{row.pic}</td>
+                                                    <td className="py-3.5 px-4 text-center">
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setViewData(row)}
+                                                                className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                                                                title="Lihat Detail"
+                                                            >
+                                                                <Eye size={15} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenEditModal(row)}
+                                                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                                                title="Edit Data"
+                                                            >
+                                                                <Edit3 size={15} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDelete(row)}
+                                                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                                                title="Hapus Data"
+                                                            >
+                                                                <Trash2 size={15} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={15} className="py-12 text-center text-gray-400 font-semibold">
+                                                    Tidak ada data pengisian oli ditemukan.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Pagination */}
+                            {pagination.links && pagination.links.length > 3 && (
+                                <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-gray-500">
+                                    <div>
+                                        Menampilkan <span className="font-bold text-gray-900">{pagination.from || 0}</span> sampai{' '}
+                                        <span className="font-bold text-gray-900">{pagination.to || 0}</span> dari{' '}
+                                        <span className="font-bold text-gray-900">{pagination.total || 0}</span> data
+                                    </div>
+                                    <div className="flex items-center gap-1 overflow-x-auto">
+                                        {pagination.links.map((link, idx) => (
+                                            <Link
+                                                key={idx}
+                                                href={link.url || '#'}
+                                                preserveState
+                                                className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                                                    link.active
+                                                        ? 'bg-emerald-600 text-white'
+                                                        : link.url
+                                                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        : 'text-gray-300 pointer-events-none'
+                                                }`}
+                                                dangerouslySetInnerHTML={{ __html: link.label }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+                )}
 
             </div>
+
+            {/* ========================================================================= */}
+            {/* CREATE / EDIT MODAL                                                       */}
+            {/* ========================================================================= */}
+            {isFormModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-2xl overflow-hidden my-8">
+                        <div className="p-6 bg-gradient-to-r from-emerald-700 to-emerald-600 text-white flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-black">
+                                    {modalMode === 'create' ? 'Input Pengisian Pelumas Baru' : 'Edit Catatan Pengisian Oli'}
+                                </h3>
+                                <p className="text-xs text-emerald-100 font-semibold mt-0.5">
+                                    Pastikan pembacaan HM dan volume liter terisi akurat
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsFormModalOpen(false)}
+                                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+                            
+                            {/* Service Type Selection (Schedule vs Unschedule) */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5">
+                                <label className="block text-xs font-black text-gray-800 uppercase tracking-wider mb-2">
+                                    Kategori Service (Tipe Pengisian):
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, service_type: 'Schedule' }))}
+                                        className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all ${
+                                            formData.service_type === 'Schedule'
+                                                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20 ring-2 ring-emerald-500'
+                                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        <CheckCircle2 size={16} />
+                                        <span>Schedule (Periodical Service)</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, service_type: 'Unschedule' }))}
+                                        className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all ${
+                                            formData.service_type === 'Unschedule'
+                                                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 ring-2 ring-rose-500'
+                                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        <AlertTriangle size={16} />
+                                        <span>Unschedule (Top Up Darurat)</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Unit Code */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        Pilih Kode Unit <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={formData.code_unit}
+                                        onChange={handleUnitSelect}
+                                        required
+                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
+                                    >
+                                        <option value="">-- Pilih Unit --</option>
+                                        {units.map(u => (
+                                            <option key={u.code_unit} value={u.code_unit}>
+                                                {u.code_unit} - {u.model}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Tanggal */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        Tanggal Pengisian <span className="text-red-500">*</span>
+                                    </label>
+                                    <input 
+                                        type="date"
+                                        value={formData.date}
+                                        onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                                        required
+                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
+
+                                {/* HM Awal */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        HM Awal (Sebelumnya)
+                                    </label>
+                                    <input 
+                                        type="number"
+                                        step="0.1"
+                                        value={formData.hm_prev}
+                                        onChange={e => setFormData(prev => ({ ...prev, hm_prev: e.target.value }))}
+                                        placeholder="0.0"
+                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono"
+                                    />
+                                </div>
+
+                                {/* HM Pengisian */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        HM Saat Refill <span className="text-red-500">*</span>
+                                    </label>
+                                    <input 
+                                        type="number"
+                                        step="0.1"
+                                        value={formData.hm}
+                                        onChange={e => setFormData(prev => ({ ...prev, hm: e.target.value }))}
+                                        placeholder="0.0"
+                                        required
+                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
+                                    />
+                                </div>
+
+                                {/* Komponen */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        Komponen Alat
+                                    </label>
+                                    <select
+                                        value={formData.component}
+                                        onChange={e => setFormData(prev => ({ ...prev, component: e.target.value }))}
+                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                                    >
+                                        {components.map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Tipe Oli */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        Grade Pelumas <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={formData.type_oli}
+                                        onChange={e => setFormData(prev => ({ ...prev, type_oli: e.target.value }))}
+                                        required
+                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-semibold"
+                                    >
+                                        {oilTypes.map(o => (
+                                            <option key={o} value={o}>{o}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Volume Pengisian */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        Refill Volume (Liter) <span className="text-red-500">*</span>
+                                    </label>
+                                    <input 
+                                        type="number"
+                                        step="0.1"
+                                        min="0.1"
+                                        value={formData.pengisian}
+                                        onChange={e => setFormData(prev => ({ ...prev, pengisian: e.target.value }))}
+                                        placeholder="Contoh: 18.5"
+                                        required
+                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono font-black text-emerald-800"
+                                    />
+                                </div>
+
+                                {/* PIC */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        PIC / Mekanik
+                                    </label>
+                                    <select 
+                                        value={formData.pic}
+                                        onChange={e => setFormData(prev => ({ ...prev, pic: e.target.value }))}
+                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-semibold text-gray-800"
+                                    >
+                                        <option value="">-- Pilih PIC / Mekanik --</option>
+                                        {manpowerList && manpowerList.length > 0 ? (
+                                            manpowerList.map(mp => (
+                                                <option key={mp.id} value={mp.nama}>
+                                                    {mp.nama} {mp.bagian ? `(${mp.bagian})` : ''}
+                                                </option>
+                                            ))
+                                        ) : (
+                                            <option value="Admin Plant">Admin Plant</option>
+                                        )}
+                                        {formData.pic && !manpowerList?.some(mp => mp.nama === formData.pic) && (
+                                            <option value={formData.pic}>{formData.pic}</option>
+                                        )}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Live Calculation Box */}
+                            <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                                <div>
+                                    <div className="text-gray-500 font-bold uppercase">HM Jalan (Diff)</div>
+                                    <div className="font-mono font-black text-gray-900 text-sm">{liveCalculation.hmDiff} HM</div>
+                                </div>
+                                <div>
+                                    <div className="text-gray-500 font-bold uppercase">Estimasi Rasio</div>
+                                    <div className="font-mono font-black text-emerald-700 text-sm">{liveCalculation.ratio} L/100 HM</div>
+                                </div>
+                                <div>
+                                    <div className="text-gray-500 font-bold uppercase">Batas Standar</div>
+                                    <div className="font-mono font-bold text-gray-700 text-sm">&le; {liveCalculation.batas} L/100</div>
+                                </div>
+                                <div>
+                                    <div className="text-gray-500 font-bold uppercase">Prediksi Status</div>
+                                    <span className={`inline-flex px-2.5 py-0.5 rounded-full font-black text-xs ${liveCalculation.statusColor}`}>
+                                        {liveCalculation.status}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Remarks */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                    Catatan Tambahan / Remarks
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={formData.remarks}
+                                    onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                                />
+                            </div>
+
+                            {/* Checkbox Update Master Unit HM */}
+                            {modalMode === 'create' && (
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="checkbox"
+                                        id="update_hm_check"
+                                        checked={formData.update_unit_hm}
+                                        onChange={e => setFormData(prev => ({ ...prev, update_unit_hm: e.target.checked }))}
+                                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <label htmlFor="update_hm_check" className="text-xs font-bold text-gray-700 cursor-pointer">
+                                        Perbarui HM Master Unit saat ini jika HM refill lebih tinggi
+                                    </label>
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsFormModalOpen(false)}
+                                    className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="px-6 py-2.5 text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/30 transition disabled:opacity-50"
+                                >
+                                    {isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* VIEW DETAIL MODAL                                                         */}
+            {/* ========================================================================= */}
+            {viewData && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-lg overflow-hidden">
+                        <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                                    <Droplet size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-black font-mono">{viewData.code_unit}</h3>
+                                    <p className="text-xs text-slate-400 font-semibold">{viewData.model} &bull; {viewData.department}</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setViewData(null)}
+                                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4 text-sm">
+                            <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100">
+                                <div>
+                                    <span className="text-xs text-gray-400 font-bold uppercase">Tanggal Pengisian</span>
+                                    <div className="font-bold text-gray-900 mt-0.5">{viewData.date}</div>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-gray-400 font-bold uppercase">Kategori Service</span>
+                                    <div className="mt-0.5">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black ${
+                                            viewData.service_type === 'Unschedule' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+                                        }`}>
+                                            {viewData.service_type || 'Schedule'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-gray-400 font-bold uppercase">Komponen</span>
+                                    <div className="font-bold text-gray-900 mt-0.5">{viewData.component}</div>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-gray-400 font-bold uppercase">Tipe Pelumas</span>
+                                    <div className="font-bold text-gray-900 mt-0.5">{viewData.type_oli}</div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-2xl font-mono text-center">
+                                <div>
+                                    <div className="text-[10px] text-gray-400 font-bold uppercase">HM Awal</div>
+                                    <div className="text-sm font-bold text-gray-700">{viewData.hm_prev}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] text-gray-400 font-bold uppercase">HM Refill</div>
+                                    <div className="text-sm font-black text-gray-900">{viewData.hm}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] text-gray-400 font-bold uppercase">HM Jalan</div>
+                                    <div className="text-sm font-black text-emerald-700">{viewData.hm_diff}</div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl">
+                                <div>
+                                    <div className="text-xs text-gray-500 font-bold uppercase">Volume Pengisian</div>
+                                    <div className="text-2xl font-black text-gray-900 font-mono">{viewData.pengisian} Liter</div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-xs text-gray-500 font-bold uppercase">Rasio Pemakaian</div>
+                                    <div className="text-lg font-black text-emerald-700 font-mono">{viewData.l_per_1000} L / 100 HM</div>
+                                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black mt-1 ${
+                                        viewData.status === 'Over Limit' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
+                                    }`}>
+                                        {viewData.status}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <span className="text-xs text-gray-400 font-bold uppercase">Keterangan / Remarks:</span>
+                                <p className="mt-1 text-gray-700 bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs leading-relaxed">
+                                    {viewData.remarks || '-'}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+                                <span>PIC: <strong className="text-gray-800">{viewData.pic}</strong></span>
+                                <span>Dicatat: {viewData.created_at || '-'}</span>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-gray-50 border-t border-gray-100 text-right">
+                            <button
+                                type="button"
+                                onClick={() => setViewData(null)}
+                                className="px-5 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-xl transition"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* IMPORT MODAL                                                              */}
+            {/* ========================================================================= */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden">
+                        <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <FileSpreadsheet className="text-emerald-400" size={24} />
+                                <div>
+                                    <h3 className="text-lg font-black">Import File Excel</h3>
+                                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Upload catatan konsumsi oli massal</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsImportModalOpen(false)}
+                                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleImportSubmit} className="p-6 space-y-4">
+                            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-emerald-500 transition">
+                                <Upload className="mx-auto text-gray-400 mb-2" size={32} />
+                                <label className="block text-sm font-bold text-gray-700 cursor-pointer">
+                                    <span>Pilih file Excel (.xlsx, .xls, .csv)</span>
+                                    <input 
+                                        type="file" 
+                                        accept=".xlsx,.xls,.csv"
+                                        onChange={e => setImportFile(e.target.files[0] || null)}
+                                        className="hidden"
+                                        required
+                                    />
+                                </label>
+                                {importFile && (
+                                    <p className="mt-2 text-xs font-black text-emerald-600">
+                                        File terpilih: {importFile.name}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                <strong>Unduh Format Template:</strong> Gunakan format resmi agar data dapat diproses otomatis tanpa kendala.
+                                <div className="mt-2">
+                                    <a 
+                                        href={route('oil-consumption.template')}
+                                        className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-700 hover:text-emerald-800 underline"
+                                    >
+                                        <Download size={14} /> Download Template Excel
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-200">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsImportModalOpen(false)}
+                                    className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={!importFile || isImporting}
+                                    className="px-5 py-2 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition disabled:opacity-50"
+                                >
+                                    {isImporting ? 'Mengimpor...' : 'Proses Import'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
         </AuthenticatedLayout>
     );
 }

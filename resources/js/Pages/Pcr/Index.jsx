@@ -29,6 +29,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function IndexContent({ auth, data, stats, units = [] }) {
+    const isAdmin = auth?.user?.roles?.some(r => ['super-admin', 'admin'].includes(r.name));
     const [activeTab, setActiveTab] = useState('uc');
 
     // Form filters
@@ -63,14 +64,14 @@ function IndexContent({ auth, data, stats, units = [] }) {
         hm_replace: 0,
         date_replace: '',
         brand_produk: '',
-        status_penggantian: 'Sudah Diganti',
+        status_penggantian: 'NEW',
         worn_out: '',
         inspection_date: '',
     });
 
     // 25 Standard Undercarriage Components List
     const initialUcComponents = [
-        { no: 1, part_number: '14X-30-00142', name: 'Carrier Roller RHF', status: 'Sudah', status_penggantian: 'Sudah Diganti', target_life_time: 3000, hm_replace: 0, date_replace: '', brand: '', remarks: '' },
+        { no: 1, part_number: '14X-30-00142', name: 'Carrier Roller RHF', status: 'NEW', status_penggantian: 'NEW', target_life_time: 3000, hm_replace: 0, date_replace: '', brand: '', remarks: '', worn_out: '', inspection_date: '' },
         { no: 2, part_number: '14X-30-00142', name: 'Carrier Roller RHR', status: 'Belum', status_penggantian: 'Belum Diganti', target_life_time: 3000, hm_replace: 0, date_replace: '', brand: '', remarks: '' },
         { no: 3, part_number: '14X-30-00142', name: 'Carrier Roller LHF', status: 'Belum', status_penggantian: 'Belum Diganti', target_life_time: 3000, hm_replace: 0, date_replace: '', brand: '', remarks: '' },
         { no: 4, part_number: '14X-30-00142', name: 'Carrier Roller LHR', status: 'Belum', status_penggantian: 'Belum Diganti', target_life_time: 3000, hm_replace: 0, date_replace: '', brand: '', remarks: '' },
@@ -117,53 +118,124 @@ function IndexContent({ auth, data, stats, units = [] }) {
         const model = (item?.model || '').toUpperCase();
         const equip = (item?.equipment || '').toUpperCase();
         
-        if (code.startsWith('MD') || code.startsWith('DZ') || code.includes('D85') || model.includes('D85') || equip.includes('DOZER') || equip.includes('BULLDOZER')) {
+        // 1. Off-Highway Trucks (OHT)
+        if (code.startsWith('OHT') || model.includes('773') || model.includes('777') || equip.includes('OHT')) {
+            return '/images/oht.jpg';
+        }
+
+        // 2. Dump Trucks (MDT, DT, TRUCK)
+        if (code.startsWith('MDT') || code.startsWith('DT') || code.startsWith('TRUCK') || equip.includes('DUMP') || model.includes('AXOR') || model.includes('QUESTER') || model.includes('HINO') || model.includes('FUSO')) {
+            return '/images/dumptruck.jpg?v=white';
+        }
+
+        // 3. Bulldozers (MD, DZ) - Note: specifically NOT MDT!
+        if ((code.startsWith('MD') && !code.startsWith('MDT')) || code.startsWith('DZ') || code.includes('D85') || model.includes('D85') || equip.includes('DOZER') || equip.includes('BULLDOZER')) {
             return '/images/dozer.jpg';
         }
-        if (code.startsWith('ME') || code.startsWith('EX') || model.includes('PC') || equip.includes('EXCAVATOR')) {
+
+        // 4. Excavators (ME, EX, PC, ZX)
+        if (code.startsWith('ME') || code.startsWith('EX') || model.includes('PC') || model.includes('ZX') || equip.includes('EXCAVATOR')) {
             return '/images/excavator.jpg';
         }
-        return '/images/dumptruck.jpg';
-    };
 
-    const isUndercarriageItem = (item) => {
-        if (!item) return false;
-        const comp = (item.component || '').toUpperCase();
-        const desc = (item.description || '').toUpperCase();
-        return (
-            comp.includes('CARRIER ROLLER') ||
-            comp.includes('TRACK ROLLER') ||
-            comp.includes('IDLER') ||
-            comp.includes('SEGMENT') ||
-            comp.includes('TRACK LINK') ||
-            comp.includes('TRACK SHOE') ||
-            comp.includes('SPROCKET') ||
-            comp.includes('GROUSER') ||
-            comp.includes('UNDERCARRIAGE') ||
-            comp === 'UC' ||
-            desc.includes('UNDERCARRIAGE')
-        );
+        // 5. Motor Graders (MG, MGO, GD)
+        if (
+            code.startsWith('MG') || 
+            code.startsWith('MGO') ||
+            code.startsWith('GD') ||
+            equip.includes('GRADER') || 
+            equip.includes('MOTORGRADER') || 
+            model.includes('GRADER') || 
+            model.includes('SEM 922') || 
+            model.includes('GD755') || 
+            model.includes('CAT 14')
+        ) {
+            return '/images/motorgrader.jpg';
+        }
+
+        // 6. Compactors / Rollers (MCP, MCPO, CP)
+        if (
+            code.startsWith('MCP') || 
+            code.startsWith('MCPO') || 
+            code.startsWith('CP') || 
+            equip.includes('COMPACTOR') || 
+            equip.includes('ROLLER') || 
+            model.includes('COMPACTOR') || 
+            model.includes('ROLLER') || 
+            model.includes('SSR220')
+        ) {
+            return '/images/compactor.jpg';
+        }
+
+        // 7. Light Vehicles (LV)
+        if (
+            /^[A-Z]-\d+$/i.test((item?.code_unit || '').trim()) ||
+            equip === 'LV' ||
+            model.includes('TRITON') ||
+            model.includes('HILUX') ||
+            model.includes('PAJERO') ||
+            model.includes('RANGER') ||
+            model.includes('NAVARA') ||
+            model.includes('D-MAX') ||
+            model.includes('DMAX') ||
+            model.includes('LIGHT VEHICLE') ||
+            model.includes('PASSANGER') ||
+            model.includes('PASSENGER')
+        ) {
+            return '/images/lv.jpg';
+        }
+
+        return '/images/dumptruck.jpg?v=white';
     };
 
     // Tab 1: Wheel equipment / wheel components
+    // Helper: LV unit codes follow pattern like T-02, A-07, B-10 (single letter + dash + digits)
+    const isLvUnit = (codeRaw) => /^[A-Z]-\d+$/i.test((codeRaw || '').trim());
+
     const isWheelItem = (item) => {
         if (!item) return false;
-        if (isUndercarriageItem(item)) return false;
         const code = (item.code_unit || '').toUpperCase();
         const equip = (item.equipment || '').toUpperCase();
+        const model = (item.model || '').toUpperCase();
         const comp = (item.component || '').toUpperCase();
         
+        // LV units: single-letter dash number code pattern (T-02, A-07, B-10…)
+        if (isLvUnit(item.code_unit)) return true;
+
+        // LV units detected by model name
+        if (
+            model.includes('TRITON') ||
+            model.includes('HILUX') ||
+            model.includes('PAJERO') ||
+            model.includes('RANGER') ||
+            model.includes('NAVARA') ||
+            model.includes('D-MAX') ||
+            model.includes('DMAX') ||
+            model.includes('LIGHT VEHICLE') ||
+            model.includes('PASSANGER') ||
+            model.includes('PASSENGER')
+        ) {
+            return true;
+        }
+
         if (
             code.startsWith('OHT') || 
             code.startsWith('DT') || 
+            code.startsWith('MDT') || 
             code.startsWith('HD') || 
             code.startsWith('WL') || 
             code.startsWith('GD') || 
+            code.startsWith('MG') || 
+            code.startsWith('MCP') || 
+            code.startsWith('CP') || 
             code.startsWith('TRUCK') || 
+            equip === 'LV' ||
             equip.includes('TRUCK') || 
             equip.includes('WHEEL') || 
             equip.includes('GRADER') || 
-            equip.includes('LOADER')
+            equip.includes('LOADER') || 
+            equip.includes('COMPACTOR') || 
+            equip.includes('ROLLER')
         ) {
             return true;
         }
@@ -179,6 +251,28 @@ function IndexContent({ auth, data, stats, units = [] }) {
             comp.includes('BRAKE CHAMBER')
         );
     };
+
+    const isUndercarriageItem = (item) => {
+        if (!item) return false;
+        if (isWheelItem(item)) return false;
+        const comp = (item.component || '').toUpperCase();
+        const desc = (item.description || '').toUpperCase();
+        return (
+            comp.includes('CARRIER ROLLER') ||
+            comp.includes('TRACK ROLLER') ||
+            comp.includes('IDLER') ||
+            comp.includes('SEGMENT') ||
+            comp.includes('TRACK LINK') ||
+            comp.includes('TRACK SHOE') ||
+            comp.includes('SPROCKET') ||
+            comp.includes('GROUSER') ||
+            comp.includes('TRACK ADJUSTER') ||
+            comp.includes('UNDERCARRIAGE') ||
+            comp === 'UC' ||
+            desc.includes('UNDERCARRIAGE')
+        );
+    };
+
 
     // Tab 2: Track units other components (Engine, Transmission, Hydraulic Pump, Cylinders, Final Drive, etc.)
     const isTrackItem = (item) => {
@@ -332,17 +426,20 @@ function IndexContent({ auth, data, stats, units = [] }) {
     const handleSelectUcComponent = (comp) => {
         setSelectedCompNo(comp.no);
         setEditingId(comp.id || null);
+        const stPenggantian = (comp.status_penggantian === 'Sudah Diganti' || comp.status_penggantian === 'NEW') ? 'NEW' : (comp.status_penggantian || (comp.status === 'Sudah' || comp.status === 'NEW' ? 'NEW' : 'Belum Diganti'));
         setFormData(prev => ({
             ...prev,
             part_number: comp.part_number,
             component: comp.name,
             qty: comp.qty || 1,
-            status_penggantian: comp.status_penggantian || (comp.status === 'Sudah' ? 'Sudah Diganti' : 'Belum Diganti'),
+            status_penggantian: stPenggantian,
             target_life_time: comp.target_life_time || 3000,
             hm_replace: comp.hm_replace || 0,
             date_replace: comp.date_replace || '',
-            brand_produk: comp.brand || '',
-            description: comp.remarks || '',
+            brand_produk: comp.brand || comp.brand_produk || '',
+            description: comp.remarks || comp.description || '',
+            worn_out: (comp.worn_out !== undefined && comp.worn_out !== null) ? comp.worn_out : '',
+            inspection_date: comp.inspection_date ? comp.inspection_date.split('T')[0] : '',
         }));
     };
 
@@ -361,16 +458,19 @@ function IndexContent({ auth, data, stats, units = [] }) {
         if (comp) {
             setSelectedCompNo(comp.no);
             setEditingId(comp.id || null);
+            const stPenggantian = (comp.status_penggantian === 'Sudah Diganti' || comp.status_penggantian === 'NEW') ? 'NEW' : (comp.status_penggantian || (comp.status === 'Sudah' || comp.status === 'NEW' ? 'NEW' : 'Belum Diganti'));
             setFormData(prev => ({
                 ...prev,
                 part_number: comp.part_number,
                 component: comp.name,
-                status_penggantian: comp.status_penggantian || (comp.status === 'Sudah' ? 'Sudah Diganti' : 'Belum Diganti'),
+                status_penggantian: stPenggantian,
                 target_life_time: comp.target_life_time || 3000,
                 hm_replace: comp.hm_replace || 0,
                 date_replace: comp.date_replace || '',
-                brand_produk: comp.brand || '',
-                description: comp.remarks || '',
+                brand_produk: comp.brand || comp.brand_produk || '',
+                description: comp.remarks || comp.description || '',
+                worn_out: (comp.worn_out !== undefined && comp.worn_out !== null) ? comp.worn_out : '',
+                inspection_date: comp.inspection_date ? comp.inspection_date.split('T')[0] : '',
             }));
         }
     };
@@ -394,7 +494,7 @@ function IndexContent({ auth, data, stats, units = [] }) {
                     description: '',
                     worn_out: '',
                     inspection_date: '',
-                    status_penggantian: prev.status_penggantian || 'Sudah Diganti',
+                    status_penggantian: prev.status_penggantian === 'Belum Diganti' ? 'NEW' : (prev.status_penggantian || 'NEW'),
                 }));
             }
         }
@@ -444,12 +544,18 @@ function IndexContent({ auth, data, stats, units = [] }) {
 
                 if (field === 'status_penggantian') {
                     updated.status_penggantian = value;
-                    updated.status = value === 'Belum Diganti' ? 'Belum' : 'Sudah';
+                    updated.status = (value === 'Sudah Diganti' || value === 'NEW' || value === 'Overhaul' || value === 'Recondition') ? 'NEW' : (value === 'Reseal' ? 'Reseal' : 'Belum');
                 }
                 if (field === 'hm_replace') updated.hm_replace = value;
                 if (field === 'date_replace') updated.date_replace = value;
-                if (field === 'brand_produk') updated.brand = value;
-                if (field === 'description') updated.remarks = value;
+                if (field === 'brand_produk') {
+                    updated.brand = value;
+                    updated.brand_produk = value;
+                }
+                if (field === 'description') {
+                    updated.remarks = value;
+                    updated.description = value;
+                }
                 if (field === 'worn_out') updated.worn_out = value;
                 if (field === 'inspection_date') updated.inspection_date = value;
                 return updated;
@@ -486,46 +592,16 @@ function IndexContent({ auth, data, stats, units = [] }) {
             hm_replace: 0,
             date_replace: '',
             brand_produk: '',
-            status_penggantian: 'Sudah Diganti',
+            status_penggantian: 'NEW',
+            worn_out: '',
+            inspection_date: '',
         });
         setFormErrors({});
         setShowPlanModal(true);
     };
 
     const handleOpenCreateModalForUnit = (item) => {
-        setModalMode('create');
-        setEditingId(null);
-        const unitObj = units?.find(u => u.code_unit === item.code_unit || u.id === item.unit_id);
-        const matchedComp = initialUcComponents.find(c => c.name.toLowerCase() === (item.component || '').toLowerCase()) || initialUcComponents[0];
-        
-        setSelectedCompNo(matchedComp.no);
-        setCheckedCompNos(new Set([matchedComp.no]));
-        setUcComponents(initialUcComponents);
-        setSearchUcComp('');
-
-        setFormData({
-            unit_id: unitObj ? unitObj.id : (item.unit_id || ''),
-            component: item.component || 'ENGINE',
-            part_number: item.part_number || '',
-            description: item.description || '',
-            target_life_time: item.target_life_time || (activeTab === 'wheel' ? 18000 : 14000),
-            hm_current: item.hm_current || unitObj?.hm || 0,
-            hm_replace: item.hm_replace || 0,
-            date_replace: item.date_replace ? item.date_replace.split('T')[0] : '',
-            brand_produk: item.brand_produk || '',
-            status_penggantian: (item.hm_replace > 0 || item.date_replace) ? 'Sudah Diganti' : 'Belum Diganti',
-            component: matchedComp.name,
-            part_number: (item.part_number || matchedComp.part_number),
-            description: item.description || '',
-            target_life_time: item.target_life_time || 3000,
-            hm_current: item.hm_current || unitObj?.hm || 0,
-            hm_replace: item.hm_replace || 0,
-            date_replace: item.date_replace ? item.date_replace.split('T')[0] : '',
-            brand_produk: item.brand_produk || '',
-            status_penggantian: (item.hm_replace > 0 || item.date_replace) ? 'Sudah Diganti' : 'Belum Diganti',
-        });
-        setFormErrors({});
-        setShowPlanModal(true);
+        handleOpenUcModalForUnit(item);
     };
 
     const handleOpenUcModalForUnit = (unitItem, targetCompName = null) => {
@@ -539,28 +615,71 @@ function IndexContent({ auth, data, stats, units = [] }) {
             isUndercarriageItem(d)
         );
 
+        // Match 1-to-1 strictly by component name so part numbers don't collide
+        const matchedIds = new Set();
         const mappedUcComponents = initialUcComponents.map((initialComp) => {
-            const found = unitComps.find(c => c.component?.toLowerCase() === initialComp.name.toLowerCase() || c.part_number === initialComp.part_number);
+            const found = unitComps.find(c => 
+                !matchedIds.has(c.id) && (
+                    c.component?.trim().toLowerCase() === initialComp.name.toLowerCase() ||
+                    c.part_number?.trim().toLowerCase() === initialComp.name.toLowerCase()
+                )
+            );
             if (found) {
+                matchedIds.add(found.id);
                 const isReplaced = (found.hm_replace > 0 || found.date_replace);
+                const rawStPenggantian = found.status_penggantian || (isReplaced ? 'NEW' : 'Belum Diganti');
+                const stPenggantian = (rawStPenggantian === 'Sudah Diganti' || rawStPenggantian === 'NEW') ? 'NEW' : rawStPenggantian;
                 return {
                     no: initialComp.no,
                     id: found.id,
                     part_number: found.part_number || initialComp.part_number,
                     name: found.component || initialComp.name,
-                    status: isReplaced ? 'Sudah' : 'Belum',
-                    status_penggantian: isReplaced ? 'Sudah Diganti' : 'Belum Diganti',
+                    status: (stPenggantian === 'NEW' || stPenggantian === 'Overhaul' || stPenggantian === 'Recondition') ? 'NEW' : (stPenggantian === 'Reseal' ? 'Reseal' : 'Belum'),
+                    status_penggantian: stPenggantian,
                     target_life_time: found.target_life_time || initialComp.target_life_time,
                     hm_replace: found.hm_replace || 0,
                     date_replace: found.date_replace ? found.date_replace.split('T')[0] : '',
                     brand: found.brand_produk || '',
+                    brand_produk: found.brand_produk || '',
                     remarks: found.description || '',
+                    description: found.description || '',
+                    worn_out: (found.worn_out !== undefined && found.worn_out !== null) ? found.worn_out : '',
+                    inspection_date: found.inspection_date ? found.inspection_date.split('T')[0] : '',
                 };
             }
             return {
                 ...initialComp,
-                id: null
+                id: null,
+                worn_out: '',
+                inspection_date: '',
             };
+        });
+
+        // Also append any extra UC components that exist on this unit (e.g. Carrier Roller RHL, Track Roller 8, Track Adjuster)
+        unitComps.forEach((c) => {
+            if (!matchedIds.has(c.id) && c.component) {
+                matchedIds.add(c.id);
+                const isReplaced = (c.hm_replace > 0 || c.date_replace);
+                const rawStPenggantian = c.status_penggantian || (isReplaced ? 'NEW' : 'Belum Diganti');
+                const stPenggantian = (rawStPenggantian === 'Sudah Diganti' || rawStPenggantian === 'NEW') ? 'NEW' : rawStPenggantian;
+                mappedUcComponents.push({
+                    no: mappedUcComponents.length + 1,
+                    id: c.id,
+                    part_number: c.part_number || '',
+                    name: c.component,
+                    status: (stPenggantian === 'NEW' || stPenggantian === 'Overhaul' || stPenggantian === 'Recondition') ? 'NEW' : (stPenggantian === 'Reseal' ? 'Reseal' : 'Belum'),
+                    status_penggantian: stPenggantian,
+                    target_life_time: c.target_life_time || 3000,
+                    hm_replace: c.hm_replace || 0,
+                    date_replace: c.date_replace ? c.date_replace.split('T')[0] : '',
+                    brand: c.brand_produk || '',
+                    brand_produk: c.brand_produk || '',
+                    remarks: c.description || '',
+                    description: c.description || '',
+                    worn_out: (c.worn_out !== undefined && c.worn_out !== null) ? c.worn_out : '',
+                    inspection_date: c.inspection_date ? c.inspection_date.split('T')[0] : '',
+                });
+            }
         });
 
         const activeComp = targetCompName 
@@ -577,13 +696,15 @@ function IndexContent({ auth, data, stats, units = [] }) {
             unit_id: unitItem.unit_id || unitObj?.id || '',
             component: activeComp.name,
             part_number: activeComp.part_number,
-            description: activeComp.remarks || '',
+            description: activeComp.remarks || activeComp.description || '',
             target_life_time: activeComp.target_life_time || 3000,
             hm_current: unitItem.hm_current || unitObj?.hm || 0,
             hm_replace: activeComp.hm_replace || 0,
             date_replace: activeComp.date_replace || '',
-            brand_produk: activeComp.brand || '',
-            status_penggantian: activeComp.status_penggantian || 'Belum Diganti',
+            brand_produk: activeComp.brand || activeComp.brand_produk || '',
+            status_penggantian: (activeComp.status_penggantian === 'Sudah Diganti' || activeComp.status_penggantian === 'NEW') ? 'NEW' : (activeComp.status_penggantian || 'Belum Diganti'),
+            worn_out: (activeComp.worn_out !== undefined && activeComp.worn_out !== null) ? activeComp.worn_out : '',
+            inspection_date: activeComp.inspection_date ? activeComp.inspection_date.split('T')[0] : '',
         });
         setFormErrors({});
         setShowPlanModal(true);
@@ -812,23 +933,57 @@ function IndexContent({ auth, data, stats, units = [] }) {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         Template
                     </a>
-                    <a href="/pcr-uc/export" className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <a 
+                        href={`/pcr-uc/export${(() => {
+                            const params = new URLSearchParams();
+                            params.append('category', 'uc');
+                            if (searchFilter) params.append('search', searchFilter);
+                            if (statusFilter) params.append('status', statusFilter);
+                            if (modelFilter) params.append('model', modelFilter);
+                            const qs = params.toString();
+                            return qs ? `?${qs}` : '';
+                        })()}`} 
+                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm"
+                        title="Export Excel Undercarriage (Data Terfilter / Seluruh Data)"
+                    >
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Export Excel
+                    </a>
+                    <a 
+                        href={`/pcr-uc/export-pdf${(() => {
+                            const params = new URLSearchParams();
+                            params.append('category', 'uc');
+                            if (searchFilter) params.append('search', searchFilter);
+                            if (statusFilter) params.append('status', statusFilter);
+                            if (modelFilter) params.append('model', modelFilter);
+                            const qs = params.toString();
+                            return qs ? `?${qs}` : '';
+                        })()}`} 
+                        className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 hover:border-red-400 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-sm"
+                        title="Download Dokumen PDF Undercarriage (A4 Landscape)"
+                        target="_blank"
+                        rel="noreferrer"
+                    >
+                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Download PDF
                     </a>
                     <button onClick={() => window.print()} className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         Print
                     </button>
-                    <button 
-                        type="button"
-                        onClick={() => setShowDeleteAllModal(true)}
-                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm"
-                        title="Hapus Seluruh Data PCR"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        Hapus Semua Data
-                    </button>
+                    {isAdmin && (
+                        <button 
+                            type="button"
+                            onClick={() => setShowDeleteAllModal(true)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm"
+                            title="Hapus Seluruh Data PCR"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Hapus Semua Data
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1091,7 +1246,16 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                             </span>
                                                         </h4>
                                                         <p className="text-sm font-semibold text-gray-400 mt-0.5">
-                                                            {unit.model || (unit.code_unit?.startsWith('MD') ? 'KOMATSU D85ESS' : 'KOMATSU PC2000')}
+                                                            {unit.model || (
+                                                                unit.code_unit?.startsWith('MDT') ? 'MERCEDES AXOR / QUESTER' :
+                                                                unit.code_unit?.startsWith('OHT') ? 'CAT 773E' :
+                                                                unit.code_unit?.startsWith('MD') ? 'KOMATSU D85ESS' :
+                                                                unit.code_unit?.startsWith('ME') ? 'EXCAVATOR' :
+                                                                unit.code_unit?.startsWith('MG') ? 'MOTOR GRADER' :
+                                                                unit.code_unit?.startsWith('MCP') ? 'COMPACTOR' :
+                                                                isLvUnit(unit.code_unit) ? 'LIGHT VEHICLE' :
+                                                                'HEAVY EQUIPMENT'
+                                                            )}
                                                         </p>
                                                         <div className="flex items-center gap-1.5 mt-1.5">
                                                             <button
@@ -1106,6 +1270,19 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                                 <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                                 View ({unit.total_components})
                                                             </button>
+                                                            <a
+                                                                href={`/pcr-uc/export-pdf?code_unit=${encodeURIComponent(unit.code_unit || '')}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="px-2 py-0.5 bg-red-50 hover:bg-red-100 text-red-700 rounded text-xs font-bold flex items-center gap-1 border border-red-200 transition"
+                                                                title={`Download PDF untuk Unit ${unit.code_unit}`}
+                                                            >
+                                                                <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                </svg>
+                                                                PDF
+                                                            </a>
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
@@ -1462,11 +1639,13 @@ function IndexContent({ auth, data, stats, units = [] }) {
                     <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                         <h3 className="font-bold text-gray-800 text-sm mb-4">Detail Komponen</h3>
                         <div className="flex flex-col sm:flex-row gap-4 items-start">
-                            <div className="w-full sm:w-1/3 bg-gray-50 rounded-lg p-2 border border-gray-100 flex justify-center items-center h-32">
-                                <svg className="w-20 h-20 text-yellow-500" fill="currentColor" viewBox="0 0 64 64">
-                                    <path d="M54 36c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4zm-42 0c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4zm36-8H16v-8l6-6h18v14zm-22-6v-6h-4l-4 4v2h8zm12 0v-6h-4v6h4z" />
-                                    <path d="M58 20H42v-2c0-1.1-.9-2-2-2H20.8L12 24.8V28H6c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h2c0 3.3 2.7 6 6 6s6-2.7 6-6h24c0 3.3 2.7 6 6 6s6-2.7 6-6h2c1.1 0 2-.9 2-2V22c0-1.1-.9-2-2-2z" opacity="0.3"/>
-                                </svg>
+                            <div className="w-full sm:w-1/3 bg-slate-50 rounded-lg p-2 border border-gray-100 flex justify-center items-center h-32 overflow-hidden">
+                                <img 
+                                    src={getEquipmentImage(selectedPcr)} 
+                                    alt={selectedPcr.code_unit} 
+                                    className="w-full h-full object-contain drop-shadow-sm"
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
                             </div>
                             <div className="w-full sm:w-2/3">
                                 <table className="w-full text-sm text-gray-600">
@@ -1482,6 +1661,15 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                         <tr><td className="py-0.5">Sisa HM</td><td className="py-0.5">: {selectedPcr.sisa_hm?.toLocaleString('id-ID')}</td></tr>
                                         <tr><td className="py-0.5">Target Tanggal</td><td className="py-0.5">: {selectedPcr.target_tanggal}</td></tr>
                                         <tr><td className="py-0.5">Status</td><td className="py-0.5 flex items-center gap-1 mt-1">: {getStatusBadge(selectedPcr.status)}</td></tr>
+                                        {selectedPcr.worn_out !== null && selectedPcr.worn_out !== undefined && (
+                                            <tr><td className="py-0.5">Worn Out (Inspection)</td><td className="py-0.5 font-bold text-red-600">: {selectedPcr.worn_out}%</td></tr>
+                                        )}
+                                        {selectedPcr.inspection_date && (
+                                            <tr><td className="py-0.5">Tgl Inspection</td><td className="py-0.5 font-semibold text-gray-800">: {selectedPcr.inspection_date_formatted || selectedPcr.inspection_date}</td></tr>
+                                        )}
+                                        {selectedPcr.status_penggantian && (
+                                            <tr><td className="py-0.5">Status Ganti</td><td className="py-0.5 font-bold text-emerald-700">: {selectedPcr.status_penggantian}</td></tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -1578,13 +1766,29 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                         </p>
                                     </div>
                                 </div>
-                                <button 
-                                    type="button"
-                                    onClick={() => setShowPlanModal(false)}
-                                    className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {formData.unit_id && (
+                                        <a
+                                            href={`/pcr-uc/export-pdf?code_unit=${encodeURIComponent(units.find(u => u.id === formData.unit_id)?.code_unit || '')}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+                                            title="Download PDF Komponen Unit Ini"
+                                        >
+                                            <svg className="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            </svg>
+                                            Download PDF Unit
+                                        </a>
+                                    )}
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowPlanModal(false)}
+                                        className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </div>
                             </div>
 
                             <form id="plan-pcr-form" onSubmit={handleSavePlan} className="flex-1 overflow-y-auto px-6 pb-4 pt-4">
@@ -1684,7 +1888,7 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                                 .map((comp) => {
                                                                     const isSelected = selectedCompNo === comp.no;
                                                                     const isChecked = checkedCompNos.has(comp.no);
-                                                                    const isSudah = comp.status === 'Sudah' || comp.status_penggantian === 'Sudah Diganti';
+                                                                    const isSudah = comp.status === 'Sudah' || comp.status === 'NEW' || comp.status_penggantian === 'Sudah Diganti' || comp.status_penggantian === 'NEW';
 
                                                                     return (
                                                                         <tr 
@@ -1710,9 +1914,21 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                                             </td>
 
                                                                             <td className="px-2 py-1.5 text-center">
-                                                                                {isSudah ? (
+                                                                                {comp.status_penggantian === 'NEW' || comp.status_penggantian === 'Sudah Diganti' || comp.status === 'Sudah' || comp.status === 'NEW' ? (
                                                                                     <span className="px-2 py-0.5 rounded bg-[#10b981] text-white font-bold text-xs">
-                                                                                        Sudah
+                                                                                        NEW
+                                                                                    </span>
+                                                                                ) : comp.status_penggantian === 'Overhaul' ? (
+                                                                                    <span className="px-2 py-0.5 rounded bg-amber-500 text-white font-bold text-xs">
+                                                                                        Overhaul
+                                                                                    </span>
+                                                                                ) : comp.status_penggantian === 'Reseal' || comp.status === 'Reseal' ? (
+                                                                                    <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-bold text-xs">
+                                                                                        Reseal
+                                                                                    </span>
+                                                                                ) : comp.status_penggantian === 'Recondition' ? (
+                                                                                    <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-bold text-xs">
+                                                                                        Recondition
                                                                                     </span>
                                                                                 ) : (
                                                                                     <span className="px-2 py-0.5 rounded bg-red-100 text-red-600 font-bold text-xs">
@@ -1801,7 +2017,7 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                     className="w-full text-sm border border-gray-300 rounded-lg py-1.5 px-2 text-gray-900 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                                 >
                                                     <option value="">-- Pilih Unit --</option>
-                                                    {units.filter(u => (u.code_unit || '').startsWith('MD') || (u.code_unit || '').startsWith('ME') || (u.type_unit === 'DOZER') || (u.type_unit === 'EXCAVATOR')).map((u) => (
+                                                    {(units || []).map((u) => (
                                                         <option key={u.id} value={u.id}>
                                                             {u.code_unit} - {u.model} {u.equipment_capacity ? `(${u.equipment_capacity})` : ''}
                                                         </option>
@@ -1864,17 +2080,17 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-6">
+                                                <div className="flex items-center gap-4 flex-wrap">
                                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-800 cursor-pointer">
                                                         <input 
                                                             type="radio"
                                                             name="status_penggantian"
-                                                            value="Sudah Diganti"
-                                                            checked={formData.status_penggantian === 'Sudah Diganti'}
+                                                            value="NEW"
+                                                            checked={formData.status_penggantian === 'NEW' || formData.status_penggantian === 'Sudah Diganti'}
                                                             onChange={(e) => handleUcFormFieldChange('status_penggantian', e.target.value)}
                                                             className="text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                                                         />
-                                                        <span>Sudah Diganti</span>
+                                                        <span>NEW</span>
                                                     </label>
                                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-800 cursor-pointer">
                                                         <input 
@@ -1886,6 +2102,38 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                             className="text-amber-500 focus:ring-amber-400 w-4 h-4 cursor-pointer"
                                                         />
                                                         <span>Overhaul</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-800 cursor-pointer">
+                                                        <input 
+                                                            type="radio"
+                                                            name="status_penggantian"
+                                                            value="Reseal"
+                                                            checked={formData.status_penggantian === 'Reseal'}
+                                                            onChange={(e) => handleUcFormFieldChange('status_penggantian', e.target.value)}
+                                                            className="text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                                        />
+                                                        <span className="flex items-center gap-1.5">
+                                                            Reseal
+                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-semibold">
+                                                                Tanpa Umur Lifetime
+                                                            </span>
+                                                        </span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-800 cursor-pointer">
+                                                        <input 
+                                                            type="radio"
+                                                            name="status_penggantian"
+                                                            value="Recondition"
+                                                            checked={formData.status_penggantian === 'Recondition'}
+                                                            onChange={(e) => handleUcFormFieldChange('status_penggantian', e.target.value)}
+                                                            className="text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                                                        />
+                                                        <span className="flex items-center gap-1.5">
+                                                            Recondition
+                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-semibold">
+                                                                Rekondisi
+                                                            </span>
+                                                        </span>
                                                     </label>
                                                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
                                                         <input 
@@ -1899,6 +2147,26 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                         <span>Belum Diganti</span>
                                                     </label>
                                                 </div>
+                                                {formData.status_penggantian === 'Reseal' && (
+                                                    <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 flex items-start gap-2 text-xs text-blue-800">
+                                                        <svg className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <div>
+                                                            <span className="font-bold">Informasi Reseal:</span> Tindakan <strong>Reseal</strong> tidak mendapatkan penambahan atau reset umur lifetime component. Umur pakai komponen tetap berjalan melanjutkan riwayat sebelumnya.
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {formData.status_penggantian === 'Recondition' && (
+                                                    <div className="mt-2 bg-purple-50 border border-purple-200 rounded-lg p-2.5 flex items-start gap-2 text-xs text-purple-800">
+                                                        <svg className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <div>
+                                                            <span className="font-bold">Informasi Recondition:</span> Komponen dilakukan <strong>Rekondisi (Recondition)</strong> dan pembaruan siklus komponen dicatat ke sistem.
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* 2-Column Inputs */}
@@ -2010,15 +2278,18 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                 const targetLife = Number(formData.target_life_time || 0);
                                                 const currentHm = parseHm(formData.hm_current);
                                                 const hmReplace = parseHm(formData.hm_replace);
+                                                const isReseal = formData.status_penggantian === 'Reseal';
+                                                // Jika Reseal, tidak mendapat umur lifetime component baru
+                                                const effectiveHmReplace = isReseal ? 0 : hmReplace;
                                                 const wornOut = (formData.worn_out !== '' && formData.worn_out !== null && formData.worn_out !== undefined)
                                                     ? Math.min(100, Math.max(0, Number(formData.worn_out)))
                                                     : null;
                                                 const remaining = wornOut !== null
                                                     ? targetLife * ((100 - wornOut) / 100)
-                                                    : targetLife - (currentHm - hmReplace);
+                                                    : targetLife - (currentHm - effectiveHmReplace);
                                                 const nextDue = wornOut !== null
                                                     ? currentHm + remaining
-                                                    : (hmReplace > 0 ? hmReplace : currentHm) + targetLife;
+                                                    : (effectiveHmReplace > 0 ? effectiveHmReplace : currentHm) + targetLife;
                                                 const wornPct = wornOut !== null ? wornOut : 0;
                                                 const remainingPct = 100 - wornPct;
                                                 const conditionColor = wornPct <= 30 ? '#10b981' : wornPct <= 70 ? '#f59e0b' : '#ef4444';
@@ -2069,6 +2340,7 @@ function IndexContent({ auth, data, stats, units = [] }) {
                                                                     <span className="text-[9px] text-blue-700">
                                                                         Rumus: Remaining Life = Target Life × (100% – Worn Out%)<br/>
                                                                         Next Due = Current HM + Remaining Life
+                                                                        {isReseal && <strong className="text-amber-800 block mt-1">Catatan Reseal: Tindakan Reseal tidak mereset umur lifetime komponen.</strong>}
                                                                     </span>
                                                                 </div>
                                                             </div>

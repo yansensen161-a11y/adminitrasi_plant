@@ -153,6 +153,7 @@ export default function Index({ stats, chartBiayaPerUnit, chartBiayaPerKategori,
                                 ctx = chart.ctx;
                                 
                             const chartArea = chart.chartArea;
+                            if (!chartArea) return;
                             const centerX = (chartArea.left + chartArea.right) / 2;
                             const centerY = (chartArea.top + chartArea.bottom) / 2;
                                 
@@ -352,6 +353,21 @@ export default function Index({ stats, chartBiayaPerUnit, chartBiayaPerKategori,
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
                         Input Data
                     </Link>
+                    <a
+                        href={route('abr.export.pdf', {
+                            date_from: dateFrom || undefined,
+                            date_to: dateTo || undefined,
+                            code_unit: codeUnitFilter || undefined,
+                            kategori: kategoriFilter || undefined,
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm"
+                        title="Download Rekap Laporan PDF"
+                    >
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        Download PDF
+                    </a>
                     <button className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                         Import Excel
@@ -523,7 +539,7 @@ export default function Index({ stats, chartBiayaPerUnit, chartBiayaPerKategori,
                                     <div className="resize-x overflow-hidden px-3 py-3 min-w-[150px]">Kategori</div>
                                 </th>
                                 <th className="px-0 py-0 font-bold text-center border-r border-gray-200">
-                                    <div className="resize-x overflow-hidden px-3 py-3 min-w-[150px]">Part Number</div>
+                                    <div className="resize-x overflow-hidden px-3 py-3 min-w-[150px]">No WO</div>
                                 </th>
                                 <th className="px-0 py-0 font-bold text-center border-r border-gray-200">
                                     <div className="resize-x overflow-hidden px-3 py-3 min-w-[50px]">Qty</div>
@@ -546,73 +562,98 @@ export default function Index({ stats, chartBiayaPerUnit, chartBiayaPerKategori,
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-gray-600">
-                            {items.map((item, index) => (
-                                <tr key={item.id} onDoubleClick={() => router.visit(route('abr.edit', item.id))} className="hover:bg-gray-100 transition-colors cursor-pointer group">
-                                    <td className="px-3 py-2.5 text-center text-gray-500">{index + 1}</td>
-                                    <td className="px-3 py-2.5 text-center">{item.tanggal}</td>
-                                    <td className="px-3 py-2.5 text-center text-gray-900 font-bold group-hover:text-blue-600">{item.code_unit}</td>
-                                    <td className="px-3 py-2.5 text-center">{item.equipment}</td>
-                                    <td className="px-3 py-2.5 text-center">{item.model}</td>
-                                    <td className="px-3 py-2.5">{item.deskripsi}</td>
-                                    <td className="px-3 py-2.5 text-center">{item.kategori}</td>
-                                    <td className="px-3 py-2.5 text-center font-mono">{item.part_number}</td>
-                                    <td className="px-3 py-2.5 text-center">{item.qty}</td>
-                                    <td className="px-3 py-2.5 text-right font-mono">{item.biaya_part.toLocaleString('id-ID')}</td>
-                                    <td className="px-3 py-2.5 text-right font-mono">{item.biaya_jasa.toLocaleString('id-ID')}</td>
-                                    <td className="px-3 py-2.5 text-right font-mono font-bold">{item.total_biaya.toLocaleString('id-ID')}</td>
-                                    <td className="px-3 py-2.5 text-center">
-                                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">
-                                            {item.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                                        <div className="flex items-center justify-center gap-1.5">
-                                            <Link href={route('abr.show', item.id)} className="bg-[#3b82f6] hover:bg-blue-600 text-white p-1 rounded shadow-sm" title="Detail">
-                                                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                                            </Link>
-                                            <Link href={route('abr.edit', item.id)} className="bg-[#facc15] hover:bg-yellow-500 text-white p-1 rounded shadow-sm" title="Edit">
-                                                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                                            </Link>
-                                            <button onClick={() => { if(confirm('Yakin ingin menghapus data ini?')) router.delete(route('abr.destroy', item.id)) }} className="bg-[#ef4444] hover:bg-red-600 text-white p-1 rounded shadow-sm" title="Delete">
-                                                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                            </button>
+                            {items.length > 0 ? (
+                                items.map((item, index) => (
+                                    <tr key={item.id} onDoubleClick={() => router.visit(route('abr.edit', item.id))} className="hover:bg-gray-100 transition-colors cursor-pointer group">
+                                        <td className="px-3 py-2.5 text-center text-gray-500">{index + 1}</td>
+                                        <td className="px-3 py-2.5 text-center">{item.tanggal}</td>
+                                        <td className="px-3 py-2.5 text-center text-gray-900 font-bold group-hover:text-blue-600">{item.code_unit}</td>
+                                        <td className="px-3 py-2.5 text-center">{item.equipment}</td>
+                                        <td className="px-3 py-2.5 text-center">{item.model}</td>
+                                        <td className="px-3 py-2.5">{item.deskripsi}</td>
+                                        <td className="px-3 py-2.5 text-center">{item.kategori}</td>
+                                        <td className="px-3 py-2.5 text-center font-mono">{item.no_wo}</td>
+                                        <td className="px-3 py-2.5 text-center">{item.qty}</td>
+                                        <td className="px-3 py-2.5 text-right font-mono">{item.biaya_part.toLocaleString('id-ID')}</td>
+                                        <td className="px-3 py-2.5 text-right font-mono">{item.biaya_jasa.toLocaleString('id-ID')}</td>
+                                        <td className="px-3 py-2.5 text-right font-mono font-bold">{item.total_biaya.toLocaleString('id-ID')}</td>
+                                        <td className="px-3 py-2.5 text-center">
+                                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">
+                                                {item.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                <a 
+                                                    href={route('abr.download.pdf', item.id)} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="bg-red-600 hover:bg-red-700 text-white p-1 rounded shadow-sm inline-flex items-center justify-center" 
+                                                    title="Download PDF Dokumen"
+                                                >
+                                                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                                                </a>
+                                                <Link href={route('abr.show', item.id)} className="bg-[#3b82f6] hover:bg-blue-600 text-white p-1 rounded shadow-sm" title="Detail">
+                                                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                                                </Link>
+                                                <Link href={route('abr.edit', item.id)} className="bg-[#facc15] hover:bg-yellow-500 text-white p-1 rounded shadow-sm" title="Edit">
+                                                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                                </Link>
+                                                <button onClick={() => { if(confirm('Yakin ingin menghapus data ini?')) router.delete(route('abr.destroy', item.id)) }} className="bg-[#ef4444] hover:bg-red-600 text-white p-1 rounded shadow-sm" title="Delete">
+                                                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="14" className="px-4 py-12 text-center text-gray-500">
+                                        <div className="flex flex-col items-center justify-center gap-2">
+                                            <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            <span className="text-sm font-semibold text-gray-500">Tidak ada data biaya repair yang ditemukan.</span>
+                                            <span className="text-xs text-gray-400">Silakan klik tombol "Tambah Biaya" untuk menginput data baru.</span>
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
-                        <tfoot className="bg-gray-50 border-t border-gray-200">
-                            <tr>
-                                <td colSpan="9" className="px-3 py-3 text-right font-bold text-gray-900">Total</td>
-                                <td className="px-3 py-3 text-right font-bold text-gray-900 font-mono">
-                                    {items.reduce((sum, item) => sum + item.biaya_part, 0).toLocaleString('id-ID')}
-                                </td>
-                                <td className="px-3 py-3 text-right font-bold text-gray-900 font-mono">
-                                    {items.reduce((sum, item) => sum + item.biaya_jasa, 0).toLocaleString('id-ID')}
-                                </td>
-                                <td className="px-3 py-3 text-right font-bold text-gray-900 font-mono">
-                                    {items.reduce((sum, item) => sum + item.total_biaya, 0).toLocaleString('id-ID')}
-                                </td>
-                                <td colSpan="2"></td>
-                            </tr>
-                        </tfoot>
+                        {items.length > 0 && (
+                            <tfoot className="bg-gray-50 border-t border-gray-200">
+                                <tr>
+                                    <td colSpan="9" className="px-3 py-3 text-right font-bold text-gray-900">Total</td>
+                                    <td className="px-3 py-3 text-right font-bold text-gray-900 font-mono">
+                                        {items.reduce((sum, item) => sum + item.biaya_part, 0).toLocaleString('id-ID')}
+                                    </td>
+                                    <td className="px-3 py-3 text-right font-bold text-gray-900 font-mono">
+                                        {items.reduce((sum, item) => sum + item.biaya_jasa, 0).toLocaleString('id-ID')}
+                                    </td>
+                                    <td className="px-3 py-3 text-right font-bold text-gray-900 font-mono">
+                                        {items.reduce((sum, item) => sum + item.total_biaya, 0).toLocaleString('id-ID')}
+                                    </td>
+                                    <td colSpan="2"></td>
+                                </tr>
+                            </tfoot>
+                        )}
                     </table>
                 </div>
                 
                 {/* Pagination */}
                 <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center bg-white text-sm">
                     <div className="text-gray-500">
-                        Menampilkan 1 - 10 dari {stats.jumlah_repair} data
+                        {stats.jumlah_repair > 0 
+                            ? `Menampilkan 1 - ${Math.min(10, stats.jumlah_repair)} dari ${stats.jumlah_repair} data`
+                            : 'Menampilkan 0 data'}
                     </div>
-                    <div className="flex gap-1 items-center">
-                        <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-400 cursor-not-allowed">«</button>
-                        <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-400 cursor-not-allowed">‹</button>
-                        <button className="w-7 h-7 flex items-center justify-center rounded bg-[#10b981] text-white font-bold">1</button>
-                        <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">2</button>
-                        <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">3</button>
-                        <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">›</button>
-                        <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">»</button>
-                    </div>
+                    {stats.jumlah_repair > 0 && (
+                        <div className="flex gap-1 items-center">
+                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-400 cursor-not-allowed">«</button>
+                            <button className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-400 cursor-not-allowed">‹</button>
+                            <button className="w-7 h-7 flex items-center justify-center rounded bg-[#10b981] text-white font-bold">1</button>
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -28,7 +28,7 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
         ];
     }
@@ -42,12 +42,29 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+        $loginInput = $this->input('email');
+        $password = $this->input('password');
+        $remember = $this->boolean('remember');
 
-            throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
-            ]);
+        // Check whether input is an email or name/username
+        $credentials = filter_var($loginInput, FILTER_VALIDATE_EMAIL)
+            ? ['email' => $loginInput, 'password' => $password]
+            : ['name' => $loginInput, 'password' => $password];
+
+        if (! Auth::attempt($credentials, $remember)) {
+            // Also attempt fallback auto-generated email for username
+            $fallbackCredentials = [
+                'email' => Str::slug($loginInput, '_').'@plant.local',
+                'password' => $password,
+            ];
+
+            if (! Auth::attempt($fallbackCredentials, $remember)) {
+                RateLimiter::hit($this->throttleKey());
+
+                throw ValidationException::withMessages([
+                    'email' => trans('auth.failed'),
+                ]);
+            }
         }
 
         RateLimiter::clear($this->throttleKey());

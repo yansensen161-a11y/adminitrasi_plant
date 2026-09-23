@@ -75,31 +75,31 @@ function DropdownNotifications({
             <li className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
               <Link
                 className="block py-2 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/20"
-                href="#0"
+                href="/pm-monitoring"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
-                <span className="block text-sm mb-2">📣 <span className="font-medium text-gray-800 dark:text-gray-100">Edit your information in a swipe</span> Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim.</span>
-                <span className="block text-sm font-medium text-gray-400 dark:text-gray-500">Feb 12, 2024</span>
+                <span className="block text-sm mb-1">⏱️ <span className="font-semibold text-gray-800 dark:text-gray-100">PM Monitoring Alert</span> Cek jadwal jatuh tempo periodical maintenance unit.</span>
+                <span className="block text-xs font-medium text-emerald-600 dark:text-emerald-400">Buka PM Monitoring &rarr;</span>
               </Link>
             </li>
             <li className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
               <Link
                 className="block py-2 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/20"
-                href="#0"
+                href="/work-orders?tab=breakdown"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
-                <span className="block text-sm mb-2">📣 <span className="font-medium text-gray-800 dark:text-gray-100">Edit your information in a swipe</span> Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim.</span>
-                <span className="block text-sm font-medium text-gray-400 dark:text-gray-500">Feb 9, 2024</span>
+                <span className="block text-sm mb-1">🚨 <span className="font-semibold text-gray-800 dark:text-gray-100">Unit Breakdown Status</span> Pantau penanganan unit breakdown di lapangan.</span>
+                <span className="block text-xs font-medium text-rose-500 dark:text-rose-400">Lihat Work Order Breakdown &rarr;</span>
               </Link>
             </li>
             <li className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
               <Link
                 className="block py-2 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/20"
-                href="#0"
+                href="/backlogs"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
-                <span className="block text-sm mb-2">🚀<span className="font-medium text-gray-800 dark:text-gray-100">Say goodbye to paper receipts!</span> Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim.</span>
-                <span className="block text-sm font-medium text-gray-400 dark:text-gray-500">Jan 24, 2024</span>
+                <span className="block text-sm mb-1">📋 <span className="font-semibold text-gray-800 dark:text-gray-100">Monitoring Backlog</span> Temuan inspeksi dan antrean part perbaikan.</span>
+                <span className="block text-xs font-medium text-amber-500 dark:text-amber-400">Kelola Backlog &rarr;</span>
               </Link>
             </li>
           </ul>

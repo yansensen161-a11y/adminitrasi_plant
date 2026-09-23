@@ -36,16 +36,16 @@ function DropdownHelp({
     <div className="relative inline-flex">
       <button
         ref={trigger}
-        className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 hover:scale-110 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ${dropdownOpen && 'bg-emerald-100 dark:bg-emerald-500/20'}`}
+        className={`w-14 h-14 flex items-center justify-center rounded-full transition-all duration-300 hover:scale-110 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ${dropdownOpen && 'bg-emerald-100 dark:bg-emerald-500/20'}`}
         aria-haspopup="true"
         onClick={() => setDropdownOpen(!dropdownOpen)}
         aria-expanded={dropdownOpen}
       >
         <span className="sr-only">Need help?</span>
         <svg
-          className="fill-current w-6 h-6 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
-          width={16}
-          height={16}
+          className="fill-current w-8 h-8 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+          width={24}
+          height={24}
           viewBox="0 0 16 16"
           xmlns="http://www.w3.org/2000/svg"
         >
@@ -77,38 +77,38 @@ function DropdownHelp({
             <li>
               <Link
                 className="font-medium text-sm text-[#0b5c3e] hover:text-[#08422c] dark:hover:text-[#2ecb8d] flex items-center py-1 px-3"
-                href="#0"
+                href="/database-schema"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <svg className="w-3 h-3 fill-current text-[#0b5c3e] shrink-0 mr-2" viewBox="0 0 12 12">
                   <rect y="3" width="12" height="9" rx="1" />
                   <path d="M2 0h8v2H2z" />
                 </svg>
-                <span>Documentation</span>
+                <span>Database & Documentation</span>
               </Link>
             </li>
             <li>
               <Link
                 className="font-medium text-sm text-[#0b5c3e] hover:text-[#08422c] dark:hover:text-[#2ecb8d] flex items-center py-1 px-3"
-                href="#0"
+                href="/settings/mail"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <svg className="w-3 h-3 fill-current text-[#0b5c3e] shrink-0 mr-2" viewBox="0 0 12 12">
                   <path d="M10.5 0h-9A1.5 1.5 0 000 1.5v9A1.5 1.5 0 001.5 12h9a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 0zM10 7L8.207 5.207l-3 3-1.414-1.414 3-3L5 2h5v5z" />
                 </svg>
-                <span>Support Site</span>
+                <span>System Configuration</span>
               </Link>
             </li>
             <li>
               <Link
                 className="font-medium text-sm text-[#0b5c3e] hover:text-[#08422c] dark:hover:text-[#2ecb8d] flex items-center py-1 px-3"
-                href="#0"
+                href="/profile"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <svg className="w-3 h-3 fill-current text-[#0b5c3e] shrink-0 mr-2" viewBox="0 0 12 12">
                   <path d="M11.854.146a.5.5 0 00-.525-.116l-11 4a.5.5 0 00-.015.934l4.8 1.921 1.921 4.8A.5.5 0 007.5 12h.008a.5.5 0 00.462-.329l4-11a.5.5 0 00-.116-.525z" />
                 </svg>
-                <span>Contact us</span>
+                <span>Akun & Profil Pengguna</span>
               </Link>
             </li>
           </ul>

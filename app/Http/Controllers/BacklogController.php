@@ -89,11 +89,15 @@ class BacklogController extends Controller
 
     public function create()
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         return Inertia::render('Backlog/Create');
     }
 
     public function store(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         return redirect()->route('backlogs.index')->with('success', 'Backlog berhasil ditambahkan.');
     }
 
@@ -156,6 +160,8 @@ class BacklogController extends Controller
 
     public function edit($id)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         return Inertia::render('Backlog/Edit', [
             'id' => $id,
         ]);
@@ -163,11 +169,15 @@ class BacklogController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         return redirect()->route('backlogs.index')->with('success', 'Backlog berhasil diperbarui.');
     }
 
     public function destroy($id)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         return redirect()->route('backlogs.index')->with('success', 'Backlog berhasil dihapus.');
     }
 }

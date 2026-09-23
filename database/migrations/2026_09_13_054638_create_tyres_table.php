@@ -18,7 +18,7 @@ return new class extends Migration
             $table->decimal('purchase_price', 15, 2)->nullable();
             // Current mounting info
             $table->foreignUuid('unit_id')->nullable()->constrained()->nullOnDelete();
-            $table->enum('position', ['FL','FR','RL','RR','RLI','RLO','RRI','RRO','SP','SPARE'])->nullable();
+            $table->enum('position', ['FL', 'FR', 'RL', 'RR', 'RLI', 'RLO', 'RRI', 'RRO', 'SP', 'SPARE'])->nullable();
             $table->decimal('installed_hm', 10, 2)->default(0);  // HM when installed
             $table->decimal('total_hm', 10, 2)->default(0);       // Accumulated HM
             $table->decimal('installed_km', 10, 2)->default(0);

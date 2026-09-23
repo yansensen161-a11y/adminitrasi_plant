@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import MonitoringPlanBoard from './MonitoringPlanBoard';
 
 // Icons
 const WrenchIcon = () => (
@@ -13,12 +12,6 @@ const WrenchIcon = () => (
 const CalendarIcon = () => (
     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
         <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z" />
-    </svg>
-);
-
-const CalendarCheckIcon = () => (
-    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM11 16.5l-4-4 1.41-1.41L11 13.67l6.59-6.59L19 8.5l-8 8z" />
     </svg>
 );
 
@@ -52,35 +45,174 @@ const EyeIcon = () => (
     </svg>
 );
 
-export default function Index({ breakdown, planService, monitoringPlan }) {
+const TrashIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+);
+
+export default function Index({ breakdown = {}, schedule = {}, historical = {} }) {
     const [activeTab, setActiveTab] = useState(() => {
         if (typeof window !== 'undefined') {
             const queryParams = new URLSearchParams(window.location.search);
-            return queryParams.get('tab') || 'breakdown';
+            const tab = queryParams.get('tab');
+            if (tab === 'historical') return 'historical';
+            if (tab === 'schedule') return 'schedule';
+            return 'breakdown';
         }
         return 'breakdown';
-    }); 
+    });
+
+    const [statusFilter, setStatusFilter] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const queryParams = new URLSearchParams(window.location.search);
+            return queryParams.get('status') || 'Semua';
+        }
+        return 'Semua';
+    });
+
+    const [typeFilter, setTypeFilter] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const queryParams = new URLSearchParams(window.location.search);
+            return queryParams.get('type') || 'Semua';
+        }
+        return 'Semua';
+    });
+
+    const [unitFilter, setUnitFilter] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const queryParams = new URLSearchParams(window.location.search);
+            return queryParams.get('unit') || '';
+        }
+        return '';
+    });
+
+    const [orderFilter, setOrderFilter] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const queryParams = new URLSearchParams(window.location.search);
+            return queryParams.get('order') || 'desc';
+        }
+        return 'desc';
+    });
+
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                setIsFullscreen(true);
+            }).catch(err => {
+                console.error(err);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen().then(() => {
+                    setIsFullscreen(false);
+                });
+            }
+        }
+    };
+
+    useEffect(() => {
+        const handleFsChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFsChange);
+        return () => document.removeEventListener('fullscreenchange', handleFsChange);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const queryParams = new URLSearchParams(window.location.search);
+            const tab = queryParams.get('tab');
+            const currentTab = tab === 'historical' ? 'historical' : (tab === 'schedule' ? 'schedule' : 'breakdown');
+            if (currentTab !== activeTab) {
+                setActiveTab(currentTab);
+            }
+            setStatusFilter(queryParams.get('status') || 'Semua');
+            setTypeFilter(queryParams.get('type') || 'Semua');
+            setUnitFilter(queryParams.get('unit') || '');
+            setOrderFilter(queryParams.get('order') || 'desc');
+        }
+    }, [breakdown, schedule, historical]);
+
+    const handleFilter = () => {
+        const params = { tab: activeTab };
+        if ((activeTab === 'breakdown' || activeTab === 'schedule') && statusFilter && statusFilter !== 'Semua') {
+            params.status = statusFilter;
+        }
+        if (activeTab === 'historical') {
+            if (typeFilter && typeFilter !== 'Semua') {
+                params.type = typeFilter;
+            }
+            if (orderFilter) {
+                params.order = orderFilter;
+            }
+        }
+        if (unitFilter.trim()) {
+            params.unit = unitFilter.trim();
+        }
+        router.get('/work-orders', params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const handleReset = () => {
+        setStatusFilter('Semua');
+        setTypeFilter('Semua');
+        setUnitFilter('');
+        setOrderFilter('desc');
+        router.get('/work-orders', { tab: activeTab }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const handleDeleteWo = (item) => {
+        const noWo = item.no_wo || 'ini';
+        if (window.confirm(`Apakah Anda yakin ingin menghapus Work Order ${noWo}? Semua data task dan detail terkait akan dihapus secara permanen.`)) {
+            router.delete(`/work-orders/${item.id}`, {
+                preserveScroll: true,
+            });
+        }
+    }; 
     
     // Status Badge Helpers
     const getStatusStyle = (status) => {
         switch (status) {
             case 'OPEN':
-                return 'bg-red-100 text-red-600 font-bold';
+                return 'bg-red-100 text-red-600 font-bold border border-red-200';
             case 'PROCESS':
-                return 'bg-blue-100 text-blue-600 font-bold';
+                return 'bg-blue-100 text-blue-600 font-bold border border-blue-200';
             case 'WAITING PART':
-                return 'bg-purple-100 text-purple-600 font-bold';
+                return 'bg-purple-100 text-purple-600 font-bold border border-purple-200';
             case 'COMPLETED':
+            case 'CLOSED':
             case 'ON SCHEDULE':
-                return 'bg-green-100 text-green-600 font-bold';
+                return 'bg-green-100 text-green-700 font-bold border border-green-200';
             default:
-                return 'bg-gray-100 text-gray-600';
+                return 'bg-gray-100 text-gray-600 border border-gray-200';
         }
     };
 
     const isBreakdown = activeTab === 'breakdown';
-    const currentData = isBreakdown ? breakdown : planService;
-    const { kpi, data: paginatedData } = currentData;
+    const isSchedule = activeTab === 'schedule';
+    const isHistorical = activeTab === 'historical';
+
+    const currentData = isHistorical ? historical : (isSchedule ? schedule : breakdown);
+    const { kpi = {}, data: paginatedData = {} } = currentData || {};
+
+    const switchTab = (tabKey) => {
+        setActiveTab(tabKey);
+        setStatusFilter('Semua');
+        setTypeFilter('Semua');
+        setUnitFilter('');
+        router.get('/work-orders', { tab: tabKey }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
 
     return (
         <AuthenticatedLayout>
@@ -100,7 +232,9 @@ export default function Index({ breakdown, planService, monitoringPlan }) {
                                 <span className="mx-1.5">&gt;</span>
                                 <span>Work Order</span>
                                 <span className="mx-1.5">&gt;</span>
-                                <span className="text-blue-600">{isBreakdown ? 'Monitoring Breakdown' : 'Plan Schedule Unit'}</span>
+                                <span className="text-blue-600 font-bold">
+                                    {isBreakdown ? 'Monitoring Breakdown' : (isSchedule ? 'Historical Schedule' : 'Historical WO Closed')}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -134,56 +268,143 @@ export default function Index({ breakdown, planService, monitoringPlan }) {
                     </div>
                 </div>
 
-                <div className="py-2 w-full max-w-[100%] mx-auto">
-                    {/* Tab & Actions */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-2 px-5 py-2.5 rounded shadow-sm text-sm font-bold transition-colors bg-[#0b6e4f] text-white">
-                                {isBreakdown ? <><WrenchIcon /> Monitoring Breakdown</> : <><CalendarIcon /> Plan Schedule Unit</>}
-                            </div>
+                <div className="py-2 w-full max-w-none mx-auto px-2 sm:px-4 lg:px-6">
+                    {/* Tab Navigation & Action Buttons */}
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-6 gap-4">
+                        <div className="flex items-center gap-1.5 bg-gray-200/80 p-1.5 rounded-lg border border-gray-200 flex-wrap">
+                            <button
+                                type="button"
+                                onClick={() => switchTab('breakdown')}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-bold transition-all cursor-pointer ${
+                                    isBreakdown
+                                        ? 'bg-[#0b6e4f] text-white shadow'
+                                        : 'text-gray-700 hover:bg-white/60 hover:text-gray-900'
+                                }`}
+                            >
+                                <WrenchIcon />
+                                <span>Monitoring Breakdown</span>
+                                <span className={`ml-1 text-xs px-2 py-0.5 rounded-full font-black ${
+                                    isBreakdown ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'
+                                }`}>
+                                    {breakdown?.kpi?.total_wo ?? 0}
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => switchTab('schedule')}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-bold transition-all cursor-pointer ${
+                                    isSchedule
+                                        ? 'bg-[#0b6e4f] text-white shadow'
+                                        : 'text-gray-700 hover:bg-white/60 hover:text-gray-900'
+                                }`}
+                            >
+                                <CalendarIcon />
+                                <span>Historical Schedule</span>
+                                <span className={`ml-1 text-xs px-2 py-0.5 rounded-full font-black ${
+                                    isSchedule ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'
+                                }`}>
+                                    {schedule?.kpi?.total_wo ?? 0}
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => switchTab('historical')}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-bold transition-all cursor-pointer ${
+                                    isHistorical
+                                        ? 'bg-[#0b6e4f] text-white shadow'
+                                        : 'text-gray-700 hover:bg-white/60 hover:text-gray-900'
+                                }`}
+                            >
+                                <CheckCircleIcon />
+                                <span>Historical WO Closed</span>
+                                <span className={`ml-1 text-xs px-2 py-0.5 rounded-full font-black ${
+                                    isHistorical ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'
+                                }`}>
+                                    {historical?.kpi?.total_closed ?? 0}
+                                </span>
+                            </button>
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Full Screen Toggle Button */}
+                            <button
+                                type="button"
+                                onClick={toggleFullscreen}
+                                className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 px-3.5 py-2.5 rounded shadow-xs text-sm font-bold transition-colors cursor-pointer border border-gray-200 dark:border-white/10"
+                                title={isFullscreen ? "Keluar Layar Penuh" : "Tampilan Layar Penuh (Full Screen)"}
+                            >
+                                {isFullscreen ? (
+                                    <>
+                                        <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                        <span>Exit Fullscreen</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                                        <span>Full Screen</span>
+                                    </>
+                                )}
+                            </button>
+
                             <a 
-                                href="/work-orders/export"
+                                href={isBreakdown ? "/work-orders/export-breakdown" : (isSchedule ? "/work-orders/export?tab=schedule" : "/work-orders/export?tab=historical")}
                                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded shadow text-sm font-bold transition-colors"
+                                title={isBreakdown ? "Export Excel Breakdown (Hanya Data Open Sesuai Format PDF)" : "Export Excel Work Order"}
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                 Export
                             </a>
-                            <label className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded shadow text-sm font-bold transition-colors cursor-pointer">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                                Import
-                                <input type="file" className="hidden" accept=".xlsx,.csv" onChange={(e) => {
-                                    if(e.target.files.length > 0) {
-                                        const formData = new FormData();
-                                        formData.append('file', e.target.files[0]);
-                                        router.post('/work-orders/import', formData, {
-                                            onSuccess: () => alert('Import berhasil!'),
-                                        });
-                                    }
-                                }} />
-                            </label>
+
+                            {isBreakdown && (
+                                <>
+                                    <a 
+                                        href="/work-orders/download-template-breakdown"
+                                        className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-2.5 rounded text-sm font-bold transition-colors"
+                                        title="Download Template Excel untuk Import Breakdown"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                        Template
+                                    </a>
+                                    <label className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded shadow text-sm font-bold transition-colors cursor-pointer">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                        Import
+                                        <input type="file" className="hidden" accept=".xlsx,.csv" onChange={(e) => {
+                                            if (e.target.files.length > 0) {
+                                                const formData = new FormData();
+                                                formData.append('file', e.target.files[0]);
+                                                router.post('/work-orders/import-breakdown', formData, {
+                                                    onSuccess: () => alert('Import Breakdown berhasil!'),
+                                                    onError: (errors) => alert('Gagal import Breakdown: ' + Object.values(errors).join('\n')),
+                                                });
+                                            }
+                                        }} />
+                                    </label>
+                                </>
+                            )}
+
                             <Link 
                                 href="/work-orders/create"
-                                className="flex items-center gap-2 bg-[#0b6e4f] hover:bg-[#095940] text-white px-4 py-2.5 rounded shadow text-sm font-bold transition-colors"
+                                className="flex items-center gap-2 bg-[#0b6e4f] hover:bg-[#095940] text-white px-4 py-2.5 rounded shadow text-sm font-bold transition-colors cursor-pointer"
                             >
-                                <span className="text-lg leading-none">+</span> Buat Work Order
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                Buat Work Order
                             </Link>
                         </div>
                     </div>
 
-                    {/* KPI Cards */}
+                    {/* KPI Cards: Breakdown Tab */}
                     {isBreakdown && (
-                        <div className="grid gap-4 mb-6 grid-cols-5">
+                        <div className="grid gap-4 mb-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
                             {/* Total WO */}
                             <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
                                 <div className="w-12 h-12 bg-red-100 rounded flex items-center justify-center text-red-500 shrink-0">
                                     <WrenchIcon />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-bold text-red-600 uppercase tracking-wide">TOTAL WO</div>
-                                    <div className="text-3xl font-black text-[#012922] leading-none mt-1">{kpi.total_wo}</div>
+                                    <div className="text-[15px] font-extrabold text-red-600 uppercase tracking-wide">TOTAL WO</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.total_wo || 0}</div>
                                 </div>
                             </div>
 
@@ -193,8 +414,8 @@ export default function Index({ breakdown, planService, monitoringPlan }) {
                                     <AlertIcon />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-bold text-red-600 uppercase tracking-wide">OPEN</div>
-                                    <div className="text-3xl font-black text-[#012922] leading-none mt-1">{kpi.open}</div>
+                                    <div className="text-[15px] font-extrabold text-red-600 uppercase tracking-wide">OPEN</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.open || 0}</div>
                                 </div>
                             </div>
 
@@ -204,8 +425,8 @@ export default function Index({ breakdown, planService, monitoringPlan }) {
                                     <SettingsIcon />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-bold text-blue-600 uppercase tracking-wide">PROCESS</div>
-                                    <div className="text-3xl font-black text-[#012922] leading-none mt-1">{kpi.process}</div>
+                                    <div className="text-[15px] font-extrabold text-blue-600 uppercase tracking-wide">PROCESS</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.process || 0}</div>
                                 </div>
                             </div>
 
@@ -215,8 +436,8 @@ export default function Index({ breakdown, planService, monitoringPlan }) {
                                     <HourglassIcon />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-bold text-orange-600 uppercase tracking-wide">WAITING PART</div>
-                                    <div className="text-3xl font-black text-[#012922] leading-none mt-1">{kpi.waiting_part}</div>
+                                    <div className="text-[15px] font-extrabold text-orange-600 uppercase tracking-wide">WAITING PART</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.waiting_part || 0}</div>
                                 </div>
                             </div>
 
@@ -226,33 +447,148 @@ export default function Index({ breakdown, planService, monitoringPlan }) {
                                     <CheckCircleIcon />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-bold text-green-600 uppercase tracking-wide">COMPLETED</div>
-                                    <div className="text-3xl font-black text-[#012922] leading-none mt-1">{kpi.completed}</div>
+                                    <div className="text-[15px] font-extrabold text-green-600 uppercase tracking-wide">COMPLETED</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.completed || 0}</div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Filters & Table Section */}
+                    {/* KPI Cards: Schedule Tab */}
+                    {isSchedule && (
+                        <div className="grid gap-4 mb-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+                            {/* Total WO */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center text-[#0b6e4f] shrink-0">
+                                    <CalendarIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-[#0b6e4f] uppercase tracking-wide">TOTAL WO PM</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.total_wo || 0}</div>
+                                </div>
+                            </div>
+
+                            {/* OPEN */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-red-100 rounded flex items-center justify-center text-red-500 shrink-0">
+                                    <AlertIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-red-600 uppercase tracking-wide">OPEN</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.open || 0}</div>
+                                </div>
+                            </div>
+
+                            {/* PROCESS */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center text-blue-500 shrink-0">
+                                    <SettingsIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-blue-600 uppercase tracking-wide">PROCESS</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.process || 0}</div>
+                                </div>
+                            </div>
+
+                            {/* WAITING PART */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-purple-100 rounded flex items-center justify-center text-purple-600 shrink-0">
+                                    <HourglassIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-purple-600 uppercase tracking-wide">WAITING PART</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.waiting_part || 0}</div>
+                                </div>
+                            </div>
+
+                            {/* COMPLETED */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-green-100 rounded flex items-center justify-center text-green-500 shrink-0">
+                                    <CheckCircleIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-green-600 uppercase tracking-wide">COMPLETED</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.completed || 0}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* KPI Cards: Historical Tab */}
+                    {isHistorical && (
+                        <div className="grid gap-4 mb-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                            {/* Total Closed */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-emerald-100 rounded flex items-center justify-center text-emerald-600 shrink-0">
+                                    <CheckCircleIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-emerald-600 uppercase tracking-wide">TOTAL WO CLOSED</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.total_closed || 0}</div>
+                                </div>
+                            </div>
+
+                            {/* Schedule Closed */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center text-blue-600 shrink-0">
+                                    <CalendarIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-blue-600 uppercase tracking-wide">SCHEDULE CLOSED</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.schedule_closed || 0}</div>
+                                </div>
+                            </div>
+
+                            {/* Breakdown Closed */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-rose-100 rounded flex items-center justify-center text-rose-600 shrink-0">
+                                    <WrenchIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-rose-600 uppercase tracking-wide">BREAKDOWN CLOSED</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{kpi.breakdown_closed || 0}</div>
+                                </div>
+                            </div>
+
+                            {/* Total Durasi */}
+                            <div className="bg-white rounded border border-gray-200 p-4 shadow-sm flex items-center gap-4">
+                                <div className="w-12 h-12 bg-amber-100 rounded flex items-center justify-center text-amber-600 shrink-0">
+                                    <HourglassIcon />
+                                </div>
+                                <div>
+                                    <div className="text-[15px] font-extrabold text-amber-600 uppercase tracking-wide">TOTAL JAM DOWNTIME</div>
+                                    <div className="text-4xl font-black text-[#012922] leading-none mt-1">{Number(kpi.total_hours || 0).toLocaleString('id-ID')} <span className="text-lg font-bold text-gray-500">hrs</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Main Content Area */}
                     <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden flex flex-col">
                         
-                        {/* Filter Section - Only for Breakdown */}
-                        {isBreakdown ? (
+                        {/* BREAKDOWN & SCHEDULE TAB CONTENT */}
+                        {(isBreakdown || isSchedule) && (
                             <>
                                 <div className="bg-gray-50/50 border-y border-gray-100 p-4 flex gap-4 items-end flex-wrap">
                                     <div className="w-48">
                                         <label className="block text-sm font-bold text-gray-700 mb-1.5">Type WO</label>
-                                        <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:ring-[#0b6e4f] focus:border-[#0b6e4f]">
-                                            <option>Breakdown</option>
-                                        </select>
+                                        <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded text-sm font-bold text-gray-800">
+                                            {isBreakdown ? 'BREAKDOWN (CM)' : 'SCHEDULE (PM)'}
+                                        </div>
                                     </div>
 
                                     <div className="w-40">
                                         <label className="block text-sm font-bold text-gray-700 mb-1.5">Status WO</label>
-                                        <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:ring-[#0b6e4f] focus:border-[#0b6e4f]">
+                                        <select 
+                                            value={statusFilter}
+                                            onChange={e => setStatusFilter(e.target.value)}
+                                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
+                                        >
                                             <option>Semua</option>
                                             <option>OPEN</option>
                                             <option>PROCESS</option>
+                                            <option>WAITING PART</option>
+                                            <option>COMPLETED</option>
                                         </select>
                                     </div>
 
@@ -267,16 +603,31 @@ export default function Index({ breakdown, planService, monitoringPlan }) {
                                     </div>
 
                                     <div className="flex-1 min-w-[200px]">
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Unit</label>
-                                        <input type="text" placeholder="Cari code unit ..." className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:ring-[#0b6e4f] focus:border-[#0b6e4f]" />
+                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Unit / No WO</label>
+                                        <input 
+                                            type="text" 
+                                            value={unitFilter}
+                                            onChange={e => setUnitFilter(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleFilter()}
+                                            placeholder="Cari code unit / No WO ..." 
+                                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:ring-[#0b6e4f] focus:border-[#0b6e4f]" 
+                                        />
                                     </div>
 
                                     <div className="flex gap-2">
-                                        <button className="bg-[#0b6e4f] hover:bg-[#095940] text-white px-5 py-2 rounded font-bold text-sm flex items-center gap-2 transition-colors">
+                                        <button 
+                                            type="button"
+                                            onClick={handleFilter}
+                                            className="bg-[#0b6e4f] hover:bg-[#095940] text-white px-5 py-2 rounded font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer"
+                                        >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                                             Filter
                                         </button>
-                                        <button className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded font-bold text-sm flex items-center gap-2 transition-colors">
+                                        <button 
+                                            type="button"
+                                            onClick={handleReset}
+                                            className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer"
+                                        >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                             Reset
                                         </button>
@@ -288,67 +639,348 @@ export default function Index({ breakdown, planService, monitoringPlan }) {
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-[#0b6e4f] text-white">
-                                                <th className="py-3 px-4 text-sm font-bold whitespace-nowrap text-center w-12 border-r border-[#095940]">No</th>
-                                                <th className="py-3 px-4 text-sm font-bold whitespace-nowrap border-r border-[#095940]">No WO</th>
-                                                <th className="py-3 px-4 text-sm font-bold whitespace-nowrap border-r border-[#095940]">Tanggal WO</th>
-                                                <th className="py-3 px-4 text-sm font-bold whitespace-nowrap border-r border-[#095940]">Code Unit</th>
-                                                <th className="py-3 px-4 text-sm font-bold whitespace-nowrap border-r border-[#095940]">Model</th>
-                                                <th className="py-3 px-4 text-sm font-bold whitespace-nowrap border-r border-[#095940]">Problem</th>
-                                                <th className="py-3 px-4 text-sm font-bold whitespace-nowrap text-center border-r border-[#095940]">Status WO</th>
-                                                <th className="py-3 px-4 text-sm font-bold whitespace-nowrap text-center">Action</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap text-center w-12 border-r border-[#095940]">No</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">No WO</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">Tanggal WO</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">Code Unit</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">Model</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">Problem</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap text-center border-r border-[#095940]">Status WO</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap text-center">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {paginatedData.data.map((item, index) => (
-                                                <tr key={item.no_wo} onDoubleClick={() => router.visit(`/work-orders/${item.id}`)} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors cursor-pointer">
-                                                    <td className="py-2.5 px-4 text-[13px] text-gray-500 text-center border-r border-gray-100">{index + 1}</td>
-                                                    <td className="py-2.5 px-4 text-[13px] font-bold text-gray-800 border-r border-gray-100">{item.no_wo}</td>
-                                                    <td className="py-2.5 px-4 text-[13px] text-gray-600 border-r border-gray-100">{item.request_date ? new Date(item.request_date).toLocaleDateString('id-ID') : '-'}</td>
-                                                    <td className="py-2.5 px-4 text-[13px] font-bold text-[#012922] border-r border-gray-100">{item.unit?.code_unit || '-'}</td>
-                                                    <td className="py-2.5 px-4 text-[13px] text-gray-600 border-r border-gray-100">{item.unit?.model || '-'}</td>
-                                                    <td className="py-2.5 px-4 text-[13px] text-gray-600 border-r border-gray-100">{item.problem || item.failure_description || '-'}</td>
-                                                    <td className="py-2.5 px-4 text-center border-r border-gray-100">
-                                                        <span className={`inline-block px-3 py-1 rounded text-xs uppercase font-bold tracking-wide w-28 ${getStatusStyle(item.status_wo)}`}>
-                                                            {item.status_wo || 'OPEN'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-2.5 px-4 text-center">
-                                                        <Link href={`/work-orders/${item.id}`} className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-[#0b6e4f] rounded text-sm font-bold transition-colors">
-                                                            <EyeIcon /> Detail
-                                                        </Link>
+                                            {paginatedData.data && paginatedData.data.length > 0 ? (
+                                                paginatedData.data.map((item, index) => (
+                                                    <tr key={item.id || item.no_wo} onDoubleClick={() => router.visit(`/work-orders/${item.id}`)} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors cursor-pointer">
+                                                        <td className="py-3 px-4 text-[15px] text-gray-500 text-center border-r border-gray-100">
+                                                            {(paginatedData.from || 1) + index}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-[15px] font-bold text-gray-800 border-r border-gray-100 font-mono">{item.no_wo}</td>
+                                                        <td className="py-3 px-4 text-[15px] text-gray-600 border-r border-gray-100">
+                                                            <div className="font-semibold text-gray-800 text-[15px]">
+                                                                {item.close_date ? new Date(item.close_date).toLocaleDateString('id-ID') : (item.waktu_breakdown ? new Date(item.waktu_breakdown).toLocaleDateString('id-ID') : (item.request_date ? new Date(item.request_date).toLocaleDateString('id-ID') : '-'))}
+                                                            </div>
+                                                            {item.waktu_breakdown && (
+                                                                <div className="text-[13px] text-gray-500 font-mono mt-0.5 whitespace-nowrap font-medium">
+                                                                    BD: {new Date(item.waktu_breakdown).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                                    {item.waktu_rfu && ` | RFU: ${new Date(item.waktu_rfu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                                                                    {item.durasi_hrs && ` (${item.durasi_hrs}h)`}
+                                                                </div>
+                                                            )}
+                                                            {(item.hm_bd || item.hm_rfu) && (
+                                                                <div className="text-[12px] text-emerald-700 dark:text-emerald-400 font-mono mt-0.5 whitespace-nowrap font-bold">
+                                                                    HM BD: {item.hm_bd ?? '-'} {item.hm_rfu && `| RFU: ${item.hm_rfu}`}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-[16px] font-black text-[#012922] border-r border-gray-100">{item.unit?.code_unit || '-'}</td>
+                                                        <td className="py-3 px-4 text-[15px] text-gray-700 border-r border-gray-100">{item.unit?.model || '-'}</td>
+                                                        <td className="py-3 px-4 text-[15px] text-gray-700 border-r border-gray-100">{item.problem || item.failure_description || '-'}</td>
+                                                        <td className="py-3 px-4 text-center border-r border-gray-100" onClick={e => e.stopPropagation()}>
+                                                            <select
+                                                                value={item.status_wo || 'OPEN'}
+                                                                onChange={(e) => {
+                                                                    router.patch(`/work-orders/${item.id}/status`, { status_wo: e.target.value }, {
+                                                                        preserveScroll: true,
+                                                                        preserveState: true,
+                                                                    });
+                                                                }}
+                                                                className={`px-3 py-1.5 rounded text-[13px] uppercase font-bold tracking-wide cursor-pointer text-center border ${getStatusStyle(item.status_wo)}`}
+                                                            >
+                                                                <option value="OPEN">OPEN</option>
+                                                                <option value="PROCESS">PROCESS</option>
+                                                                <option value="WAITING PART">WAITING PART</option>
+                                                                <option value="COMPLETED">COMPLETED</option>
+                                                                <option value="CLOSED">CLOSED</option>
+                                                            </select>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <div className="flex items-center justify-center gap-1.5">
+                                                                <Link 
+                                                                    href={`/work-orders/${item.id}`}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-[#0b6e4f] rounded text-[13px] font-bold transition-colors"
+                                                                >
+                                                                    <EyeIcon />
+                                                                    Detail
+                                                                </Link>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteWo(item)}
+                                                                    title="Hapus Work Order"
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded text-[13px] font-bold transition-colors cursor-pointer"
+                                                                >
+                                                                    <TrashIcon />
+                                                                    Hapus
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="8" className="py-12 text-center text-gray-400 font-medium">
+                                                        {isBreakdown ? 'Tidak ada data Work Order Breakdown.' : 'Tidak ada data Work Order Historical Schedule.'}
                                                     </td>
                                                 </tr>
-                                            ))}
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
 
                                 {/* Pagination Bar */}
-                                <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-white">
-                                    <div className="text-sm text-gray-500 font-medium">
-                                        Menampilkan 1 - 10 dari {paginatedData.total} data
+                                {paginatedData && (
+                                    <div className="px-5 py-3.5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
+                                        <div className="text-[15px] text-gray-600 font-semibold">
+                                            Menampilkan {paginatedData.from || 0} - {paginatedData.to || 0} dari {paginatedData.total || 0} data
+                                        </div>
+                                        {paginatedData.links && paginatedData.links.length > 3 && (
+                                            <div className="flex gap-1.5 items-center flex-wrap">
+                                                {paginatedData.links.map((link, idx) => {
+                                                    let label = link.label;
+                                                    if (label.includes('Previous') || label.includes('&laquo;')) label = '«';
+                                                    if (label.includes('Next') || label.includes('&raquo;')) label = '»';
+
+                                                    return (
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            disabled={!link.url || link.active}
+                                                            onClick={() => {
+                                                                if (link.url) {
+                                                                    router.visit(link.url, {
+                                                                        preserveScroll: true,
+                                                                        preserveState: true,
+                                                                    });
+                                                                }
+                                                            }}
+                                                            dangerouslySetInnerHTML={{ __html: label }}
+                                                            className={`min-w-[36px] h-9 px-3 flex items-center justify-center rounded text-[15px] font-bold transition-colors ${
+                                                                link.active
+                                                                    ? 'bg-[#0b6e4f] text-white font-bold shadow-sm'
+                                                                    : link.url
+                                                                    ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 font-bold cursor-pointer'
+                                                                    : 'text-gray-300 cursor-not-allowed border border-gray-100 bg-gray-50/50'
+                                                            }`}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="flex gap-1 items-center">
-                                        <button className="w-8 h-8 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                )}
+                            </>
+                        )}
+
+                        {/* HISTORICAL TAB CONTENT */}
+                        {isHistorical && (
+                            <>
+                                <div className="bg-gray-50/50 border-y border-gray-100 p-4 flex gap-4 items-end flex-wrap">
+                                    <div className="w-48">
+                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Tipe WO</label>
+                                        <select 
+                                            value={typeFilter}
+                                            onChange={e => setTypeFilter(e.target.value)}
+                                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
+                                        >
+                                            <option value="Semua">Semua Tipe</option>
+                                            <option value="SCHEDULE">SCHEDULE</option>
+                                            <option value="BREAKDOWN">BREAKDOWN</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="w-56">
+                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Urutan No WO</label>
+                                        <select 
+                                            value={orderFilter}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setOrderFilter(val);
+                                                const params = { tab: 'historical', order: val };
+                                                if (typeFilter && typeFilter !== 'Semua') params.type = typeFilter;
+                                                if (unitFilter.trim()) params.unit = unitFilter.trim();
+                                                router.get('/work-orders', params, { preserveState: true, preserveScroll: true });
+                                            }}
+                                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
+                                        >
+                                            <option value="desc">No WO Tertinggi di Atas</option>
+                                            <option value="asc">No WO Terendah di Atas</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex-1 min-w-[240px]">
+                                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Pencarian Unit / No WO</label>
+                                        <input 
+                                            type="text" 
+                                            value={unitFilter}
+                                            onChange={e => setUnitFilter(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleFilter()}
+                                            placeholder="Ketik kode unit, model, atau nomor WO ..." 
+                                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:ring-[#0b6e4f] focus:border-[#0b6e4f]" 
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <button 
+                                            type="button"
+                                            onClick={handleFilter}
+                                            className="bg-[#0b6e4f] hover:bg-[#095940] text-white px-5 py-2 rounded font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                                            Filter
                                         </button>
-                                        <button className="w-8 h-8 flex items-center justify-center rounded bg-[#0b6e4f] text-white font-bold text-sm">
-                                            1
-                                        </button>
-                                        <button className="w-8 h-8 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold text-sm transition-colors">
-                                            2
-                                        </button>
-                                        <button className="w-8 h-8 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold text-sm transition-colors">
-                                            3
-                                        </button>
-                                        <button className="w-8 h-8 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                        <button 
+                                            type="button"
+                                            onClick={handleReset}
+                                            className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                            Reset
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Table */}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-[#0b6e4f] text-white">
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap text-center w-12 border-r border-[#095940]">No</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">No WO</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">Tanggal Selesai</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">Code Unit</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">Model</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap text-center border-r border-[#095940]">Tipe WO</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap text-center border-r border-[#095940]">Downtime Code</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap border-r border-[#095940]">Deskripsi Pekerjaan</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap text-center border-r border-[#095940]">Status WO</th>
+                                                <th className="py-3.5 px-4 text-[15px] font-bold whitespace-nowrap text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paginatedData.data && paginatedData.data.length > 0 ? (
+                                                paginatedData.data.map((item, index) => (
+                                                    <tr key={item.id || item.no_wo} onDoubleClick={() => router.visit(`/work-orders/${item.id}`)} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors cursor-pointer">
+                                                        <td className="py-3 px-4 text-[15px] text-gray-500 text-center border-r border-gray-100">
+                                                            {(paginatedData.from || 1) + index}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-[15px] font-bold text-[#0b6e4f] border-r border-gray-100 font-mono">
+                                                            {item.no_wo}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-[15px] text-gray-600 border-r border-gray-100">
+                                                            <div className="font-semibold text-gray-800 text-[15px]">
+                                                                {item.close_date ? new Date(item.close_date).toLocaleDateString('id-ID') : (item.waktu_breakdown ? new Date(item.waktu_breakdown).toLocaleDateString('id-ID') : (item.request_date ? new Date(item.request_date).toLocaleDateString('id-ID') : '-'))}
+                                                            </div>
+                                                            {item.waktu_breakdown && (
+                                                                <div className="text-[13px] text-gray-500 font-mono mt-0.5 whitespace-nowrap font-medium">
+                                                                    BD: {new Date(item.waktu_breakdown).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                                    {item.waktu_rfu && ` | RFU: ${new Date(item.waktu_rfu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                                                                    {item.durasi_hrs && ` (${item.durasi_hrs}h)`}
+                                                                </div>
+                                                            )}
+                                                            {(item.hm_bd || item.hm_rfu) && (
+                                                                <div className="text-[12px] text-emerald-700 dark:text-emerald-400 font-mono mt-0.5 whitespace-nowrap font-bold">
+                                                                    HM BD: {item.hm_bd ?? '-'} {item.hm_rfu && `| RFU: ${item.hm_rfu}`}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-[16px] font-black text-[#012922] border-r border-gray-100">{item.unit?.code_unit || '-'}</td>
+                                                        <td className="py-3 px-4 text-[15px] text-gray-700 border-r border-gray-100">{item.unit?.model || '-'}</td>
+                                                        <td className="py-3 px-4 text-center border-r border-gray-100">
+                                                            <span className={`inline-block px-3 py-1 rounded text-xs font-black uppercase tracking-wider ${
+                                                                item.tipe_wo === 'SCHEDULE' 
+                                                                    ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                                                                    : 'bg-rose-100 text-rose-700 border border-rose-200'
+                                                            }`}>
+                                                                {item.tipe_wo || 'SCHEDULE'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-[15px] font-semibold text-center text-gray-800 border-r border-gray-100">
+                                                            {item.downtime_code || 'Schedule'}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-[15px] text-gray-800 border-r border-gray-100 font-medium">
+                                                            {item.problem || item.job_instruction || item.keterangan || 'Periodical service'}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center border-r border-gray-100">
+                                                            <span className="inline-block px-3.5 py-1.5 rounded text-[13px] uppercase font-black tracking-wide w-32 bg-green-100 text-green-700 border border-green-200">
+                                                                {item.status_wo || 'COMPLETED'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <div className="flex items-center justify-center gap-1.5">
+                                                                <Link 
+                                                                    href={`/work-orders/${item.id}`}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-[#0b6e4f] rounded text-[13px] font-bold transition-colors"
+                                                                >
+                                                                    <EyeIcon />
+                                                                    Detail
+                                                                </Link>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteWo(item)}
+                                                                    title="Hapus Work Order"
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded text-[13px] font-bold transition-colors cursor-pointer"
+                                                                >
+                                                                    <TrashIcon />
+                                                                    Hapus
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="10" className="py-12 text-center text-gray-400 font-medium">
+                                                        Tidak ada data Historical Work Order Closed.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Pagination Bar */}
+                                {paginatedData && (
+                                    <div className="px-5 py-3.5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
+                                        <div className="text-[15px] text-gray-600 font-semibold">
+                                            Menampilkan {paginatedData.from || 0} - {paginatedData.to || 0} dari {paginatedData.total || 0} data
+                                        </div>
+                                        {paginatedData.links && paginatedData.links.length > 3 && (
+                                            <div className="flex gap-1.5 items-center flex-wrap">
+                                                {paginatedData.links.map((link, idx) => {
+                                                    let label = link.label;
+                                                    if (label.includes('Previous') || label.includes('&laquo;')) label = '«';
+                                                    if (label.includes('Next') || label.includes('&raquo;')) label = '»';
+
+                                                    return (
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            disabled={!link.url || link.active}
+                                                            onClick={() => {
+                                                                if (link.url) {
+                                                                    router.visit(link.url, {
+                                                                        preserveScroll: true,
+                                                                        preserveState: true,
+                                                                    });
+                                                                }
+                                                            }}
+                                                            dangerouslySetInnerHTML={{ __html: label }}
+                                                            className={`min-w-[36px] h-9 px-3 flex items-center justify-center rounded text-[15px] font-bold transition-colors ${
+                                                                link.active
+                                                                    ? 'bg-[#0b6e4f] text-white font-bold shadow-sm'
+                                                                    : link.url
+                                                                    ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 font-bold cursor-pointer'
+                                                                    : 'text-gray-300 cursor-not-allowed border border-gray-100 bg-gray-50/50'
+                                                            }`}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </>
-                        ) : (
-                            <MonitoringPlanBoard units={monitoringPlan || []} />
                         )}
 
                     </div>

@@ -44,6 +44,8 @@ class FailureAnalysisController extends Controller
 
     public function create()
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $units = Unit::orderBy('code_unit', 'asc')->get();
 
         return Inertia::render('FailureAnalysis/Create', [
@@ -53,6 +55,8 @@ class FailureAnalysisController extends Controller
 
     public function store(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $request->validate([
             'unit_id' => 'required|exists:units,id',
             'tgl_kejadian' => 'required|date',
@@ -62,6 +66,7 @@ class FailureAnalysisController extends Controller
             'photos.*.file' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'photos.*.komponen_bagian' => 'nullable|string|max:255',
             'photos.*.observasi' => 'nullable|string|max:1000',
+            'return_to' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -126,6 +131,10 @@ class FailureAnalysisController extends Controller
 
             DB::commit();
 
+            if ($request->filled('return_to')) {
+                return redirect($request->return_to)->with('success', 'Failure Analysis Report ('.$far->no_far.') berhasil dibuat untuk Work Order.');
+            }
+
             return redirect()->route('failure-analysis.index')->with('success', 'Failure Analysis Report berhasil dibuat.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -145,6 +154,8 @@ class FailureAnalysisController extends Controller
 
     public function edit(FailureAnalysis $failure_analysis)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $failure_analysis->load(['unit', 'pelapor', 'photos']);
         $units = Unit::orderBy('code_unit', 'asc')->get();
 
@@ -156,11 +167,17 @@ class FailureAnalysisController extends Controller
 
     public function update(Request $request, FailureAnalysis $failure_analysis)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $request->validate([
             'unit_id' => 'required|exists:units,id',
             'tgl_kejadian' => 'required|date',
             'tgl_lapor' => 'required|date',
             'status' => 'required|in:Draft,Final',
+            'new_photos' => 'nullable|array|max:20',
+            'new_photos.*.file' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'new_photos.*.komponen_bagian' => 'nullable|string|max:255',
+            'new_photos.*.observasi' => 'nullable|string|max:1000',
         ]);
 
         DB::beginTransaction();
@@ -196,15 +213,12 @@ class FailureAnalysisController extends Controller
                 'approved_by' => $request->approved_by,
             ]);
 
-            // Handle Photos Deletions
-            if ($request->has('deleted_photos')) {
-                foreach ($request->deleted_photos as $photoId) {
-                    $photo = FailureAnalysisPhoto::find($photoId);
-                    if ($photo) {
-                        Storage::disk('public')->delete($photo->foto_path);
-                        $photo->delete();
-                    }
-                }
+            // Handle Photos Deletions (Scoped to this FAR to prevent IDOR)
+            if ($request->has('deleted_photos') && is_array($request->deleted_photos)) {
+                $failure_analysis->photos()->whereIn('id', $request->deleted_photos)->get()->each(function ($photo) {
+                    Storage::disk('public')->delete($photo->foto_path);
+                    $photo->delete();
+                });
             }
 
             // Handle New Photos
@@ -247,6 +261,8 @@ class FailureAnalysisController extends Controller
 
     public function destroy(FailureAnalysis $failure_analysis)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menghapus data.');
+
         foreach ($failure_analysis->photos as $photo) {
             Storage::disk('public')->delete($photo->foto_path);
         }

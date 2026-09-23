@@ -34,6 +34,10 @@ class RoleController extends Controller
             'permissions' => 'array',
         ]);
 
+        if (strtolower($request->name) === 'super-admin') {
+            return redirect()->back()->withErrors(['name' => 'Role super-admin adalah role inti sistem.']);
+        }
+
         $role = Role::create(['name' => $request->name]);
 
         if ($request->has('permissions')) {
@@ -45,6 +49,10 @@ class RoleController extends Controller
 
     public function edit(Role $role)
     {
+        if ($role->name === 'super-admin' && ! auth()->user()?->hasRole('super-admin')) {
+            abort(403, 'Akses ditolak: Hanya super-admin yang dapat mengedit role super-admin.');
+        }
+
         $role->load('permissions');
         $permissions = Permission::all();
 
@@ -61,6 +69,14 @@ class RoleController extends Controller
             'permissions' => 'array',
         ]);
 
+        if ($role->name === 'super-admin' && ! auth()->user()?->hasRole('super-admin')) {
+            abort(403, 'Akses ditolak: Hanya super-admin yang dapat mengedit role super-admin.');
+        }
+
+        if ($role->name === 'super-admin' && $request->name !== 'super-admin') {
+            return redirect()->back()->withErrors(['name' => 'Nama role super-admin tidak boleh diubah.']);
+        }
+
         $role->update(['name' => $request->name]);
 
         if ($request->has('permissions')) {
@@ -72,6 +88,14 @@ class RoleController extends Controller
 
     public function destroy(Role $role)
     {
+        if ($role->name === 'super-admin') {
+            return redirect()->back()->with('error', 'Role super-admin adalah role inti sistem dan tidak dapat dihapus.');
+        }
+
+        if (! auth()->user()?->hasRole('super-admin')) {
+            abort(403, 'Akses ditolak: Hanya super-admin yang dapat menghapus role.');
+        }
+
         $role->delete();
 
         return redirect()->route('roles.index')->with('message', 'Role deleted successfully.');

@@ -24,6 +24,14 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             RolePermissionSeeder::class,
+            OrgAndManpowerSeeder::class,
+            UnitSeeder::class,
+            HourMeterSeeder::class,
+            BreakdownSeeder::class,
+            AbrSeeder::class,
+            TyreDataSeeder::class,
+            UnitAplSeeder::class,
+            UnitGetSeeder::class,
         ]);
     }
 }

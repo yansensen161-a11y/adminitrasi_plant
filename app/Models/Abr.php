@@ -12,6 +12,7 @@ class Abr extends Model
 
     protected $fillable = [
         'no_abr',
+        'no_wo',
         'tanggal',
         'unit_id',
         'manual_unit_code',

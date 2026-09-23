@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MaintenanceOrder;
 use App\Models\Tool;
 use App\Models\ToolGatePass;
 use App\Models\ToolInspection;
@@ -48,7 +49,7 @@ class ToolroomController extends Controller
             ->take(30)
             ->get();
 
-        $orders = \App\Models\MaintenanceOrder::with('parts')
+        $orders = MaintenanceOrder::with('parts')
             ->where('unit_id', 'TOOL')
             ->latest('tanggal')
             ->take(50)
@@ -66,13 +67,13 @@ class ToolroomController extends Controller
         $lastAsset = Tool::where('tool_code', 'like', 'PLT-ASSET-%')
             ->orderByRaw('CAST(SUBSTRING(tool_code, 11) AS UNSIGNED) DESC')
             ->first();
-            
+
         $nextAssetNumber = 1;
         if ($lastAsset) {
             $lastNumber = (int) str_replace('PLT-ASSET-', '', $lastAsset->tool_code);
             $nextAssetNumber = $lastNumber + 1;
         }
-        $nextAssetNo = 'PLT-ASSET-' . str_pad($nextAssetNumber, 2, '0', STR_PAD_LEFT);
+        $nextAssetNo = 'PLT-ASSET-'.str_pad($nextAssetNumber, 2, '0', STR_PAD_LEFT);
 
         return Inertia::render('Toolroom/Index', [
             'stats' => $stats,
@@ -91,6 +92,8 @@ class ToolroomController extends Controller
     // ── INVENTORY (Master Tool) ──
     public function storeTool(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $data = $request->validate([
             'tool_code' => 'required|string|unique:tools,tool_code',
             'name' => 'required|string|max:255',
@@ -117,6 +120,8 @@ class ToolroomController extends Controller
 
     public function updateTool(Request $request, Tool $tool)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'brand' => 'nullable|string',
@@ -145,6 +150,8 @@ class ToolroomController extends Controller
 
     public function scrapTool(Tool $tool)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $tool->update(['status' => 'SCRAP', 'condition' => 'SCRAP']);
 
         ToolInspection::create([
@@ -161,6 +168,8 @@ class ToolroomController extends Controller
     // ── PEMINJAMAN ──
     public function storeBorrow(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $data = $request->validate([
             'tool_id' => 'required|exists:tools,id',
             'mechanic_name' => 'required|string',
@@ -192,6 +201,8 @@ class ToolroomController extends Controller
 
     public function returnTool(Request $request, ToolTransaction $transaction)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $data = $request->validate([
             'return_date' => 'required|date',
             'returned_condition' => 'required|in:GOOD,DAMAGE',
@@ -212,6 +223,8 @@ class ToolroomController extends Controller
     // ── INSPEKSI ──
     public function storeInspection(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $data = $request->validate([
             'tool_id' => 'required|exists:tools,id',
             'inspection_date' => 'required|date',
@@ -243,6 +256,8 @@ class ToolroomController extends Controller
     // ── ORDERAN ──
     public function storeOrder(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $data = $request->validate([
             'tool_name' => 'required|string',
             'brand' => 'nullable|string',
@@ -270,6 +285,8 @@ class ToolroomController extends Controller
 
     public function updateOrderStatus(Request $request, ToolOrder $order)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $data = $request->validate([
             'status' => 'required|in:DRAFT,REQUESTED,APPROVED,ORDERED,RECEIVED,CANCELLED',
             'po_number' => 'nullable|string',
@@ -299,6 +316,8 @@ class ToolroomController extends Controller
     // ── GATE PASS ──
     public function storeGatePass(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner', 'tool-keeper']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $data = $request->validate([
             'tool_id' => 'required|exists:tools,id',
             'type' => 'required|in:OUT,IN',

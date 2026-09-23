@@ -18,23 +18,137 @@ const calculateAmount = (item) => {
     return (parseFloat(item.price) || 0) * (parseFloat(item.qty) || 0);
 };
 
+const generateRowKey = () => 'row_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+
+function TableSection({ 
+    title, 
+    num, 
+    items, 
+    setItems, 
+    category, 
+    defaults, 
+    hasPartNumber = false, 
+    satuanLabel = 'Sat',
+    onAddRow,
+    onRemoveRow,
+    onItemChange 
+}) {
+    return (
+        <div className="mb-6">
+            <div className="flex justify-between items-end mb-1">
+                <div className="font-bold text-sm">{num}. {title}</div>
+                <button 
+                    type="button" 
+                    onClick={() => onAddRow(category, setItems, defaults)} 
+                    className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded shadow transition"
+                >
+                    + Tambah Baris
+                </button>
+            </div>
+            <table className="abr-table">
+                <thead>
+                    <tr>
+                        <th className="w-8">No</th>
+                        {hasPartNumber && <th className="w-32">Part Number</th>}
+                        <th>Description</th>
+                        <th className="w-28">Price (Rp)</th>
+                        <th className="w-12">Qty</th>
+                        <th className="w-12">{satuanLabel}</th>
+                        <th className="w-28">Amount (Rp)</th>
+                        <th className="w-8"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items.map((item, idx) => (
+                        <tr key={item._key || item.id || idx} className="group hover:bg-gray-50">
+                            <td className="text-center bg-gray-50">{idx + 1}</td>
+                            {hasPartNumber && (
+                                <td>
+                                    <input 
+                                        type="text" 
+                                        value={item.part_number || ''} 
+                                        onChange={(e) => onItemChange(setItems, idx, 'part_number', e.target.value)} 
+                                        className="text-center" 
+                                    />
+                                </td>
+                            )}
+                            <td>
+                                <input 
+                                    type="text" 
+                                    value={item.description || ''} 
+                                    onChange={(e) => onItemChange(setItems, idx, 'description', e.target.value)} 
+                                    className="text-left px-1" 
+                                />
+                            </td>
+                            <td>
+                                <input 
+                                    type="text" 
+                                    value={item.price ? formatRp(item.price) : ''} 
+                                    onChange={(e) => onItemChange(setItems, idx, 'price', e.target.value)} 
+                                    className="text-right pr-1" 
+                                    placeholder="0" 
+                                />
+                            </td>
+                            <td>
+                                <input 
+                                    type="text" 
+                                    value={item.qty ?? ''} 
+                                    onChange={(e) => onItemChange(setItems, idx, 'qty', e.target.value)} 
+                                    className="text-center" 
+                                />
+                            </td>
+                            <td>
+                                <input 
+                                    type="text" 
+                                    value={item.satuan ?? ''} 
+                                    onChange={(e) => onItemChange(setItems, idx, 'satuan', e.target.value)} 
+                                    className="text-center" 
+                                />
+                            </td>
+                            <td className="text-right pr-1 bg-gray-50">{item.amount ? formatRp(item.amount) : '0'}</td>
+                            <td className="text-center">
+                                <button 
+                                    type="button" 
+                                    onClick={() => onRemoveRow(setItems, idx)} 
+                                    className="text-red-500 hover:text-red-700 font-bold px-1 text-base transition" 
+                                    title="Hapus Baris"
+                                >
+                                    &times;
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                    <tr>
+                        <td colSpan={hasPartNumber ? 6 : 5} className="text-right font-bold pr-2 bg-gray-100">Total ({num}) : </td>
+                        <td className="text-right font-bold pr-1 bg-gray-100">{formatRp(getTotal(items))}</td>
+                        <td className="bg-gray-100"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 export default function Create({ auth, units, no_abr }) {
+    const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const initialUnitId = sp ? (sp.get('unit_id') || '') : '';
+    const initialNoWo = sp ? (sp.get('no_wo') || '') : '';
+    const returnTo = sp ? (sp.get('return_to') || '') : '';
+
     const [selectedUnit, setSelectedUnit] = useState(null);
     const [isManualUnit, setIsManualUnit] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const createEmptyRow = (category, defaults = {}) => ({
+        _key: generateRowKey(),
         category, part_number: '', description: '', price: 0, qty: '', satuan: '', amount: 0, ...defaults
     });
 
     const [repairItems, setRepairItems] = useState([createEmptyRow('repair', { satuan: 'Set' })]);
-    const [manpowerItems, setManpowerItems] = useState([createEmptyRow('manpower', { qty: 2, satuan: '2', description: 'Manpower' })]);
+    const [manpowerItems, setManpowerItems] = useState([createEmptyRow('manpower')]);
     const [sparepartItems, setSparepartItems] = useState([createEmptyRow('sparepart', { satuan: 'Pcs' })]);
-    const [evakuasiItems, setEvakuasiItems] = useState([createEmptyRow('evakuasi', { qty: 1, satuan: '1' })]);
-    const [disassemblyItems, setDisassemblyItems] = useState([
-        createEmptyRow('disassembly', { description: 'Akomodasi, kosumsi & transportasi man power', qty: 1, satuan: '1' }),
-        createEmptyRow('disassembly', { description: 'Delivery Sparepart, Consumables & DLL', qty: 1, satuan: '1' }),
-        createEmptyRow('disassembly', { description: 'Transportasi sewa LV operasional', qty: 1, satuan: '1' })
-    ]);
+    const [evakuasiItems, setEvakuasiItems] = useState([createEmptyRow('evakuasi')]);
+    const [disassemblyItems, setDisassemblyItems] = useState([createEmptyRow('disassembly')]);
 
     const handleAddRow = (category, setState, defaults = {}) => {
         setState(prev => [...prev, createEmptyRow(category, defaults)]);
@@ -61,8 +175,9 @@ export default function Create({ auth, units, no_abr }) {
 
     const [data, setData] = useState({
         no_abr: no_abr,
+        no_wo: initialNoWo,
         tanggal: new Date().toISOString().split('T')[0],
-        unit_id: '',
+        unit_id: initialUnitId,
         manual_unit_code: '',
         manual_unit_model: '',
         manual_sn_chassis: '',
@@ -144,7 +259,9 @@ export default function Create({ auth, units, no_abr }) {
             }
         });
         
-        const filterEmpty = (items) => items.filter(i => i.description || i.part_number || i.price > 0);
+        const filterEmpty = (items) => items
+            .filter(i => (i.description && i.description.trim() !== '') || (i.part_number && i.part_number.trim() !== '') || (i.price && i.price > 0))
+            .map(({ _key, ...rest }) => rest);
         const allItems = [
             ...filterEmpty(repairItems), 
             ...filterEmpty(manpowerItems), 
@@ -166,95 +283,129 @@ export default function Create({ auth, units, no_abr }) {
         formData.append('total_biaya', totalBiaya);
         formData.append('tax_amount', taxAmount);
         formData.append('grand_total', grandTotal);
+        if (returnTo) {
+            formData.append('return_to', returnTo);
+        }
 
-        router.post(route('abr.store'), formData, { forceFormData: true });
+        setIsSubmitting(true);
+        router.post(route('abr.store'), formData, {
+            forceFormData: true,
+            onFinish: () => setIsSubmitting(false),
+            onError: () => setIsSubmitting(false),
+        });
     };
 
-    const TableSection = ({ title, num, items, setItems, category, defaults, hasPartNumber = false, satuanLabel = 'Sat' }) => (
-        <div className="mb-6">
-            <div className="flex justify-between items-end mb-1">
-                <div className="font-bold text-sm">{num}. {title}</div>
-                <button type="button" onClick={() => handleAddRow(category, setItems, defaults)} className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded shadow transition">
-                    + Tambah Baris
-                </button>
-            </div>
-            <table className="abr-table">
-                <thead>
-                    <tr>
-                        <th className="w-8">No</th>
-                        {hasPartNumber && <th className="w-32">Part Number</th>}
-                        <th>Description</th>
-                        <th className="w-28">Price (Rp)</th>
-                        <th className="w-12">Qty</th>
-                        <th className="w-12">{satuanLabel}</th>
-                        <th className="w-28">Amount (Rp)</th>
-                        <th className="w-8"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {items.map((item, idx) => (
-                        <tr key={idx} className="group hover:bg-gray-50">
-                            <td className="text-center bg-gray-50">{idx + 1}</td>
-                            {hasPartNumber && <td><input type="text" value={item.part_number} onChange={(e) => handleItemChange(setItems, idx, 'part_number', e.target.value)} className="text-center" /></td>}
-                            <td><input type="text" value={item.description} onChange={(e) => handleItemChange(setItems, idx, 'description', e.target.value)} className="text-left px-1" /></td>
-                            <td className="flex items-center h-full"><span className="pl-1 text-gray-400"></span><input type="text" value={item.price ? formatRp(item.price) : ''} onChange={(e) => handleItemChange(setItems, idx, 'price', e.target.value)} className="text-right pr-1" placeholder="0" /></td>
-                            <td><input type="text" value={item.qty} onChange={(e) => handleItemChange(setItems, idx, 'qty', e.target.value)} className="text-center" /></td>
-                            <td><input type="text" value={item.satuan} onChange={(e) => handleItemChange(setItems, idx, 'satuan', e.target.value)} className="text-center" /></td>
-                            <td className="text-right pr-1 bg-gray-50">{item.amount ? formatRp(item.amount) : '0'}</td>
-                            <td className="text-center">
-                                <button type="button" onClick={() => handleRemoveRow(setItems, idx)} className="text-red-500 hover:text-red-700 font-bold opacity-0 group-hover:opacity-100 transition px-1" title="Hapus Baris">&times;</button>
-                            </td>
-                        </tr>
-                    ))}
-                    <tr>
-                        <td colSpan={hasPartNumber ? 6 : 5} className="text-right font-bold pr-2 bg-gray-100">Total ({num}) : </td>
-                        <td className="text-right font-bold pr-1 bg-gray-100">{formatRp(getTotal(items))}</td>
-                        <td className="bg-gray-100"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    );
-
     return (
-        <AuthenticatedLayout
-            user={auth.user}
-            header={<div className="flex justify-between items-center">
-                <h2 className="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Tambah ABR (Analisa Biaya Repair)</h2>
-                <div className="text-sm text-gray-500">ABR / Tambah ABR</div>
-            </div>}
-        >
+        <AuthenticatedLayout user={auth.user}>
             <Head title="Tambah ABR" />
 
-            <div className="py-8 bg-gray-200">
-                <form onSubmit={handleSubmit} className="max-w-[210mm] mx-auto bg-white p-8 shadow-xl relative" style={{ fontFamily: 'Arial, sans-serif' }}>
+            <div className="flex flex-col bg-gray-100 dark:bg-transparent min-h-screen">
+                {/* Custom Header */}
+                <div className="bg-white dark:bg-[#060b14] px-6 py-4 flex items-center justify-between shadow-sm border-b border-gray-200 dark:border-white/10">
+                    <div className="flex items-center gap-3">
+                        <Link
+                            href={returnTo || route('abr.index')}
+                            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        </Link>
+                        <div>
+                            <h1 className="text-xl font-black text-[#012922] dark:text-white tracking-tight">Tambah ABR</h1>
+                            <div className="flex items-center text-sm text-gray-500 font-medium gap-1">
+                                <Link href={route('abr.index')} className="hover:text-blue-600 transition-colors">ABR</Link>
+                                <span>›</span>
+                                <span className="text-blue-600 font-bold">Tambah ABR</span>
+                                {returnTo && <span className="ml-2 text-xs bg-orange-100 text-orange-700 font-bold px-2 py-0.5 rounded-full">🔗 Terhubung ke WO</span>}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Link href={returnTo || route('abr.index')} className="bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 font-bold py-2 px-4 rounded shadow-sm text-sm transition">
+                            {returnTo ? '← Kembali ke WO' : 'Batal'}
+                        </Link>
+                        <button
+                            type="submit"
+                            form="abr-create-form"
+                            disabled={isSubmitting}
+                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-75 text-white font-bold py-2 px-5 rounded shadow-sm flex items-center gap-2 text-sm transition"
+                        >
+                            {isSubmitting && (
+                                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            )}
+                            <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Dokumen'}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-6">
+                <form id="abr-create-form" onSubmit={handleSubmit} className="abr-paper w-full bg-white p-8 shadow-xl relative" style={{ fontFamily: 'Arial, sans-serif' }}>
                     <style>
                         {`
-                            .abr-table { border-collapse: collapse; width: 100%; border: 1px solid #000; font-size: 10px; }
-                            .abr-table th, .abr-table td { border: 1px solid #000; padding: 0px; height: 26px; }
-                            .abr-table th { font-weight: bold; text-align: center; background-color: #f9fafb; padding: 6px 4px; }
+                            .abr-paper {
+                                background-color: #ffffff !important;
+                                backdrop-filter: none !important;
+                                -webkit-backdrop-filter: none !important;
+                                border: 1px solid #d1d5db !important;
+                                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+                                color: #111827 !important;
+                            }
+                            .abr-table { 
+                                border-collapse: collapse !important; 
+                                width: 100% !important; 
+                                border: 1px solid #4b5563 !important; 
+                                font-size: 11px !important; 
+                                background-color: #ffffff !important;
+                                table-layout: fixed;
+                            }
+                            .abr-table th, .abr-table td { 
+                                border: 1px solid #6b7280 !important; 
+                                padding: 0px !important; 
+                                height: 28px !important; 
+                                color: #111827 !important;
+                                vertical-align: middle !important;
+                                box-sizing: border-box !important;
+                            }
+                            .abr-table th { 
+                                font-weight: bold !important; 
+                                text-align: center !important; 
+                                background-color: #e5e7eb !important; 
+                                color: #1f2937 !important; 
+                                padding: 6px 4px !important; 
+                                border: 1px solid #6b7280 !important;
+                                border-bottom: 2px solid #4b5563 !important;
+                            }
+                            .abr-table tbody tr:hover td {
+                                background-color: #f3f4f6 !important;
+                            }
+                            .abr-table td.bg-gray-50, .abr-table td.bg-gray-100 {
+                                background-color: #f3f4f6 !important;
+                            }
                             .abr-table input {
-                                width: 100%;
-                                height: 100%;
-                                min-height: 24px;
+                                width: 100% !important;
+                                height: 100% !important;
+                                min-height: 26px !important;
                                 border: none !important;
                                 background: transparent !important;
-                                padding: 0 4px !important;
+                                padding: 2px 6px !important;
                                 margin: 0 !important;
                                 box-shadow: none !important;
                                 outline: none !important;
-                                font-size: 10px;
-                                font-family: inherit;
+                                font-size: 11px !important;
+                                font-family: inherit !important;
                                 border-radius: 0 !important;
+                                color: #111827 !important;
                             }
                             .abr-table input:focus {
                                 box-shadow: none !important;
-                                border-color: transparent !important;
+                                border: none !important;
                                 outline: none !important;
-                                ring: 0 !important;
-                                background-color: #f0f9ff !important;
+                                background-color: #e5e7eb !important;
+                                color: #000000 !important;
                             }
-                            .info-box { border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; font-size: 10px; }
+                            .info-box { border: 1px solid #d1d5db !important; border-radius: 6px; padding: 12px; font-size: 10px; background-color: #ffffff !important; }
                             .info-title { font-weight: bold; font-size: 10px; margin-bottom: 8px; color: #374151; text-transform: uppercase; }
                             .info-row { display: flex; margin-bottom: 4px; align-items: center; }
                             .info-label { width: 80px; color: #4b5563; }
@@ -262,9 +413,7 @@ export default function Create({ auth, units, no_abr }) {
                         `}
                     </style>
 
-                    <div className="absolute -top-12 right-0 flex gap-2">
-                        <Link href={route('abr.index')} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow">Batal</Link>
-                        <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow">Simpan Dokumen</button>
+                    <div className="absolute -top-2 right-0 flex gap-2 print:hidden">
                     </div>
 
                     {/* Header */}
@@ -280,7 +429,8 @@ export default function Create({ auth, units, no_abr }) {
                     <div className="grid grid-cols-3 gap-4 mb-6 text-black">
                         <div className="info-box bg-white">
                             <div className="info-title">INFORMASI DOKUMEN</div>
-                            <div className="info-row"><div className="info-label">NO WO</div><div>:</div><div className="info-val"><input type="text" value={data.no_abr} readOnly className="w-full bg-transparent border-none p-0 text-xs font-bold outline-none focus:ring-0" /></div></div>
+                            <div className="info-row"><div className="info-label">NO ABR</div><div>:</div><div className="info-val"><input type="text" value={data.no_abr} readOnly className="w-full bg-transparent border-none p-0 text-xs font-bold outline-none focus:ring-0" /></div></div>
+                            <div className="info-row"><div className="info-label">NO WO</div><div>:</div><div className="info-val"><input type="text" value={data.no_wo} onChange={e=>setData({...data, no_wo: e.target.value})} className="w-full bg-transparent border-b border-gray-300 p-0 text-xs font-bold outline-none focus:ring-0" placeholder="Ketik No WO..." /></div></div>
                             <div className="info-row"><div className="info-label">Tanggal</div><div>:</div><div className="info-val"><input type="date" value={data.tanggal} onChange={e=>setData({...data, tanggal: e.target.value})} className="w-full bg-transparent border-none p-0 text-xs font-bold outline-none focus:ring-0" /></div></div>
                             <div className="info-row">
                                 <div className="info-label">Code Unit</div><div>:</div>
@@ -339,8 +489,8 @@ export default function Create({ auth, units, no_abr }) {
                     </div>
 
                     {/* Incident Description */}
-                    <div className="mb-6 rounded-lg overflow-hidden border border-blue-200 bg-blue-50/50 text-black">
-                        <div className="bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 border-b border-blue-200 uppercase">
+                    <div className="mb-6 rounded-lg overflow-hidden border border-gray-300 bg-gray-50 text-black">
+                        <div className="bg-gray-200 px-4 py-2 text-sm font-bold text-gray-800 border-b border-gray-300 uppercase">
                             INCIDENT DESCRIPTION
                         </div>
                         <div className="px-2 py-2">
@@ -354,11 +504,64 @@ export default function Create({ auth, units, no_abr }) {
                     </div>
 
                     <div className="text-black">
-                        <TableSection title="List Cost Repair (Property Damage)" num="1" category="repair" defaults={{ satuan: 'Set' }} items={repairItems} setItems={setRepairItems} hasPartNumber={true} />
-                        <TableSection title="Manpower Cost" num="2" category="manpower" defaults={{ qty: 2, satuan: '2' }} items={manpowerItems} setItems={setManpowerItems} />
-                        <TableSection title="List Cost Spare Part" num="3" category="sparepart" defaults={{ satuan: 'Pcs' }} items={sparepartItems} setItems={setSparepartItems} hasPartNumber={true} satuanLabel="MR" />
-                        <TableSection title="List Biaya Evakuasi Unit" num="4" category="evakuasi" defaults={{ qty: 1, satuan: '1' }} items={evakuasiItems} setItems={setEvakuasiItems} />
-                        <TableSection title="List Cost Disassembly, Assembly & Akomodasi" num="5" category="disassembly" defaults={{ qty: 1, satuan: '1' }} items={disassemblyItems} setItems={setDisassemblyItems} />
+                        <TableSection 
+                            title="List Cost Repair (Property Damage)" 
+                            num="1" 
+                            category="repair" 
+                            defaults={{ satuan: 'Set' }} 
+                            items={repairItems} 
+                            setItems={setRepairItems} 
+                            hasPartNumber={true} 
+                            onAddRow={handleAddRow}
+                            onRemoveRow={handleRemoveRow}
+                            onItemChange={handleItemChange}
+                        />
+                        <TableSection 
+                            title="Manpower Cost" 
+                            num="2" 
+                            category="manpower" 
+                            defaults={{}} 
+                            items={manpowerItems} 
+                            setItems={setManpowerItems} 
+                            onAddRow={handleAddRow}
+                            onRemoveRow={handleRemoveRow}
+                            onItemChange={handleItemChange}
+                        />
+                        <TableSection 
+                            title="List Cost Spare Part" 
+                            num="3" 
+                            category="sparepart" 
+                            defaults={{ satuan: 'Pcs' }} 
+                            items={sparepartItems} 
+                            setItems={setSparepartItems} 
+                            hasPartNumber={true} 
+                            satuanLabel="MR" 
+                            onAddRow={handleAddRow}
+                            onRemoveRow={handleRemoveRow}
+                            onItemChange={handleItemChange}
+                        />
+                        <TableSection 
+                            title="List Biaya Evakuasi Unit" 
+                            num="4" 
+                            category="evakuasi" 
+                            defaults={{}} 
+                            items={evakuasiItems} 
+                            setItems={setEvakuasiItems} 
+                            onAddRow={handleAddRow}
+                            onRemoveRow={handleRemoveRow}
+                            onItemChange={handleItemChange}
+                        />
+                        <TableSection 
+                            title="List Cost Disassembly, Assembly & Akomodasi" 
+                            num="5" 
+                            category="disassembly" 
+                            defaults={{}} 
+                            items={disassemblyItems} 
+                            setItems={setDisassemblyItems} 
+                            onAddRow={handleAddRow}
+                            onRemoveRow={handleRemoveRow}
+                            onItemChange={handleItemChange}
+                        />
                     </div>
 
                     <table className="abr-table mt-6 text-black">
@@ -379,26 +582,26 @@ export default function Create({ auth, units, no_abr }) {
                     </table>
 
                     {/* Signatures Settings */}
-                    <div className="mt-8 grid grid-cols-4 gap-4 bg-gray-50 p-4 border border-gray-200 rounded-lg">
+                    <div className="mt-8 grid grid-cols-4 gap-4 bg-gray-100 p-4 border border-gray-300 rounded-lg">
                         <div className="text-sm">
-                            <label className="font-bold block mb-1">Dibuat Oleh</label>
-                            <input type="text" value={data.dibuat_oleh} onChange={e=>setData({...data, dibuat_oleh: e.target.value})} className="w-full p-1 border rounded text-sm mb-1 !bg-white !border-gray-300" />
-                            <input type="text" value={data.dibuat_jabatan} onChange={e=>setData({...data, dibuat_jabatan: e.target.value})} className="w-full p-1 border rounded text-sm !bg-white !border-gray-300" />
+                            <label className="font-bold block mb-1 text-gray-700">Dibuat Oleh</label>
+                            <input type="text" value={data.dibuat_oleh} onChange={e=>setData({...data, dibuat_oleh: e.target.value})} className="w-full p-1.5 border rounded text-xs mb-1.5 !bg-white !border-gray-300 text-gray-900" />
+                            <input type="text" value={data.dibuat_jabatan} onChange={e=>setData({...data, dibuat_jabatan: e.target.value})} className="w-full p-1.5 border rounded text-xs !bg-white !border-gray-300 text-gray-900" />
                         </div>
                         <div className="text-sm">
-                            <label className="font-bold block mb-1">Checked By</label>
-                            <input type="text" value={data.checked_by} onChange={e=>setData({...data, checked_by: e.target.value})} className="w-full p-1 border rounded text-sm mb-1 !bg-white !border-gray-300" />
-                            <input type="text" value={data.checked_jabatan} onChange={e=>setData({...data, checked_jabatan: e.target.value})} className="w-full p-1 border rounded text-sm !bg-white !border-gray-300" />
+                            <label className="font-bold block mb-1 text-gray-700">Checked By</label>
+                            <input type="text" value={data.checked_by} onChange={e=>setData({...data, checked_by: e.target.value})} className="w-full p-1.5 border rounded text-xs mb-1.5 !bg-white !border-gray-300 text-gray-900" />
+                            <input type="text" value={data.checked_jabatan} onChange={e=>setData({...data, checked_jabatan: e.target.value})} className="w-full p-1.5 border rounded text-xs !bg-white !border-gray-300 text-gray-900" />
                         </div>
                         <div className="text-sm">
-                            <label className="font-bold block mb-1">Disetujui Oleh</label>
-                            <input type="text" value={data.disetujui_oleh} onChange={e=>setData({...data, disetujui_oleh: e.target.value})} className="w-full p-1 border rounded text-sm mb-1 !bg-white !border-gray-300" />
-                            <input type="text" value={data.disetujui_jabatan} onChange={e=>setData({...data, disetujui_jabatan: e.target.value})} className="w-full p-1 border rounded text-sm !bg-white !border-gray-300" />
+                            <label className="font-bold block mb-1 text-gray-700">Disetujui Oleh</label>
+                            <input type="text" value={data.disetujui_oleh} onChange={e=>setData({...data, disetujui_oleh: e.target.value})} className="w-full p-1.5 border rounded text-xs mb-1.5 !bg-white !border-gray-300 text-gray-900" />
+                            <input type="text" value={data.disetujui_jabatan} onChange={e=>setData({...data, disetujui_jabatan: e.target.value})} className="w-full p-1.5 border rounded text-xs !bg-white !border-gray-300 text-gray-900" />
                         </div>
                         <div className="text-sm">
-                            <label className="font-bold block mb-1">Diketahui Oleh</label>
-                            <input type="text" value={data.diketahui_oleh} onChange={e=>setData({...data, diketahui_oleh: e.target.value})} className="w-full p-1 border rounded text-sm mb-1 !bg-white !border-gray-300" />
-                            <input type="text" value={data.diketahui_jabatan} onChange={e=>setData({...data, diketahui_jabatan: e.target.value})} className="w-full p-1 border rounded text-sm !bg-white !border-gray-300" />
+                            <label className="font-bold block mb-1 text-gray-700">Diketahui Oleh</label>
+                            <input type="text" value={data.diketahui_oleh} onChange={e=>setData({...data, diketahui_oleh: e.target.value})} className="w-full p-1.5 border rounded text-xs mb-1.5 !bg-white !border-gray-300 text-gray-900" />
+                            <input type="text" value={data.diketahui_jabatan} onChange={e=>setData({...data, diketahui_jabatan: e.target.value})} className="w-full p-1.5 border rounded text-xs !bg-white !border-gray-300 text-gray-900" />
                         </div>
                     </div>
 
@@ -409,10 +612,10 @@ export default function Create({ auth, units, no_abr }) {
                         </div>
                         
                         {imagePreviews.length > 0 && (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className={imagePreviews.length === 1 ? "max-w-md mx-auto" : "grid grid-cols-2 md:grid-cols-4 gap-4"}>
                                 {imagePreviews.map((preview, idx) => (
-                                    <div key={idx} className="relative border rounded p-1">
-                                        <img src={preview} alt="Preview" className="w-full h-32 object-cover rounded" />
+                                    <div key={idx} className="relative border rounded p-1.5 bg-gray-50 flex items-center justify-center">
+                                        <img src={preview} alt="Preview" className={`rounded ${imagePreviews.length === 1 ? 'w-auto max-h-80 object-contain mx-auto' : 'w-full h-32 object-cover'}`} />
                                         <button type="button" onClick={() => removeImage(idx)} className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 shadow">&times;</button>
                                     </div>
                                 ))}
@@ -420,6 +623,7 @@ export default function Create({ auth, units, no_abr }) {
                         )}
                     </div>
                 </form>
+                </div>
             </div>
         </AuthenticatedLayout>
     );

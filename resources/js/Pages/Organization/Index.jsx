@@ -1,430 +1,797 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
-import Chart from 'chart.js/auto';
+import { Head, useForm, router } from '@inertiajs/react';
+import Modal from '@/Components/Modal';
+import TextInput from '@/Components/TextInput';
+import InputLabel from '@/Components/InputLabel';
+import InputError from '@/Components/InputError';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
+import Checkbox from '@/Components/Checkbox';
+import { Plus, Edit2, Trash2, Download, ZoomIn, ZoomOut, RotateCcw, UserPlus, X } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
-export default function Index({ auth }) {
-    const chartRef = useRef(null);
-    const chartInstance = useRef(null);
+export default function Index({ auth, flatNodes = [] }) {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
+    const [editingId, setEditingId] = useState(null);
+    const [zoom, setZoom] = useState(1);
+    const [isDownloading, setIsDownloading] = useState(false);
 
-    useEffect(() => {
-        if (chartInstance.current) {
-            chartInstance.current.destroy();
+    // Form state with members array
+    const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
+        jabatan: '',
+        parent_id: '',
+        section: '',
+        order_index: 0,
+        members: [{ name: '', is_vacant: false }],
+    });
+
+    // Helper map of nodes by section or ID
+    const nodesMap = {};
+    flatNodes.forEach(node => {
+        nodesMap[node.id] = node;
+        if (node.section) {
+            if (!nodesMap['sec_' + node.section]) {
+                nodesMap['sec_' + node.section] = [];
+            }
+            nodesMap['sec_' + node.section].push(node);
+        }
+    });
+
+    const openCreateModal = (parentId = '', section = '') => {
+        setModalMode('create');
+        setEditingId(null);
+        clearErrors();
+        reset();
+        setData({
+            jabatan: '',
+            name: '',
+            parent_id: parentId || '',
+            section: section || '',
+            order_index: 0,
+            is_vacant: false,
+            members: [{ name: '', is_vacant: false }],
+        });
+        setIsModalOpen(true);
+    };
+
+    const openEditModal = (node) => {
+        setModalMode('edit');
+        setEditingId(node.id);
+        clearErrors();
+
+        let initialMembers = [];
+        if (Array.isArray(node.members) && node.members.length > 0) {
+            initialMembers = node.members.map(m => {
+                const isVacant = Boolean(m.is_vacant) || m.name === 'Vacant';
+                return {
+                    name: isVacant ? 'Vacant' : (m.name || ''),
+                    is_vacant: isVacant,
+                };
+            });
+        } else if (node.name) {
+            const isVacant = Boolean(node.is_vacant) || node.name === 'Vacant';
+            initialMembers = [{ name: isVacant ? 'Vacant' : node.name, is_vacant: isVacant }];
+        } else {
+            const isVacant = Boolean(node.is_vacant);
+            initialMembers = [{ name: isVacant ? 'Vacant' : '', is_vacant: isVacant }];
         }
 
-        if (chartRef.current) {
-            chartInstance.current = new Chart(chartRef.current, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Staff', 'Non Staff', 'Kontrak / Outsource'],
-                    datasets: [{
-                        data: [28, 88, 12],
-                        backgroundColor: ['#00a65a', '#0073b7', '#f56954'],
-                        borderWidth: 0,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '75%',
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: { enabled: true }
-                    }
-                }
+        const isAllVacant = initialMembers.length > 0 && initialMembers.every(m => m.is_vacant);
+
+        setData({
+            jabatan: node.jabatan || '',
+            name: node.name || '',
+            parent_id: node.parent_id || '',
+            section: node.section || '',
+            order_index: node.order_index ?? 0,
+            is_vacant: node.is_vacant ?? isAllVacant,
+            members: initialMembers,
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleAddMember = () => {
+        setData('members', [...data.members, { name: '', is_vacant: false }]);
+    };
+
+    const handleRemoveMember = (idx) => {
+        if (data.members.length <= 1) return;
+        const newMembers = [...data.members];
+        newMembers.splice(idx, 1);
+        setData('members', newMembers);
+    };
+
+    const handleMemberChange = (idx, field, value) => {
+        const newMembers = [...data.members];
+        newMembers[idx] = { ...newMembers[idx], [field]: value };
+        setData('members', newMembers);
+    };
+
+    const handleToggleVacant = (idx, forceChecked = null) => {
+        const newMembers = [...data.members];
+        const current = newMembers[idx] || { name: '', is_vacant: false };
+        const nextVacant = forceChecked !== null ? Boolean(forceChecked) : !current.is_vacant;
+
+        newMembers[idx] = {
+            ...current,
+            is_vacant: nextVacant,
+            name: nextVacant ? 'Vacant' : (current.name === 'Vacant' ? '' : current.name),
+        };
+        setData('members', newMembers);
+    };
+
+    const handleDelete = (id) => {
+        if (confirm('Apakah Anda yakin ingin menghapus posisi ini?')) {
+            router.delete(route('organization.destroy', id), {
+                preserveScroll: true,
             });
         }
+    };
 
-        return () => {
-            if (chartInstance.current) chartInstance.current.destroy();
-        };
-    }, []);
+    const submitForm = (e) => {
+        e.preventDefault();
 
-    // SVG Line connector component
-    const HLine = ({ width = "100%", top = "0" }) => (
-        <div className="absolute border-t-2 border-gray-800" style={{ width, top, left: '50%', transform: 'translateX(-50%)', zIndex: 0 }}></div>
-    );
-    const VLine = ({ height = "20px", top = "0" }) => (
-        <div className="absolute border-l-2 border-gray-800" style={{ height, top, left: '50%', transform: 'translateX(-50%)', zIndex: 0 }}></div>
-    );
+        if (modalMode === 'create') {
+            post(route('organization.store'), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                    reset();
+                },
+            });
+        } else {
+            put(route('organization.update', editingId), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                    reset();
+                },
+            });
+        }
+    };
 
-    // Node Component
-    const NodeItem = ({ title, count, staff = 0, nonStaff = 0, kontrak = 0, bgClass = "bg-white", textClass = "text-gray-800", isHeader = false, icon = null }) => (
-        <div className={`relative z-10 rounded-md shadow-md border border-gray-300 p-2.5 w-full flex items-center gap-3 ${bgClass}`}>
-            {icon ? (
-                <div className="bg-white/20 p-2 rounded-full shrink-0 text-white">
-                    {icon}
+    const handleDownloadPdf = () => {
+        const element = document.getElementById('org-chart-content');
+        if (!element) return;
+
+        setIsDownloading(true);
+        document.body.classList.add('exporting-pdf');
+
+        const originalZoom = zoom;
+        setZoom(1);
+
+        setTimeout(() => {
+            const opt = {
+                margin:       [0.3, 0.3, 0.3, 0.3],
+                filename:     'Struktur_Organisasi_Plant_Department.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                document.body.classList.remove('exporting-pdf');
+                setZoom(originalZoom);
+                setIsDownloading(false);
+            }).catch(err => {
+                console.error(err);
+                document.body.classList.remove('exporting-pdf');
+                setZoom(originalZoom);
+                setIsDownloading(false);
+            });
+        }, 300);
+    };
+
+    // Reusable Card Component matching PDF layout exactly
+    const NodeCard = ({ node }) => {
+        if (!node) return null;
+
+        const members = Array.isArray(node.members) && node.members.length > 0
+            ? node.members
+            : (node.name ? [{ name: node.name, is_vacant: node.is_vacant }] : []);
+
+        const isEntirelyVacant = node.is_vacant || (members.length > 0 && members.every(m => m.is_vacant));
+
+        return (
+            <div className="relative group inline-block text-left text-xs bg-white border border-gray-900 shadow-sm rounded-none w-full min-w-[155px] max-w-[210px] transition-all">
+                {/* Hover Action Buttons */}
+                <div className="absolute -top-3.5 right-0 hidden group-hover:flex items-center gap-1 z-30 bg-white border border-gray-400 rounded shadow-md px-1 py-0.5 no-export">
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openEditModal(node); }}
+                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                        title="Edit Posisi / Anggota"
+                    >
+                        <Edit2 className="w-3 h-3" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openCreateModal(node.id, node.section); }}
+                        className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded"
+                        title="Tambah Subordinat"
+                    >
+                        <Plus className="w-3 h-3" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(node.id); }}
+                        className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                        title="Hapus Posisi"
+                    >
+                        <Trash2 className="w-3 h-3" />
+                    </button>
                 </div>
-            ) : (
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHeader ? 'bg-white/20 text-white' : 'bg-white text-gray-400'}`}>
-                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+
+                {/* Jabatan / Title */}
+                <div className="px-2 py-1 font-bold text-[10px] tracking-tight uppercase text-center border-b border-gray-900 bg-gray-50/80 leading-snug break-words">
+                    {node.jabatan}
                 </div>
-            )}
-            <div className="flex-1 min-w-0">
-                <div className={`text-xs font-black uppercase truncate ${textClass}`}>{title}</div>
-                <div className={`text-sm font-bold ${textClass}`}>{count} Orang</div>
-                <div className={`text-[8.5px] mt-0.5 opacity-90 ${textClass}`}>Staff: {staff} | Non Staff: {nonStaff} | Kontrak: {kontak}</div>
+
+                {/* Personnel Rows */}
+                {members.length > 0 ? (
+                    <div className="divide-y divide-gray-900">
+                        {members.map((m, idx) => (
+                            <div
+                                key={idx}
+                                className={`flex items-stretch text-[9.5px] leading-tight ${
+                                    m.is_vacant ? 'bg-[#00a2e8] text-white font-semibold' : 'text-gray-900 bg-white'
+                                }`}
+                            >
+                                {members.length > 1 && (
+                                    <span className={`w-4 py-0.5 text-center font-bold border-r ${m.is_vacant ? 'border-white/40' : 'border-gray-900'} shrink-0 text-[9px]`}>
+                                        {idx + 1}
+                                    </span>
+                                )}
+                                <span className="px-1.5 py-0.5 flex-1 truncate font-medium">
+                                    {m.name || (m.is_vacant ? 'Vacant' : '-')}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className={`px-2 py-1 text-center text-[9.5px] ${isEntirelyVacant ? 'bg-[#00a2e8] text-white font-bold' : 'text-gray-500'}`}>
+                        {isEntirelyVacant ? 'Vacant' : '-'}
+                    </div>
+                )}
             </div>
-        </div>
-    );
+        );
+    };
+
+    // Helper to get node by exact jabatan name
+    const getNode = (jabatan) => {
+        return flatNodes.find(n => n.jabatan.trim().toLowerCase() === jabatan.trim().toLowerCase());
+    };
+
+    // Specific Nodes from PDF
+    const pmNode = getNode('PROJECT MANAGER');
+    const plantMgrHoNode = getNode('PLANT MANAGER (HO)');
+    const superintendentNode = getNode('Superintendent');
+
+    // Col 1
+    const spvPlannerNode = getNode('Supervisor Planner');
+    const fmPlannerNode = getNode('Foreman Planner');
+    const officePlantNode = getNode('OFFICE PLANT');
+    const adminPlantNode = getNode('ADMIN PLANT');
+    const toolskeeperNode = getNode('TOOLSKEEPERT & DISPACHER');
+
+    // Col 2
+    const spvPrevNode = getNode('Supervisor Preventive & Predictive maintenance');
+    const inspectorNode = getNode('INSPECTOR');
+    const lubecarNode = getNode('OPERATOR LUBECAR');
+    const greasingNode = getNode('GREASING & AUTOLUBE');
+    const washingmanNode = getNode('WASHINGMAN');
+    const fmPrevNode = getNode('Foreman Preventive & Predictive maintenance');
+    const serviceman1Node = getNode('SERVICEMAN I');
+    const serviceman2Node = getNode('SERVICEMAN II');
+    const serviceman3Node = getNode('SERVICEMAN III');
+    const helperServicemanNode = getNode('HELPER SERVICEMAN');
+
+    // Col 3
+    const spvCorrNode = getNode('Supervisor Corrective Maintenance');
+    const fmCorrNode = getNode('Foreman Corrective Maintenance');
+    const mech1Node = getNode('MECHANIC I');
+    const mech2Node = getNode('MECHANIC II');
+    const mech3Node = getNode('MECHANIC III');
+    const helperMechNode = getNode('HELPER MECHANIC');
+    const fmWelderNode = getNode('FOREMAN WELDER');
+    const welder1Node = getNode('WELDER I');
+    const welder2Node = getNode('WELDER II');
+    const welder3Node = getNode('WELDER III');
+    const helperWelderNode = getNode('HELPER WELDER');
+
+    // Col 4
+    const spvElecNode = getNode('Supervisor Electrical');
+    const fmElecNode = getNode('FOREMAN ELEKTRIK');
+    const elec1Node = getNode('ELECTRIC I');
+    const elec2Node = getNode('ELECTRIC II');
+    const elec3Node = getNode('ELECTRIC III');
+
+    // Col 5
+    const spvTyreNode = getNode('Supervisor Tyre');
+    const fmTyreNode = getNode('FOREMAN TYRE');
+    const tyre1Node = getNode('TYREMAN I');
+    const tyre2Node = getNode('TYREMAN II');
+    const tyre3Node = getNode('TYREMAN III');
+    const helperTyreNode = getNode('HELPER TYREMAN');
+    const craneNode = getNode('OPERATOR CRANE');
+    const riggerNode = getNode('Rigger');
+
+    // Any extra nodes that were added custom by user (not in standard PDF layout)
+    const standardJabatans = [
+        'project manager', 'plant manager (ho)', 'superintendent',
+        'supervisor planner', 'foreman planner', 'office plant', 'admin plant', 'toolskeepert & dispacher',
+        'supervisor preventive & predictive maintenance', 'inspector', 'operator lubecar', 'greasing & autolube', 'washingman',
+        'foreman preventive & predictive maintenance', 'serviceman i', 'serviceman ii', 'serviceman iii', 'helper serviceman',
+        'supervisor corrective maintenance', 'foreman corrective maintenance', 'mechanic i', 'mechanic ii', 'mechanic iii', 'helper mechanic',
+        'foreman welder', 'welder i', 'welder ii', 'welder iii', 'helper welder',
+        'supervisor electrical', 'foreman elektrik', 'electric i', 'electric ii', 'electric iii',
+        'supervisor tyre', 'foreman tyre', 'tyreman i', 'tyreman ii', 'tyreman iii', 'helper tyreman',
+        'operator crane', 'rigger'
+    ];
+    const customNodes = flatNodes.filter(n => !standardJabatans.includes(n.jabatan.trim().toLowerCase()));
 
     return (
         <AuthenticatedLayout>
-            <Head title="Struktur Organisasi" />
-            
-            <div className="bg-gray-100 dark:bg-transparent min-h-screen pb-10" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/cubes.png")', backgroundSize: '200px' }}>
-                {/* Header Section */}
-                <div className="bg-white/90 backdrop-blur-sm border-b border-gray-300 px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-                    <div className="flex flex-col items-center flex-1">
-                        <h1 className="text-3xl font-black text-[#042f2e] tracking-tight uppercase">Struktur Organisasi</h1>
-                        <h2 className="text-lg font-bold text-[#0f766e]">PLANT MAINTENANCE DEPARTMENT</h2>
-                        <p className="text-sm font-semibold text-gray-500">Berdasarkan Data Manpower Plant (Total 128 Orang)</p>
-                    </div>
-                    <div className="absolute right-6 text-right">
-                        <div className="text-sm text-gray-500 font-bold mb-1">Rabu, 03 September 2026</div>
-                        <div className="text-xs text-[#00a65a] font-bold flex items-center gap-1 justify-end">
-                            <span className="w-2 h-2 rounded-full bg-[#00a65a]"></span>
-                            Data Terupdate dari Sistem
-                        </div>
-                    </div>
+            <Head title="Struktur Organisasi - Plant Department" />
+
+            <style dangerouslySetInnerHTML={{__html: `
+                body.exporting-pdf .no-export {
+                    display: none !important;
+                }
+                body.exporting-pdf .export-canvas {
+                    box-shadow: none !important;
+                    border: none !important;
+                    background: white !important;
+                    padding: 0 !important;
+                }
+            `}} />
+
+            {/* Sticky Navigation & Control Bar */}
+            <div className="bg-white border-b border-gray-200 px-6 py-3 flex flex-wrap justify-between items-center sticky top-0 z-40 shadow-sm gap-4 no-export">
+                <div>
+                    <h1 className="text-xl font-black text-gray-900 tracking-tight uppercase">
+                        Struktur Organisasi Plant Department
+                    </h1>
+                    <p className="text-xs font-medium text-gray-500">
+                        Visualisasi resmi hierarki & personil sesuai dokumen PDF fix
+                    </p>
                 </div>
 
-                {/* Main Content Area */}
-                <div className="relative max-w-[1300px] mx-auto px-4 mt-6 overflow-x-auto pb-10">
-                    
-                    {/* Top Left KPI Box */}
-                    <div className="absolute left-4 top-0 bg-white rounded-lg shadow-md border border-gray-200 p-4 w-[280px] z-20">
-                        <div className="flex items-center gap-3 border-b border-gray-200 pb-3 mb-3">
-                            <div className="bg-[#042f2e] text-white p-2 rounded-lg">
-                                <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-                            </div>
-                            <div>
-                                <div className="text-sm font-black text-gray-800">TOTAL MANPOWER</div>
-                                <div className="text-3xl font-black text-[#042f2e] leading-none">128 <span className="text-[12px] text-gray-500 font-bold">Orang</span></div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-[#e6f4ea] text-center p-1.5 rounded border border-[#a8dfb9]">
-                                <div className="text-[9px] font-bold text-[#00a65a] flex items-center justify-center gap-1"><svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></svg> Staff</div>
-                                <div className="font-black text-gray-800 text-sm">28</div>
-                                <div className="text-[8px] text-gray-500 font-bold">(21.9%)</div>
-                            </div>
-                            <div className="bg-[#e8f4fd] text-center p-1.5 rounded border border-[#a2cff0]">
-                                <div className="text-[9px] font-bold text-[#0073b7] flex items-center justify-center gap-1"><svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></svg> Non Staff</div>
-                                <div className="font-black text-gray-800 text-sm">88</div>
-                                <div className="text-[8px] text-gray-500 font-bold">(68.8%)</div>
-                            </div>
-                            <div className="bg-[#fcebe8] text-center p-1.5 rounded border border-[#f5b3a9]">
-                                <div className="text-[9px] font-bold text-[#f56954] flex items-center justify-center gap-1"><svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></svg> Kontrak</div>
-                                <div className="font-black text-gray-800 text-sm">12</div>
-                                <div className="text-[8px] text-gray-500 font-bold">(9.4%)</div>
-                            </div>
-                        </div>
+                <div className="flex items-center gap-2">
+                    {/* Zoom Controls */}
+                    <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200 mr-2">
+                        <button
+                            type="button"
+                            onClick={() => setZoom(prev => Math.max(0.4, prev - 0.1))}
+                            className="p-1.5 hover:bg-white text-gray-700 rounded transition"
+                            title="Zoom Out"
+                        >
+                            <ZoomOut className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs font-bold px-2 text-gray-600 min-w-[45px] text-center">
+                            {Math.round(zoom * 100)}%
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setZoom(prev => Math.min(1.5, prev + 0.1))}
+                            className="p-1.5 hover:bg-white text-gray-700 rounded transition"
+                            title="Zoom In"
+                        >
+                            <ZoomIn className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setZoom(1)}
+                            className="p-1.5 hover:bg-white text-gray-700 rounded transition ml-1"
+                            title="Reset Zoom"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
                     </div>
 
-                    {/* Top Right Label */}
-                    <div className="absolute right-4 top-4 text-right text-sm font-bold text-gray-500">
-                        Reliable Equipment<br/>Higher Productivity
-                    </div>
+                    <SecondaryButton
+                        onClick={handleDownloadPdf}
+                        disabled={isDownloading}
+                        className="flex items-center gap-2 border-teal-600 text-teal-800 hover:bg-teal-50"
+                    >
+                        <Download className="w-4 h-4" />
+                        {isDownloading ? 'Mengekspor PDF...' : 'Download PDF'}
+                    </SecondaryButton>
 
-                    {/* Hierarchy Tree */}
-                    <div className="flex flex-col items-center pt-8 mt-12 relative min-w-[1000px]">
-                        
-                        {/* L1: Superintendent */}
-                        <div className="w-[300px] relative z-10">
-                            <NodeItem title="SUPERINTENDENT PLANT" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-[#004731]" textClass="text-white" isHeader={true} />
-                        </div>
-                        <VLine height="30px" top="65px" />
-
-                        {/* L2: Supervisor Maintenance & Staff */}
-                        <div className="relative mt-[30px] flex justify-center w-full">
-                            <div className="w-[300px] relative z-10">
-                                <NodeItem title="SUPERVISOR MAINTENANCE" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-[#00685e]" textClass="text-white" isHeader={true} />
-                            </div>
-                            
-                            {/* Horizontal connector to Admin and Office */}
-                            <div className="absolute top-[35px] left-[50%] w-[400px] border-t-2 border-gray-800 z-0 transform -translate-x-[200px]"></div>
-                            
-                            {/* Admin Plant Node (Left) */}
-                            <div className="absolute left-[calc(50%-450px)] top-[35px] w-[250px] z-10 flex">
-                                <div className="border-t-2 border-gray-800 w-[150px] mt-[30px]"></div>
-                                <div className="w-full">
-                                    <NodeItem title="ADMIN PLANT" count={2} staff={2} nonStaff={0} kontrak={0} bgClass="bg-[#475569]" textClass="text-white" isHeader={true} />
-                                </div>
-                            </div>
-
-                            {/* Office Plant Node (Right) */}
-                            <div className="absolute right-[calc(50%-450px)] top-[35px] w-[250px] z-10 flex">
-                                <div className="w-full">
-                                    <NodeItem title="OFFICE PLANT" count={2} staff={2} nonStaff={0} kontrak={0} bgClass="bg-[#475569]" textClass="text-white" isHeader={true} />
-                                </div>
-                                <div className="border-t-2 border-gray-800 w-[150px] mt-[30px]"></div>
-                            </div>
-                        </div>
-
-                        <VLine height="40px" top="165px" />
-                        
-                        {/* Huge Horizontal Line for Columns */}
-                        <div className="relative mt-[40px] w-[1100px]">
-                            <HLine width="880px" />
-                            
-                            {/* 5 Columns Container */}
-                            <div className="flex justify-between w-full mt-0 relative">
-                                
-                                {/* COL 1: MECHANIC */}
-                                <div className="w-[210px] flex flex-col items-center relative">
-                                    <VLine height="20px" top="0px" />
-                                    <div className="w-full mt-[20px] relative z-10 mb-3">
-                                        <NodeItem title="SUPERVISOR MECHANIC" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-[#059669]" textClass="text-white" isHeader={true} />
-                                    </div>
-                                    <div className="bg-[#dcfce7] w-full p-3 rounded-lg border border-[#86efac] flex flex-col gap-2 relative">
-                                        <div className="absolute left-4 top-0 bottom-6 border-l-2 border-[#16a34a] z-0"></div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#16a34a]"></div>
-                                            <NodeItem title="MEKANIK I" count={12} staff={0} nonStaff={11} kontrak={1} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#16a34a]"></div>
-                                            <NodeItem title="MEKANIK II" count={15} staff={0} nonStaff={14} kontrak={1} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#16a34a]"></div>
-                                            <NodeItem title="MEKANIK III" count={8} staff={0} nonStaff={8} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#16a34a]"></div>
-                                            <NodeItem title="HELPER" count={6} staff={0} nonStaff={6} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* COL 2: ELECTRICAL */}
-                                <div className="w-[210px] flex flex-col items-center relative">
-                                    <VLine height="20px" top="0px" />
-                                    <div className="w-full mt-[20px] relative z-10 mb-3">
-                                        <NodeItem title="SUPERVISOR ELECTRICAL" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-[#0284c7]" textClass="text-white" isHeader={true} />
-                                    </div>
-                                    <div className="bg-[#e0f2fe] w-full p-3 rounded-lg border border-[#7dd3fc] flex flex-col gap-2 relative">
-                                        <div className="absolute left-4 top-0 bottom-6 border-l-2 border-[#0284c7] z-0"></div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#0284c7]"></div>
-                                            <NodeItem title="ELECTRICAL I" count={6} staff={0} nonStaff={5} kontrak={1} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#0284c7]"></div>
-                                            <NodeItem title="ELECTRICAL II" count={5} staff={0} nonStaff={5} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#0284c7]"></div>
-                                            <NodeItem title="ELECTRICAL III" count={3} staff={0} nonStaff={3} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#0284c7]"></div>
-                                            <NodeItem title="INSTRUMENT" count={2} staff={0} nonStaff={2} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* COL 3: TYRE */}
-                                <div className="w-[210px] flex flex-col items-center relative">
-                                    <VLine height="20px" top="0px" />
-                                    <div className="w-full mt-[20px] relative z-10 mb-3">
-                                        <NodeItem title="SUPERVISOR TYRE" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-[#ea580c]" textClass="text-white" isHeader={true} />
-                                    </div>
-                                    <div className="bg-[#ffedd5] w-full p-3 rounded-lg border border-[#fdba74] flex flex-col gap-2 relative">
-                                        <div className="absolute left-4 top-0 bottom-6 border-l-2 border-[#ea580c] z-0"></div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#ea580c]"></div>
-                                            <NodeItem title="TYREMAN I" count={4} staff={0} nonStaff={4} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#ea580c]"></div>
-                                            <NodeItem title="TYREMAN II" count={4} staff={0} nonStaff={4} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#ea580c]"></div>
-                                            <NodeItem title="TYREMAN III" count={3} staff={0} nonStaff={3} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#ea580c]"></div>
-                                            <NodeItem title="TYRE SERVICE" count={2} staff={0} nonStaff={2} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* COL 4: PLANNER */}
-                                <div className="w-[210px] flex flex-col items-center relative">
-                                    <VLine height="20px" top="0px" />
-                                    <div className="w-full mt-[20px] relative z-10 mb-3">
-                                        <NodeItem title="SENIOR PLANNER (PLANT)" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-[#7e22ce]" textClass="text-white" isHeader={true} />
-                                    </div>
-                                    <div className="bg-[#f3e8ff] w-full p-3 rounded-lg border border-[#d8b4fe] flex flex-col gap-2 relative">
-                                        <div className="absolute left-4 top-0 bottom-6 border-l-2 border-[#7e22ce] z-0"></div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#7e22ce]"></div>
-                                            <NodeItem title="MAINTENANCE PLANNER" count={3} staff={3} nonStaff={0} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#7e22ce]"></div>
-                                            <NodeItem title="PLANNER SOS" count={2} staff={2} nonStaff={0} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#7e22ce]"></div>
-                                            <NodeItem title="PLANNER COMPONENT" count={2} staff={2} nonStaff={0} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#7e22ce]"></div>
-                                            <NodeItem title="PLANNER BUDGET" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#7e22ce]"></div>
-                                            <NodeItem title="DATA ANALYST" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* COL 5: SUPPORT */}
-                                <div className="w-[210px] flex flex-col items-center relative">
-                                    <VLine height="20px" top="0px" />
-                                    <div className="w-full mt-[20px] relative z-10 mb-3">
-                                        <NodeItem title="SUPERVISOR SUPPORT" count={1} staff={1} nonStaff={0} kontrak={0} bgClass="bg-[#334155]" textClass="text-white" isHeader={true} />
-                                    </div>
-                                    <div className="bg-[#f1f5f9] w-full p-3 rounded-lg border border-[#cbd5e1] flex flex-col gap-2 relative">
-                                        <div className="absolute left-4 top-0 bottom-6 border-l-2 border-[#334155] z-0"></div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#334155]"></div>
-                                            <NodeItem title="TOOLROOM" count={4} staff={0} nonStaff={4} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#334155]"></div>
-                                            <NodeItem title="DISPATCHER" count={2} staff={0} nonStaff={2} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#334155]"></div>
-                                            <NodeItem title="WELDING" count={3} staff={0} nonStaff={3} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#334155]"></div>
-                                            <NodeItem title="GENSET & COMPRESSOR" count={2} staff={0} nonStaff={2} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#334155]"></div>
-                                            <NodeItem title="CRANE & HEAVY EQUIPMENT" count={2} staff={0} nonStaff={2} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#334155]"></div>
-                                            <NodeItem title="COMPACT & AUX EQUIPMENT" count={2} staff={0} nonStaff={2} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-0 top-1/2 w-4 border-t-2 border-[#334155]"></div>
-                                            <NodeItem title="FUEL & LUBRICATION" count={2} staff={0} nonStaff={2} kontrak={0} bgClass="bg-white" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Bottom Section: Summary */}
-                <div className="max-w-[1300px] mx-auto px-4 mt-8 pb-12">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        
-                        {/* Table Rekap */}
-                        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
-                            <h3 className="text-sm font-bold text-gray-800 mb-3">Rekapitulasi Manpower per Jenis</h3>
-                            <table className="w-full text-sm text-left">
-                                <thead className="border-b-2 border-gray-200 bg-gray-50">
-                                    <tr>
-                                        <th className="py-2 px-2 font-bold text-gray-700">Jenis Manpower</th>
-                                        <th className="py-2 px-2 font-bold text-gray-700 text-center">Jumlah</th>
-                                        <th className="py-2 px-2 font-bold text-gray-700 text-center">Persentase</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    <tr>
-                                        <td className="py-2 px-2">Staff</td>
-                                        <td className="py-2 px-2 text-center">28</td>
-                                        <td className="py-2 px-2 text-center">21.9%</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-2 px-2">Non Staff</td>
-                                        <td className="py-2 px-2 text-center">88</td>
-                                        <td className="py-2 px-2 text-center">68.8%</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-2 px-2">Kontrak / Outsource</td>
-                                        <td className="py-2 px-2 text-center">12</td>
-                                        <td className="py-2 px-2 text-center">9.4%</td>
-                                    </tr>
-                                </tbody>
-                                <tfoot className="border-t-2 border-gray-200 font-bold bg-gray-50">
-                                    <tr>
-                                        <td className="py-2 px-2">Total</td>
-                                        <td className="py-2 px-2 text-center">128</td>
-                                        <td className="py-2 px-2 text-center">100%</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        {/* Chart Komposisi */}
-                        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 flex flex-col">
-                            <h3 className="text-sm font-bold text-gray-800 mb-3">Komposisi Manpower</h3>
-                            <div className="flex-1 flex items-center gap-4 px-2">
-                                <div className="h-28 w-28 relative shrink-0">
-                                    <canvas ref={chartRef}></canvas>
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                        <span className="text-lg font-black text-gray-800">128</span>
-                                        <span className="text-[8px] text-gray-500 font-bold">Orang</span>
-                                    </div>
-                                    <div className="absolute top-0 right-0 text-[8px] font-bold text-white z-10">21.9%</div>
-                                    <div className="absolute bottom-4 left-0 text-[8px] font-bold text-white z-10">68.8%</div>
-                                    <div className="absolute top-2 left-4 text-[8px] font-bold text-white z-10">9.4%</div>
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <div className="flex items-center gap-2 text-gray-600"><span className="w-3 h-3 rounded bg-[#00a65a]"></span>Staff</div>
-                                        <div className="font-bold text-gray-800">28 <span className="text-gray-400 font-normal">(21.9%)</span></div>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <div className="flex items-center gap-2 text-gray-600"><span className="w-3 h-3 rounded bg-[#0073b7]"></span>Non Staff</div>
-                                        <div className="font-bold text-gray-800">88 <span className="text-gray-400 font-normal">(68.8%)</span></div>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <div className="flex items-center gap-2 text-gray-600"><span className="w-3 h-3 rounded bg-[#f56954]"></span>Kontrak</div>
-                                        <div className="font-bold text-gray-800">12 <span className="text-gray-400 font-normal">(9.4%)</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Keterangan */}
-                        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
-                            <h3 className="text-sm font-bold text-gray-800 mb-3">Keterangan</h3>
-                            <ul className="space-y-3 text-sm text-gray-600">
-                                <li className="flex items-start gap-2">
-                                    <svg className="w-4 h-4 fill-[#00a65a] mt-0.5 shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                    Data diambil langsung dari menu Data Manpower Plant
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <svg className="w-4 h-4 fill-[#00a65a] mt-0.5 shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                    Jumlah manpower pada setiap posisi terupdate otomatis
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <svg className="w-4 h-4 fill-[#00a65a] mt-0.5 shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                    Perubahan data karyawan akan langsung menyesuaikan struktur organisasi
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <svg className="w-4 h-4 fill-[#00a65a] mt-0.5 shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                    Klik pada posisi untuk melihat daftar nama karyawan
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
+                    <PrimaryButton
+                        onClick={() => openCreateModal('', '')}
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Tambah Posisi
+                    </PrimaryButton>
                 </div>
             </div>
+
+            {/* Main Canvas Area with Horizontal & Vertical Scroll */}
+            <div className="bg-gray-100/90 min-h-[calc(100vh-80px)] p-6 overflow-auto flex justify-center">
+                <div
+                    id="org-chart-content"
+                    className="export-canvas bg-white p-8 rounded-lg shadow-lg border border-gray-300 transition-transform origin-top inline-block"
+                    style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
+                >
+                    {/* Top Title Banner */}
+                    <div className="flex justify-center mb-6">
+                        <div className="border border-gray-900 px-6 py-2 bg-white text-center shadow-xs">
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900">
+                                Organization Structure- Plant Department
+                            </h2>
+                        </div>
+                    </div>
+
+                    {/* TOP SECTION: Project Manager & Superintendent */}
+                    <div className="relative flex flex-col items-center mb-0">
+                        {/* 1. PROJECT MANAGER */}
+                        <div className="relative z-10">
+                            <NodeCard node={pmNode} />
+                        </div>
+
+                        {/* Vertical line between PM and Superintendent */}
+                        <div className="w-[1.5px] bg-gray-900 h-10 relative">
+                            {/* Horizontal connector to PLANT MANAGER (HO) */}
+                            <div className="absolute top-5 left-0 w-24 h-[1.5px] bg-gray-900"></div>
+                            {/* Plant Manager (HO) Box positioned to the right */}
+                            <div className="absolute top-0 left-24 z-10">
+                                <NodeCard node={plantMgrHoNode} />
+                            </div>
+                        </div>
+
+                        {/* 2. Superintendent */}
+                        <div className="relative z-10">
+                            <NodeCard node={superintendentNode} />
+                        </div>
+
+                        {/* Vertical connector down from Superintendent to horizontal distribution bar */}
+                        <div className="w-[1.5px] bg-gray-900 h-8"></div>
+                    </div>
+
+                    {/* MAIN 5-COLUMN SECTION */}
+                    <div className="relative pt-0">
+                        {/* Main Horizontal Distribution Bar connecting all 5 columns */}
+                        <div className="w-[96%] mx-auto h-[1.5px] bg-gray-900 mb-0"></div>
+
+                        {/* Columns Container */}
+                        <div className="flex items-start justify-between gap-6 pt-0 min-w-[1240px]">
+
+                            {/* ========================================================= */}
+                            {/* COLUMN 1: Planner & Plant Admin Support */}
+                            {/* ========================================================= */}
+                            <div className="flex flex-col items-center flex-1">
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={spvPlannerNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={fmPlannerNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={officePlantNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={adminPlantNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={toolskeeperNode} />
+                            </div>
+
+                            {/* ========================================================= */}
+                            {/* COLUMN 2: Preventive & Predictive Maintenance */}
+                            {/* ========================================================= */}
+                            <div className="flex flex-col items-center flex-[1.6]">
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={spvPrevNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+
+                                {/* Sub-branch horizontal divider */}
+                                <div className="w-[85%] h-[1.5px] bg-gray-900"></div>
+
+                                <div className="flex items-start justify-between gap-4 w-full">
+                                    {/* Left Sub-column: Inspector, Lubecar, Greasing, Washingman */}
+                                    <div className="flex flex-col items-center flex-1">
+                                        <div className="w-[1.5px] bg-gray-900 h-3"></div>
+                                        <NodeCard node={inspectorNode} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={lubecarNode} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={greasingNode} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={washingmanNode} />
+                                    </div>
+
+                                    {/* Right Sub-column: Foreman, Serviceman 1-3, Helper */}
+                                    <div className="flex flex-col items-center flex-1">
+                                        <div className="w-[1.5px] bg-gray-900 h-3"></div>
+                                        <NodeCard node={fmPrevNode} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={serviceman1Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={serviceman2Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={serviceman3Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={helperServicemanNode} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ========================================================= */}
+                            {/* COLUMN 3: Corrective Maintenance & Welder */}
+                            {/* ========================================================= */}
+                            <div className="flex flex-col items-center flex-[1.6]">
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={spvCorrNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+
+                                {/* Sub-branch horizontal divider */}
+                                <div className="w-[85%] h-[1.5px] bg-gray-900"></div>
+
+                                <div className="flex items-start justify-between gap-4 w-full">
+                                    {/* Left Sub-column: Foreman Corr, Mechanic 1, 2, 3, Helper */}
+                                    <div className="flex flex-col items-center flex-1">
+                                        <div className="w-[1.5px] bg-gray-900 h-3"></div>
+                                        <NodeCard node={fmCorrNode} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={mech1Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={mech2Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={mech3Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={helperMechNode} />
+                                    </div>
+
+                                    {/* Right Sub-column: Foreman Welder, Welder 1, 2, 3, Helper */}
+                                    <div className="flex flex-col items-center flex-1">
+                                        <div className="w-[1.5px] bg-gray-900 h-3"></div>
+                                        <NodeCard node={fmWelderNode} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={welder1Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={welder2Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={welder3Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={helperWelderNode} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ========================================================= */}
+                            {/* COLUMN 4: Electrical */}
+                            {/* ========================================================= */}
+                            <div className="flex flex-col items-center flex-1">
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={spvElecNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={fmElecNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={elec1Node} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={elec2Node} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={elec3Node} />
+                            </div>
+
+                            {/* ========================================================= */}
+                            {/* COLUMN 5: Tyre & Crane */}
+                            {/* ========================================================= */}
+                            <div className="flex flex-col items-center flex-[1.4]">
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                <NodeCard node={spvTyreNode} />
+
+                                <div className="w-[1.5px] bg-gray-900 h-4"></div>
+
+                                {/* Sub-branch horizontal divider */}
+                                <div className="w-[85%] h-[1.5px] bg-gray-900"></div>
+
+                                <div className="flex items-start justify-between gap-4 w-full">
+                                    {/* Left Sub-column: Foreman Tyre, Tyreman 1, 2, 3, Helper */}
+                                    <div className="flex flex-col items-center flex-1">
+                                        <div className="w-[1.5px] bg-gray-900 h-3"></div>
+                                        <NodeCard node={fmTyreNode} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={tyre1Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={tyre2Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={tyre3Node} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={helperTyreNode} />
+                                    </div>
+
+                                    {/* Right Sub-column: Crane & Rigger */}
+                                    <div className="flex flex-col items-center flex-1">
+                                        <div className="w-[1.5px] bg-gray-900 h-3"></div>
+                                        <NodeCard node={craneNode} />
+
+                                        <div className="w-[1.5px] bg-gray-900 h-4"></div>
+                                        <NodeCard node={riggerNode} />
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {/* Custom user nodes (if any new ones created) */}
+                    {customNodes.length > 0 && (
+                        <div className="mt-12 pt-6 border-t-2 border-dashed border-gray-300">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-600 mb-4 text-center">
+                                Posisi Tambahan / Custom
+                            </h3>
+                            <div className="flex flex-wrap gap-4 justify-center">
+                                {customNodes.map(node => (
+                                    <NodeCard key={node.id} node={node} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* MODAL: Tambah / Edit Posisi & Personil */}
+            <Modal show={isModalOpen} onClose={() => setIsModalOpen(false)} maxWidth="xl">
+                <form onSubmit={submitForm} className="p-6">
+                    <div className="flex items-center justify-between border-b pb-3 mb-4">
+                        <h2 className="text-lg font-bold text-gray-900">
+                            {modalMode === 'create' ? 'Tambah Posisi Baru' : 'Edit Posisi & Personil'}
+                        </h2>
+                        <button
+                            type="button"
+                            onClick={() => setIsModalOpen(false)}
+                            className="text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {/* Nama Posisi / Jabatan */}
+                        <div>
+                            <InputLabel htmlFor="jabatan" value="Nama Posisi / Jabatan *" />
+                            <TextInput
+                                id="jabatan"
+                                type="text"
+                                className="mt-1 block w-full text-sm font-semibold uppercase"
+                                value={data.jabatan}
+                                onChange={(e) => setData('jabatan', e.target.value)}
+                                placeholder="CONTOH: MECHANIC I, FOREMAN TYRE..."
+                                required
+                            />
+                            <InputError message={errors.jabatan} className="mt-1" />
+                        </div>
+
+                        {/* Posisi Atasan (Parent) */}
+                        <div>
+                            <InputLabel htmlFor="parent_id" value="Posisi Atasan (Parent)" />
+                            <select
+                                id="parent_id"
+                                className="mt-1 block w-full border-gray-300 focus:border-teal-500 focus:ring-teal-500 rounded-md shadow-sm text-sm"
+                                value={data.parent_id}
+                                onChange={(e) => setData('parent_id', e.target.value)}
+                            >
+                                <option value="">-- Tidak Ada Atasan (Root) --</option>
+                                {flatNodes.filter(n => n.id !== editingId).map((node) => (
+                                    <option key={node.id} value={node.id}>
+                                        {node.jabatan} {node.name ? `(${node.name})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError message={errors.parent_id} className="mt-1" />
+                        </div>
+
+                        {/* Daftar Anggota / Personil */}
+                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50/50">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                                    Daftar Personil ({data.members.length} Orang)
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={handleAddMember}
+                                    className="text-xs font-semibold text-teal-700 hover:text-teal-900 flex items-center gap-1 bg-teal-50 px-2 py-1 rounded border border-teal-200 hover:bg-teal-100"
+                                >
+                                    <UserPlus className="w-3.5 h-3.5" />
+                                    + Tambah Anggota
+                                </button>
+                            </div>
+
+                            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                                {data.members.map((member, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded border border-gray-200 shadow-xs">
+                                        <span className="text-xs font-bold text-gray-500 w-5 text-center">
+                                            {idx + 1}.
+                                        </span>
+
+                                        <TextInput
+                                            type="text"
+                                            className={`text-xs py-1.5 px-2 flex-1 ${
+                                                member.is_vacant ? 'bg-gray-100 text-gray-400 italic cursor-not-allowed' : 'bg-white text-gray-900'
+                                            }`}
+                                            value={member.is_vacant ? 'Vacant' : member.name}
+                                            onChange={(e) => handleMemberChange(idx, 'name', e.target.value)}
+                                            placeholder={member.is_vacant ? 'Vacant' : 'Nama Karyawan...'}
+                                            disabled={member.is_vacant}
+                                        />
+
+                                        <label
+                                            className={`flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1.5 rounded border text-xs font-bold transition-all shadow-xs ${
+                                                member.is_vacant
+                                                    ? 'bg-sky-500 border-sky-600 text-white'
+                                                    : 'bg-gray-50 hover:bg-gray-100 border-gray-300 text-gray-700'
+                                            }`}
+                                            title={member.is_vacant ? 'Klik untuk membatalkan status Vacant' : 'Klik untuk jadikan Vacant'}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(member.is_vacant)}
+                                                onChange={(e) => handleToggleVacant(idx, e.target.checked)}
+                                                className={`w-3.5 h-3.5 rounded border-gray-300 cursor-pointer ${
+                                                    member.is_vacant ? 'accent-sky-600 text-sky-600' : 'text-sky-600'
+                                                }`}
+                                            />
+                                            <span className={member.is_vacant ? 'text-white' : 'text-sky-700'}>
+                                                Vacant
+                                            </span>
+                                        </label>
+
+                                        {data.members.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveMember(idx)}
+                                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                title="Hapus baris ini"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex justify-end gap-3 border-t pt-4">
+                        <SecondaryButton onClick={() => setIsModalOpen(false)}>
+                            Batal
+                        </SecondaryButton>
+                        <PrimaryButton type="submit" disabled={processing} className="bg-teal-700 hover:bg-teal-800">
+                            {processing ? 'Menyimpan...' : (modalMode === 'create' ? 'Tambah Posisi' : 'Simpan Perubahan')}
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </Modal>
         </AuthenticatedLayout>
     );
 }

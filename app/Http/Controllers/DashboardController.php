@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use App\Models\Unit;
+use App\Models\Backlog;
 use App\Models\Breakdown;
 use App\Models\MaintenanceOrder;
-use App\Models\Backlog;
-use App\Models\PlanInspection;
 use App\Models\ManpowerBudget;
-use App\Models\Manpower; // Assuming this exists or falls back to count
+use App\Models\PlanInspection;
+use App\Models\Unit;
+use Inertia\Inertia;
+
+// Assuming this exists or falls back to count
 
 class DashboardController extends Controller
 {
@@ -27,9 +27,18 @@ class DashboardController extends Controller
             'pm_due' => 0,
         ];
 
-        try { $kpi['total_unit'] = Unit::count(); } catch (\Exception $e) {}
-        try { $kpi['total_mekanik'] = ManpowerBudget::count(); } catch (\Exception $e) {}
-        try { $kpi['backlog'] = Backlog::count(); } catch (\Exception $e) {}
+        try {
+            $kpi['total_unit'] = Unit::count();
+        } catch (\Exception $e) {
+        }
+        try {
+            $kpi['total_mekanik'] = ManpowerBudget::count();
+        } catch (\Exception $e) {
+        }
+        try {
+            $kpi['backlog'] = Backlog::count();
+        } catch (\Exception $e) {
+        }
         try {
             $kpi['breakdown'] = Breakdown::where('status_bd', 'Open')->count() + Breakdown::where('status_bd', 'Waiting Part')->count();
         } catch (\Exception $e) {
@@ -41,9 +50,9 @@ class DashboardController extends Controller
             $kpi['on_process_wo'] = MaintenanceOrder::where('status', 'ON PROCESS')->count();
             $kpi['closed_wo'] = MaintenanceOrder::where('status', 'CLOSED')->count();
         } catch (\Exception $e) {
-             $kpi['open_wo'] = MaintenanceOrder::count();
-             $kpi['on_process_wo'] = 0;
-             $kpi['closed_wo'] = 0;
+            $kpi['open_wo'] = MaintenanceOrder::count();
+            $kpi['on_process_wo'] = 0;
+            $kpi['closed_wo'] = 0;
         }
 
         try {
@@ -53,7 +62,7 @@ class DashboardController extends Controller
         }
 
         return Inertia::render('Dashboard', [
-            'kpi' => $kpi
+            'kpi' => $kpi,
         ]);
     }
 }

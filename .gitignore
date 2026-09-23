@@ -25,3 +25,22 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Scratch and Temporary Recovery Files
+/scratch
+*.sql
+deletes.txt
+find_*.php
+restore_*.php
+rewrite_*.js
+rewrite_*.cjs
+seed_*.php
+update_*.php
+refactor_*.py
+gen_recovery.ps1
+parse_pdf.php
+run-backup-daemon.bat
+check_*.php
+/backups
+database/backup_*.json
+test_date*.php

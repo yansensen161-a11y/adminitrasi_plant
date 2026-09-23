@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\HourMeterLog;
 use App\Models\Unit;
+use App\Services\HMUpdateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -24,7 +26,7 @@ class HourMeterController extends Controller
         return [
             'ME023', 'ME048', 'ME049', 'ME052', 'ME053', 'ME055', 'ME056', 'ME057', 'ME059', 'ME066',
             'ME067', 'ME068', 'ME069', 'ME070', 'ME072', 'MD036', 'MD037', 'MD041', 'MD042', 'MD043',
-            'MD045', 'MD046', 'MD047', 'MD048', 'MG018', 'MG019', 'MG021', 'MDT006', 'MDT009', 'MDT012',
+            'MD045', 'MD046', 'MD047', 'MD048', 'MG018', 'MG019', 'MG020', 'MG021', 'MDT006', 'MDT009', 'MDT012',
             'MDT015', 'MDT016', 'MDT017', 'MDT019', 'MDT020', 'MDT021', 'MDT022', 'MDT023', 'MDT025',
             'MDT027', 'MDT028', 'MDT029', 'MDT030', 'MDT035', 'MDT036', 'MDT039', 'MDT040', 'MDT041',
             'MDT042', 'MDT043', 'MDT045', 'MCP003', 'MCP006', 'MDT046', 'MDT047', 'MDT048', 'MDT051',
@@ -73,15 +75,46 @@ class HourMeterController extends Controller
         $units = $unitsQuery->orderBy('code_unit', 'asc')->get();
         $unitIds = $units->pluck('id');
 
+        // Ambil log mulai H-1 dari dateFrom agar selisih hari pertama terhadap hari sebelumnya ("dari kemarin") dapat dihitung
+        $fetchDateFrom = Carbon::parse($dateFrom)->subDay()->format('Y-m-d');
+
         $logs = HourMeterLog::whereIn('unit_id', $unitIds)
-            ->whereDate('log_date', '>=', $dateFrom)
-            ->whereDate('log_date', '<=', $dateTo)
+            ->where('log_date', '>=', $fetchDateFrom)
+            ->where('log_date', '<=', $dateTo)
+            ->orderBy('log_date', 'asc')
+            ->orderBy('hm_end', 'asc')
+            ->orderBy('id', 'asc')
+            ->select([
+                'id',
+                'unit_id',
+                'code_unit',
+                'log_date',
+                'hm_start',
+                'hm_end',
+                'hm_total',
+                'shift',
+                'operator_name',
+                'location',
+                'remarks',
+            ])
             ->get();
 
         $groupedLogs = [];
         foreach ($logs as $log) {
-            $dateStr = Carbon::parse($log->log_date)->format('Y-m-d');
-            $groupedLogs[$log->unit_id][$dateStr] = $log;
+            $dateStr = substr((string) $log->log_date, 0, 10);
+            $groupedLogs[$log->unit_id][$dateStr] = (object) [
+                'id' => $log->id,
+                'unit_id' => $log->unit_id,
+                'code_unit' => $log->code_unit,
+                'log_date' => $dateStr,
+                'hm_start' => (float) $log->hm_start,
+                'hm_end' => (float) $log->hm_end,
+                'hm_total' => $log->hm_total !== null ? (float) $log->hm_total : null,
+                'shift' => $log->shift,
+                'operator_name' => $log->operator_name,
+                'location' => $log->location,
+                'remarks' => $log->remarks,
+            ];
         }
 
         $period = new \DatePeriod(
@@ -97,31 +130,86 @@ class HourMeterController extends Controller
         if ($hmErrorFilter) {
             $filteredUnits = [];
             foreach ($units as $unit) {
-                $hasError = false;
+                $hasMatch = false;
+                $isLv = in_array(strtoupper(trim((string) $unit->type_unit)), ['LIGHT VEHICLE', 'LV']);
+
+                if ($isLv && in_array($hmErrorFilter, ['over_24', 'minus', 'all_errors'])) {
+                    continue; // Unit Light Vehicle dikecualikan dari filter anomali over 24 / minus
+                }
+
                 if ($hmErrorFilter === 'belum_terisi') {
                     foreach ($dates as $date) {
                         if (! isset($groupedLogs[$unit->id][$date])) {
-                            $hasError = true;
+                            $hasMatch = true;
                             break;
                         }
                     }
                 } elseif ($hmErrorFilter === 'over_24') {
                     foreach ($dates as $date) {
-                        if (isset($groupedLogs[$unit->id][$date]) && $groupedLogs[$unit->id][$date]->hm_total > 24) {
-                            $hasError = true;
-                            break;
+                        $log = $groupedLogs[$unit->id][$date] ?? null;
+                        if ($log) {
+                            $yesterdayDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+                            $prevLog = $groupedLogs[$unit->id][$yesterdayDate] ?? null;
+                            $diff = null;
+                            if ($prevLog) {
+                                $diff = (float) $log->hm_end - (float) $prevLog->hm_end;
+                            } elseif ((float) $log->hm_start > 0) {
+                                $diff = (float) $log->hm_end - (float) $log->hm_start;
+                            } elseif ($log->hm_total !== null) {
+                                $diff = (float) $log->hm_total;
+                            }
+
+                            if (($diff !== null && $diff > 24) || (float) $log->hm_total > 24) {
+                                $hasMatch = true;
+                                break;
+                            }
                         }
                     }
                 } elseif ($hmErrorFilter === 'minus') {
                     foreach ($dates as $date) {
-                        if (isset($groupedLogs[$unit->id][$date]) && $groupedLogs[$unit->id][$date]->hm_total < 0) {
-                            $hasError = true;
-                            break;
+                        $log = $groupedLogs[$unit->id][$date] ?? null;
+                        if ($log) {
+                            $yesterdayDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+                            $prevLog = $groupedLogs[$unit->id][$yesterdayDate] ?? null;
+                            $diff = null;
+                            if ($prevLog) {
+                                $diff = (float) $log->hm_end - (float) $prevLog->hm_end;
+                            } elseif ((float) $log->hm_start > 0) {
+                                $diff = (float) $log->hm_end - (float) $log->hm_start;
+                            } elseif ($log->hm_total !== null) {
+                                $diff = (float) $log->hm_total;
+                            }
+
+                            if (($diff !== null && $diff < 0) || (float) $log->hm_total < 0) {
+                                $hasMatch = true;
+                                break;
+                            }
+                        }
+                    }
+                } elseif ($hmErrorFilter === 'all_errors') {
+                    foreach ($dates as $date) {
+                        $log = $groupedLogs[$unit->id][$date] ?? null;
+                        if ($log) {
+                            $yesterdayDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+                            $prevLog = $groupedLogs[$unit->id][$yesterdayDate] ?? null;
+                            $diff = null;
+                            if ($prevLog) {
+                                $diff = (float) $log->hm_end - (float) $prevLog->hm_end;
+                            } elseif ((float) $log->hm_start > 0) {
+                                $diff = (float) $log->hm_end - (float) $log->hm_start;
+                            } elseif ($log->hm_total !== null) {
+                                $diff = (float) $log->hm_total;
+                            }
+
+                            if (($diff !== null && ($diff > 24 || $diff < 0)) || (float) $log->hm_total > 24 || (float) $log->hm_total < 0) {
+                                $hasMatch = true;
+                                break;
+                            }
                         }
                     }
                 }
 
-                if ($hasError) {
+                if ($hasMatch) {
                     $filteredUnits[] = $unit;
                 }
             }
@@ -152,19 +240,32 @@ class HourMeterController extends Controller
         $unitId = $request->input('unit_id');
         $date = $request->input('date');
 
-        if (! $unitId || ! $date) {
+        if (! $unitId) {
             return response()->json(['hm' => null]);
         }
 
-        $log = HourMeterLog::where('unit_id', $unitId)
-            ->whereDate('log_date', $date)
-            ->first();
+        $logQuery = HourMeterLog::where('unit_id', $unitId);
 
-        return response()->json(['hm' => $log ? $log->hm_end : null]);
+        if ($date) {
+            $logQuery->where('log_date', $date);
+        }
+
+        $log = $logQuery->orderBy('log_date', 'desc')->first();
+
+        if ($log) {
+            return response()->json(['hm' => $log->hm_end]);
+        }
+
+        // Fallback to unit's master hm if log not found
+        $unit = Unit::find($unitId);
+
+        return response()->json(['hm' => $unit ? $unit->hm : null]);
     }
 
     public function create()
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menambah hour meter.');
+
         $units = Unit::select('id', 'code_unit', 'model', 'hm', 'location')
             ->whereIn('code_unit', $this->getHmUnits())
             ->orderByRaw('CASE WHEN no_urut IS NULL THEN 1 ELSE 0 END, no_urut ASC, code_unit ASC')
@@ -178,6 +279,8 @@ class HourMeterController extends Controller
 
     public function store(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menyimpan hour meter.');
+
         $validated = $request->validate([
             'code_unit' => 'required|string|max:100',
             'log_date' => 'required|date',
@@ -201,9 +304,9 @@ class HourMeterController extends Controller
         }
 
         HourMeterLog::create($validated);
-        
+
         if ($unit && $validated['hm_end'] > $unit->hm) {
-            \App\Services\HMUpdateService::processHmUpdate($unit, $validated['hm_end'], $validated['log_date']);
+            HMUpdateService::processHmUpdate($unit, $validated['hm_end'], $validated['log_date']);
         }
 
         return redirect()->route('hour-meters.index')->with('message', "Log Hour Meter unit [{$request->code_unit}] tanggal {$request->log_date} berhasil disimpan.");
@@ -211,6 +314,8 @@ class HourMeterController extends Controller
 
     public function edit(HourMeterLog $hourMeter)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk mengubah hour meter.');
+
         $units = Unit::select('id', 'code_unit', 'model', 'hm', 'location')
             ->whereIn('code_unit', $this->getHmUnits())
             ->orderByRaw('CASE WHEN no_urut IS NULL THEN 1 ELSE 0 END, no_urut ASC, code_unit ASC')
@@ -224,6 +329,8 @@ class HourMeterController extends Controller
 
     public function update(Request $request, HourMeterLog $hourMeter)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk mengubah hour meter.');
+
         $validated = $request->validate([
             'code_unit' => 'required|string|max:100',
             'log_date' => 'required|date',
@@ -246,25 +353,130 @@ class HourMeterController extends Controller
         }
 
         $hourMeter->update($validated);
-        
-        if ($unit && $validated['hm_end'] > $unit->hm) {
-            \App\Services\HMUpdateService::processHmUpdate($unit, $validated['hm_end'], $validated['log_date']);
+
+        if ($unit) {
+            if ($validated['hm_end'] > $unit->hm) {
+                HMUpdateService::processHmUpdate($unit, $validated['hm_end'], $validated['log_date']);
+            } else {
+                HMUpdateService::syncUnitFromLatestLog($unit);
+            }
         }
 
         return redirect()->route('hour-meters.index')->with('message', "Log Hour Meter unit [{$hourMeter->code_unit}] berhasil diperbarui.");
     }
 
+    public function quickSave(Request $request)
+    {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menyimpan hour meter.');
+
+        $validated = $request->validate([
+            'log_id' => 'nullable|string',
+            'unit_id' => 'nullable|string',
+            'code_unit' => 'required|string|max:100',
+            'log_date' => 'required|date',
+            'hm_start' => 'required|numeric|min:0',
+            'hm_end' => 'required|numeric|min:0',
+            'hm_total' => 'nullable|numeric|min:0',
+            'shift' => 'nullable|string|max:50',
+            'operator_name' => 'nullable|string|max:150',
+            'location' => 'nullable|string|max:150',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        if (! isset($validated['hm_total']) || $validated['hm_total'] === null || $validated['hm_total'] == 0) {
+            $validated['hm_total'] = max(0, round($validated['hm_end'] - $validated['hm_start'], 1));
+        }
+
+        $unit = null;
+        if (! empty($validated['unit_id'])) {
+            $unit = Unit::find($validated['unit_id']);
+        }
+        if (! $unit && ! empty($validated['code_unit'])) {
+            $unit = Unit::where('code_unit', $validated['code_unit'])->first();
+        }
+        if ($unit) {
+            $validated['unit_id'] = $unit->id;
+        }
+
+        $log = null;
+        if (! empty($validated['log_id'])) {
+            $log = HourMeterLog::find($validated['log_id']);
+        }
+
+        if (! $log) {
+            $query = HourMeterLog::query()->where('log_date', $validated['log_date']);
+            if ($unit) {
+                $query->where('unit_id', $unit->id);
+            } else {
+                $query->where('code_unit', $validated['code_unit']);
+            }
+            $log = $query->orderBy('hm_end', 'desc')->first();
+        }
+
+        if ($log) {
+            $log->update($validated);
+        } else {
+            $log = HourMeterLog::create($validated);
+        }
+
+        // Clean up any remaining duplicate or conflicting records for this unit on this date so they do not overwrite this edit
+        if ($unit && $log) {
+            HourMeterLog::where('unit_id', $unit->id)
+                ->where('log_date', $validated['log_date'])
+                ->where('id', '!=', $log->id)
+                ->where(function ($q) use ($validated) {
+                    if (! empty($validated['shift'])) {
+                        $q->where('shift', $validated['shift']);
+                    }
+                })
+                ->delete();
+        }
+
+        if ($unit) {
+            if ($validated['hm_end'] > $unit->hm) {
+                HMUpdateService::processHmUpdate($unit, $validated['hm_end'], $validated['log_date']);
+            } else {
+                HMUpdateService::syncUnitFromLatestLog($unit);
+            }
+        }
+
+        $formattedDate = Carbon::parse($validated['log_date'])->translatedFormat('d M Y');
+        $msg = "HM unit [{$validated['code_unit']}] tanggal {$formattedDate} berhasil diperbarui menjadi {$validated['hm_end']}.";
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'log' => $log,
+            ]);
+        }
+
+        return redirect()->back()->with('message', $msg);
+    }
+
     public function destroy(HourMeterLog $hourMeter)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menghapus hour meter.');
+
+        $unitId = $hourMeter->unit_id;
         $code = $hourMeter->code_unit;
         $date = $hourMeter->log_date;
         $hourMeter->delete();
+
+        $unit = $unitId ? Unit::find($unitId) : Unit::where('code_unit', $code)->first();
+        if ($unit) {
+            HMUpdateService::syncUnitFromLatestLog($unit);
+        }
 
         return redirect()->route('hour-meters.index')->with('message', "Log Hour Meter [{$code}] tanggal {$date} berhasil dihapus.");
     }
 
     public function deleteAll()
     {
+        if (! auth()->user()?->hasAnyRole(['super-admin', 'admin'])) {
+            abort(403, 'Akses ditolak: Hanya administrator yang diizinkan menghapus semua log Hour Meter.');
+        }
+
         HourMeterLog::query()->delete();
 
         return redirect()->route('hour-meters.index')->with('message', 'Semua data log Hour Meter berhasil dihapus.');
@@ -272,6 +484,8 @@ class HourMeterController extends Controller
 
     public function import(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk mengimpor hour meter.');
+
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv|max:20480',
         ]);
@@ -313,7 +527,7 @@ class HourMeterController extends Controller
                 }
 
                 $str = trim((string) $val);
-                
+
                 // If it contains a space, it might be something like "11/09/2026 NS"
                 // Let's just take the first part for the date.
                 if (str_contains($str, ' ')) {
@@ -368,20 +582,25 @@ class HourMeterController extends Controller
                 }
             };
 
-            $validUnits = Unit::pluck('code_unit')->map(fn($c) => strtoupper(trim((string)$c)))->toArray();
+            $unitsMap = Unit::all()->keyBy(function ($u) {
+                return strtoupper(trim((string) $u->code_unit));
+            });
+            $validUnits = $unitsMap->keys()->toArray();
+
+            $emptyRowsCount = 0;
 
             for ($row = 1; $row <= $highestRow; $row++) {
                 $rowDataRaw = [];
                 for ($col = 1; $col <= $highestColumnIndex; $col++) {
                     $cell = $worksheet->getCell([$col, $row]);
-                    
-                    if (\PhpOffice\PhpSpreadsheet\Shared\Date::isDateTime($cell) && is_numeric($cell->getValue())) {
+
+                    if (Date::isDateTime($cell) && is_numeric($cell->getValue())) {
                         $rowDataRaw[] = (string) $cell->getValue();
                     } else {
                         $formattedVal = $cell->getFormattedValue();
                         $rawVal = $cell->getValue();
                         $finalVal = $formattedVal !== null && $formattedVal !== '' ? (string) $formattedVal : ($rawVal !== null ? (string) $rawVal : '');
-                        
+
                         if (trim($finalVal) !== '') {
                             $rowDataRaw[] = trim($finalVal);
                         }
@@ -389,8 +608,14 @@ class HourMeterController extends Controller
                 }
 
                 if (empty($rowDataRaw)) {
+                    $emptyRowsCount++;
+                    if ($emptyRowsCount > 20) {
+                        break; // Stop if there are too many empty consecutive rows
+                    }
+
                     continue;
                 }
+                $emptyRowsCount = 0;
 
                 $logDate = null;
                 $shift = null;
@@ -399,22 +624,28 @@ class HourMeterController extends Controller
 
                 foreach ($rowDataRaw as $cellStr) {
                     // Detect Date
-                    if (!$logDate) {
+                    if (! $logDate) {
                         $d = $parseDate($cellStr);
                         if ($d) {
                             $logDate = $d;
                             $upperCell = strtoupper($cellStr);
-                            if (str_contains($upperCell, ' NS')) $shift = 'NS';
-                            if (str_contains($upperCell, ' DS')) $shift = 'DS';
+                            if (str_contains($upperCell, ' NS')) {
+                                $shift = 'NS';
+                            }
+                            if (str_contains($upperCell, ' DS')) {
+                                $shift = 'DS';
+                            }
+
                             continue;
                         }
                     }
 
                     // Detect Unit Code
-                    if (!$codeUnit) {
+                    if (! $codeUnit) {
                         $upperCell = strtoupper($cellStr);
                         if (in_array($upperCell, $validUnits)) {
                             $codeUnit = $upperCell;
+
                             continue;
                         }
                     }
@@ -427,7 +658,7 @@ class HourMeterController extends Controller
                 }
 
                 // If we didn't find shift in date, check if any cell is exactly 'NS' or 'DS'
-                if (!$shift) {
+                if (! $shift) {
                     foreach ($rowDataRaw as $cellStr) {
                         $upperCell = strtoupper($cellStr);
                         if ($upperCell === 'NS' || $upperCell === 'DS') {
@@ -437,7 +668,7 @@ class HourMeterController extends Controller
                     }
                 }
 
-                if (!$logDate || !$codeUnit || count($numbers) < 1) {
+                if (! $logDate || ! $codeUnit || count($numbers) < 1) {
                     continue; // Skip invalid rows (like headers)
                 }
 
@@ -445,29 +676,36 @@ class HourMeterController extends Controller
                 $hmEnd = isset($numbers[1]) ? $numbers[1] : $hmStart;
                 $hmTotal = isset($numbers[2]) ? $numbers[2] : max(0, round($hmEnd - $hmStart, 1));
 
-                $unit = Unit::where('code_unit', $codeUnit)->first();
+                $unit = $unitsMap->get($codeUnit);
                 $unitId = $unit?->id;
 
                 if (! $unitId) {
                     continue;
                 }
 
-                HourMeterLog::create([
-                    'unit_id' => $unitId,
-                    'code_unit' => $codeUnit,
-                    'log_date' => $logDate,
-                    'hm_start' => $hmStart,
-                    'hm_end' => $hmEnd,
-                    'hm_total' => $hmTotal,
-                    'shift' => $shift,
-                ]);
+                HourMeterLog::updateOrCreate(
+                    [
+                        'unit_id' => $unitId,
+                        'log_date' => $logDate,
+                        'shift' => $shift,
+                    ],
+                    [
+                        'code_unit' => $codeUnit,
+                        'hm_start' => $hmStart,
+                        'hm_end' => $hmEnd,
+                        'hm_total' => $hmTotal,
+                    ]
+                );
 
                 if ($unit && $hmEnd > $unit->hm) {
-                    \App\Services\HMUpdateService::processHmUpdate($unit, $hmEnd, $logDate);
+                    HMUpdateService::processHmUpdate($unit, $hmEnd, $logDate);
                 }
 
                 $importedCount++;
             }
+
+            // Synchronize all units to their latest hour meter log
+            HMUpdateService::syncAllUnits();
 
             return redirect()->route('hour-meters.index')->with('message', "Berhasil mengimpor {$importedCount} data log Hour Meter vertikal.");
         } catch (\Throwable $e) {
@@ -542,11 +780,11 @@ class HourMeterController extends Controller
         }
 
         if ($request->filled('date_from')) {
-            $query->whereDate('log_date', '>=', $request->date_from);
+            $query->where('log_date', '>=', $request->date_from);
         }
 
         if ($request->filled('date_to')) {
-            $query->whereDate('log_date', '<=', $request->date_to);
+            $query->where('log_date', '<=', $request->date_to);
         }
 
         $logs = $query->get();

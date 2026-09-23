@@ -73,6 +73,8 @@ class MagneticPlugController extends Controller
 
     public function create()
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $units = Unit::orderBy('code_unit', 'asc')->get();
 
         return Inertia::render('Repair/CreateMagneticPlug', [
@@ -82,6 +84,8 @@ class MagneticPlugController extends Controller
 
     public function store(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin.');
+
         $validated = $request->validate([
             'unit_id' => 'required|exists:units,id',
             'hm' => 'required|numeric',
@@ -90,14 +94,22 @@ class MagneticPlugController extends Controller
             'component' => 'required|string',
             'rating' => 'required|string',
             'remarks' => 'nullable|string',
-            'photo' => 'nullable|image|max:2048',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'return_to' => 'nullable|string',
         ]);
+
+        $returnTo = $request->input('return_to');
+        unset($validated['return_to']);
 
         if ($request->hasFile('photo')) {
             $validated['photo_path'] = $request->file('photo')->store('magnetic_plugs', 'public');
         }
 
         MagneticPlug::create($validated);
+
+        if ($returnTo) {
+            return redirect($returnTo)->with('success', 'Data Magnetic Plug berhasil ditambahkan untuk Work Order.');
+        }
 
         return redirect()->route('repair.magnetic-plug')->with('success', 'Data Magnetic Plug berhasil ditambahkan.');
     }

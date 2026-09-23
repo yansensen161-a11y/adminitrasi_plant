@@ -3,19 +3,26 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
 export default function Create({ units }) {
+    const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const initialUnitId = sp ? (sp.get('unit_id') || '') : '';
+    const initialNoWo = sp ? (sp.get('no_wo') || '') : '';
+    const returnTo = sp ? (sp.get('return_to') || '') : '';
+
+    const matchedUnit = units && initialUnitId ? units.find(u => u.id.toString() === initialUnitId.toString()) : null;
+
     const { data, setData, post, processing, errors } = useForm({
         status: 'Draft',
         tgl_kejadian: '',
         tgl_lapor: new Date().toISOString().split('T')[0],
-        unit_id: '',
+        unit_id: initialUnitId,
         site_project: '',
         smu_failure: '',
         part_no: '',
         nama_komp: '',
-        pn: '',
+        pn: initialNoWo ? `WO: ${initialNoWo}` : '',
         penyebab: '',
-        engine_model: '',
-        engine_sn: '',
+        engine_model: matchedUnit ? (matchedUnit.engine_model || '') : '',
+        engine_sn: matchedUnit ? (matchedUnit.sn_engine || '') : '',
         comp_installed: '',
         comp_hours: '',
         oil_sampled: '',
@@ -27,7 +34,8 @@ export default function Create({ units }) {
         prepared_by: '',
         reviewed_by: '',
         approved_by: '',
-        photos: []
+        photos: [],
+        return_to: returnTo,
     });
 
     const handlePhotoChange = (index, field, value) => {
@@ -79,10 +87,28 @@ export default function Create({ units }) {
             <div className="max-w-5xl mx-auto space-y-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-bold text-gray-800">Buat Failure Analysis (FAR) Baru</h1>
-                    <Link href={route('failure-analysis.index')} className="text-sm font-bold text-gray-500 hover:text-gray-800 transition">
-                        &larr; Kembali
+                    <Link href={returnTo || route('failure-analysis.index')} className="text-sm font-bold text-gray-600 hover:text-gray-900 transition flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white shadow-xs">
+                        &larr; {returnTo ? 'Kembali ke Work Order' : 'Kembali'}
                     </Link>
                 </div>
+
+                {returnTo && (
+                    <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                            <span className="text-base">🔗</span>
+                            <span>
+                                Form FAR ini terhubung dengan <strong>Work Order {initialNoWo ? `(${initialNoWo})` : ''}</strong>. 
+                                Setelah disimpan, Anda akan diarahkan kembali ke Work Order secara otomatis.
+                            </span>
+                        </div>
+                        <Link
+                            href={returnTo}
+                            className="text-xs font-bold bg-white text-red-700 px-3 py-1.5 rounded-lg border border-red-300 hover:bg-red-100 hover:text-red-900 transition whitespace-nowrap self-start sm:self-auto text-center"
+                        >
+                            &larr; Batalkan & Kembali ke WO
+                        </Link>
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* INFORMASI WAJIB (REQUIRED) */}

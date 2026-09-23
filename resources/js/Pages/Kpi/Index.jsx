@@ -1,515 +1,1553 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import Chart from 'chart.js/auto';
+import { 
+    BarChart3, 
+    TrendingUp, 
+    TrendingDown, 
+    Gauge, 
+    Clock, 
+    Wrench, 
+    ShieldAlert, 
+    Award, 
+    SlidersHorizontal, 
+    ArrowUpDown, 
+    Search, 
+    Sparkles, 
+    CheckCircle2, 
+    AlertTriangle, 
+    Layers, 
+    Info,
+    ChevronDown,
+    Activity
+} from 'lucide-react';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const fmt  = (n) => Number(n || 0).toLocaleString('en-US');
-const pct  = (part, total) => Number(total) > 0 ? ((Number(part || 0) / Number(total)) * 100).toFixed(1) : '0.0';
+// --- Chart Hook for Pie Chart ---
+function usePieChart(canvasRef, data) {
+    useEffect(() => {
+        if (!canvasRef.current || !data || data.length === 0) return;
+        
+        const existing = Chart.getChart(canvasRef.current);
+        if (existing) {
+            existing.destroy();
+        }
+        
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+        
+        const colors = {
+            'B0': '#a16207', // darker amber
+            'B1': '#dc2626', // red
+            'B2': '#2563eb', // blue
+            'B3': '#16a34a', // green
+            'B4': '#d946ef', // fuchsia
+            'B5': '#eab308', // yellow
+            'B6': '#7c3aed', // violet
+            'B7': '#0891b2', // cyan
+            'B8': '#ec4899', // pink
+        };
+        
+        const chartData = {
+            labels: data.map(d => `${d.type_bd} - ${d.description}`),
+            datasets: [{
+                data: data.map(d => d.pct),
+                backgroundColor: data.map(d => colors[d.type_bd] || '#94a3b8'),
+                borderWidth: 2,
+                borderColor: '#ffffff',
+                hoverOffset: 6,
+            }]
+        };
 
-// ── Small sparkline-style trend badge ────────────────────────────────────────
-function Trend({ value = 0, label = 'vs Last Month' }) {
-    const num   = Number(value) || 0;
-    const isUp  = num > 0;
-    const isNeg = num < 0;
-    const color = isUp ? 'text-red-500' : isNeg ? 'text-emerald-500' : 'text-gray-400';
-    const arrow = isUp ? '▲' : isNeg ? '▼' : '─';
+        const chart = new Chart(ctx, {
+            type: 'doughnut',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                        padding: 10,
+                        cornerRadius: 8,
+                        titleFont: { size: 12, weight: 'bold' },
+                        bodyFont: { size: 11 },
+                        callbacks: {
+                            label: (c) => ` ${c.label}: ${c.parsed}%`
+                        }
+                    }
+                }
+            }
+        });
+
+        return () => chart.destroy();
+    }, [data]);
+}
+
+// --- Cell Components ---
+const ValueCell = ({ value, isPercent = false, className = "" }) => (
+    <td className={`px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right ${className}`}>
+        {value === 0 || value === '0.0' ? '' : (isPercent ? `${value}%` : value)}
+    </td>
+);
+
+const TargetCell = ({ value, target, isGreaterBetter = true, isPercent = false }) => {
+    if (value === 0 || value === '0.0') return <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right"></td>;
+    
+    let isGood = false;
+    if (isGreaterBetter) {
+        isGood = Number(value) >= Number(target);
+    } else {
+        isGood = Number(value) <= Number(target);
+    }
+    
+    const bgColor = isGood ? 'bg-emerald-200 dark:bg-emerald-900/50' : 'bg-red-200 dark:bg-red-900/50';
+    const textColor = isGood ? 'text-emerald-800 dark:text-emerald-200' : 'text-red-800 dark:text-red-200';
+    
     return (
-        <div className={`flex items-center gap-1 text-sm font-bold mt-1 ${color}`}>
-            <span>{arrow}</span>
-            <span>{Math.abs(num)}%</span>
-            <span className="text-gray-400 font-normal text-xs">{label}</span>
+        <td className={`px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right ${bgColor} ${textColor} font-semibold`}>
+            {isPercent ? `${value}%` : value}
+        </td>
+    );
+};
+
+// --- Top Fleet Highlights Strip ---
+function KpiFleetHighlights({ highlights, typeTitle }) {
+    if (!highlights || highlights.total_units === 0) return null;
+
+    const isPaAchieved = highlights.avg_pa >= highlights.target_pa;
+
+    return (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            {/* 1. Rata-Rata PA Armada */}
+            <div className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800/50 shadow-sm relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                        Rata-Rata PA Armada
+                    </span>
+                    <Gauge className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+                        {highlights.avg_pa}%
+                    </span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        isPaAchieved 
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300' 
+                            : 'bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300'
+                    }`}>
+                        {isPaAchieved ? '✓ Target Tercapai' : '▼ Di Bawah Target'}
+                    </span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                    Target Plan PA: <strong className="text-gray-700 dark:text-gray-300">{highlights.target_pa}%</strong> ({highlights.total_units} Unit)
+                </p>
+            </div>
+
+            {/* 2. Unit Performa Terbaik */}
+            <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-900/20 dark:to-teal-900/20 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 shadow-sm relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                        Unit Terbaik (Top PA)
+                    </span>
+                    <Award className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                        {highlights.best_unit?.unit || '-'}
+                    </span>
+                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {highlights.best_unit?.pa}% PA
+                    </span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                    Kesiapan fisik tertinggi pada kelompok ini
+                </p>
+            </div>
+
+            {/* 3. Unit Perlu Perhatian */}
+            <div className="bg-gradient-to-br from-rose-500/10 to-orange-500/10 dark:from-rose-900/20 dark:to-orange-900/20 p-4 rounded-xl border border-rose-200 dark:border-rose-800/50 shadow-sm relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider">
+                        Perlu Perhatian (Lowest PA)
+                    </span>
+                    <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                        {highlights.worst_unit?.unit || '-'}
+                    </span>
+                    <span className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                        {highlights.worst_unit?.pa}% PA
+                    </span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                    Downtime: <strong className="text-rose-600 dark:text-rose-400">{highlights.worst_unit?.bd_hrs} Jam BD</strong>
+                </p>
+            </div>
+
+            {/* 4. Akumulasi Downtime & MTBF */}
+            <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 dark:from-amber-900/20 dark:to-yellow-900/20 p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 shadow-sm relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
+                        Akumulasi Downtime & MTBF
+                    </span>
+                    <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                        {highlights.total_bd_hours} Jam
+                    </span>
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Total BD</span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                    MTBF: <strong className="text-gray-700 dark:text-gray-300">{highlights.avg_mtbf}h</strong>
+                </p>
+            </div>
+
+            {/* 5. MTTR */}
+            <div className="bg-gradient-to-br from-rose-500/10 to-pink-500/10 dark:from-rose-900/20 dark:to-pink-900/20 p-4 rounded-xl border border-rose-200 dark:border-rose-800/50 shadow-sm relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider">
+                        Rata-rata MTTR
+                    </span>
+                    <Wrench className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                        {highlights.avg_mttr}h
+                    </span>
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Avg MTTR</span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                    Mean Time To Repair
+                </p>
+            </div>
         </div>
     );
 }
 
-// ── Donut chart hook ──────────────────────────────────────────────────────────
-function useDonut(canvasRef, data) {
+// --- Komponen Grafik Komparasi Per No Unit (Bar Chart Interaktif) ---
+function UnitComparisonChart({ kpiTable, typeUnit }) {
+    const canvasRef = useRef(null);
+    const [selectedMetric, setSelectedMetric] = useState('pa'); // 'pa', 'mtbf', 'breakdown', 'ma', 'utilization'
+    const [sortBy, setSortBy] = useState('default'); // 'default', 'pa_asc', 'pa_desc', 'bd_desc'
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Filter and sort units
+    const processedUnits = useMemo(() => {
+        if (!kpiTable) return [];
+        let list = [...kpiTable];
+
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter(u => u.unit.toLowerCase().includes(q) || (u.model && u.model.toLowerCase().includes(q)));
+        }
+
+        if (sortBy === 'pa_asc') {
+            list.sort((a, b) => a.pa_actual - b.pa_actual);
+        } else if (sortBy === 'pa_desc') {
+            list.sort((a, b) => b.pa_actual - a.pa_actual);
+        } else if (sortBy === 'bd_desc') {
+            list.sort((a, b) => b.bd_hrs - a.bd_hrs);
+        }
+
+        return list;
+    }, [kpiTable, sortBy, searchQuery]);
+
     useEffect(() => {
-        if (!canvasRef.current || !data) return;
+        if (!canvasRef.current || processedUnits.length === 0) return;
+
         const existing = Chart.getChart(canvasRef.current);
         if (existing) {
             existing.destroy();
         }
+
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
-        let chart;
-        try {
-            chart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Running', 'Standby', 'Breakdown', 'Maintenance'],
-                    datasets: [{
-                        data: [
-                            Number(data?.running) || 0,
-                            Number(data?.standby) || 0,
-                            Number(data?.breakdown) || 0,
-                            Number(data?.maintenance) || 0,
-                        ],
-                        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444', '#a855f7'],
-                        borderWidth: 0,
-                        hoverOffset: 6,
-                    }],
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '70%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: (c) => ` ${c.label}: ${c.parsed}` } },
-                    },
-                },
-            });
-        } catch (e) {
-            console.error('Error creating Donut chart:', e);
-        }
-        return () => {
-            if (chart) chart.destroy();
-        };
-    }, [data?.running, data?.standby, data?.breakdown, data?.maintenance]);
-}
 
-function useBarChart(canvasRef, labels = [], datasets = []) {
-    useEffect(() => {
-        if (!canvasRef.current) return;
-        const existing = Chart.getChart(canvasRef.current);
-        if (existing) {
-            existing.destroy();
-        }
-        const ctx = canvasRef.current.getContext('2d');
-        if (!ctx) return;
-        let chart;
-        try {
-            chart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels: labels || [], datasets: datasets || [] },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
-                        y: { grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { font: { size: 9 } } },
-                    },
-                },
-            });
-        } catch (e) {
-            console.error('Error creating Bar chart:', e);
-        }
-        return () => {
-            if (chart) chart.destroy();
-        };
-    }, [JSON.stringify(labels), JSON.stringify(datasets)]);
-}
+        const labels = processedUnits.map(u => u.unit);
+        let datasets = [];
+        let yAxisLabel = '%';
+        let yMax = 100;
+        let showTargetLine = false;
+        let targetLineVal = 90;
 
-function useLineChart(canvasRef, labels = [], datasets = []) {
-    useEffect(() => {
-        if (!canvasRef.current) return;
-        const existing = Chart.getChart(canvasRef.current);
-        if (existing) {
-            existing.destroy();
-        }
-        const ctx = canvasRef.current.getContext('2d');
-        if (!ctx) return;
-        let chart;
-        try {
-            chart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels: labels || [], datasets: datasets || [] },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
-                        y: { grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { font: { size: 9 } } },
-                    },
-                },
-            });
-        } catch (e) {
-            console.error('Error creating Line chart:', e);
-        }
-        return () => {
-            if (chart) chart.destroy();
-        };
-    }, [JSON.stringify(labels), JSON.stringify(datasets)]);
-}
+        if (selectedMetric === 'pa') {
+            yAxisLabel = 'Persentase (%)';
+            yMax = 105;
+            showTargetLine = true;
+            targetLineVal = 90;
 
-class ErrorBoundary extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = { hasError: false, error: null };
-    }
-    static getDerivedStateFromError(error) {
-        return { hasError: true, error };
-    }
-    componentDidCatch(error, errorInfo) {
-        console.error('KPI Page Error:', error, errorInfo);
-    }
-    render() {
-        if (this.state.hasError) {
-            return (
-                <div className="p-8 bg-red-50 text-red-700 rounded-xl m-6 border border-red-200">
-                    <h2 className="text-lg font-bold mb-2">Terjadi Kesalahan di Halaman KPI:</h2>
-                    <pre className="text-sm bg-white p-4 rounded border border-red-100 overflow-auto whitespace-pre-wrap">
-                        {this.state.error?.toString()}
-                        {'\n\n'}
-                        {this.state.error?.stack}
-                    </pre>
+            datasets = [
+                {
+                    label: 'PA Actual (%)',
+                    data: processedUnits.map(u => u.pa_actual),
+                    backgroundColor: processedUnits.map(u => {
+                        if (u.pa_actual >= 90) return 'rgba(16, 185, 129, 0.85)';
+                        if (u.pa_actual >= 80) return 'rgba(245, 158, 11, 0.85)';
+                        return 'rgba(239, 68, 68, 0.85)';
+                    }),
+                    borderColor: processedUnits.map(u => {
+                        if (u.pa_actual >= 90) return '#059669';
+                        if (u.pa_actual >= 80) return '#d97706';
+                        return '#dc2626';
+                    }),
+                    borderWidth: 1.5,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.55,
+                    categoryPercentage: 0.85,
+                    valueSuffix: '%',
+                    yAxisID: 'y',
+                },
+                {
+                    label: 'Target PA (%)',
+                    data: processedUnits.map(u => u.plan_pa),
+                    backgroundColor: 'rgba(99, 102, 241, 0.75)',
+                    borderColor: '#4f46e5',
+                    borderWidth: 1.5,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.55,
+                    categoryPercentage: 0.85,
+                    valueSuffix: '%',
+                    yAxisID: 'y',
+                },
+                {
+                    label: 'MTBF (Jam)',
+                    data: processedUnits.map(u => u.mtbf),
+                    backgroundColor: 'rgba(16, 185, 129, 0.60)',
+                    borderColor: '#059669',
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 4, topRight: 4 },
+                    barPercentage: 0.55,
+                    categoryPercentage: 0.85,
+                    valueSuffix: 'h',
+                    yAxisID: 'y2',
+                },
+                {
+                    label: 'MTTR (Jam)',
+                    data: processedUnits.map(u => u.mttr),
+                    backgroundColor: 'rgba(244, 63, 94, 0.75)',
+                    borderColor: '#e11d48',
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 4, topRight: 4 },
+                    barPercentage: 0.55,
+                    categoryPercentage: 0.85,
+                    valueSuffix: 'h',
+                    yAxisID: 'y2',
+                },
+            ];
+            yMax = 105;
+        } else if (selectedMetric === 'mtbf') {
+            yAxisLabel = 'Jam (Hours)';
+            const maxMtbf = Math.max(...processedUnits.map(u => u.mtbf), 50);
+            yMax = Math.ceil(maxMtbf * 1.15);
+
+            datasets = [
+                {
+                    label: 'MTBF (Jam)',
+                    data: processedUnits.map(u => u.mtbf),
+                    backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                    borderColor: '#4f46e5',
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.65,
+                    categoryPercentage: 0.8,
+                    valueSuffix: 'h',
+                }
+            ];
+        } else if (selectedMetric === 'mttr') {
+            yAxisLabel = 'Jam (Hours)';
+            const maxMttr = Math.max(...processedUnits.map(u => u.mttr), 10);
+            yMax = Math.ceil(maxMttr * 1.25);
+
+            datasets = [
+                {
+                    label: 'MTTR (Jam)',
+                    data: processedUnits.map(u => u.mttr),
+                    backgroundColor: 'rgba(244, 63, 94, 0.85)',
+                    borderColor: '#e11d48',
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.65,
+                    categoryPercentage: 0.8,
+                    valueSuffix: 'h',
+                }
+            ];
+        } else if (selectedMetric === 'breakdown') {
+            yAxisLabel = 'Durasi BD (Jam)';
+            const maxBd = Math.max(...processedUnits.map(u => u.bd_hrs), 10);
+            yMax = Math.ceil(maxBd * 1.2);
+
+            datasets = [
+                {
+                    label: 'Jam Breakdown (BD)',
+                    data: processedUnits.map(u => u.bd_hrs),
+                    backgroundColor: processedUnits.map(u => u.bd_hrs > 50 ? 'rgba(239, 68, 68, 0.85)' : 'rgba(245, 158, 11, 0.85)'),
+                    borderColor: processedUnits.map(u => u.bd_hrs > 50 ? '#dc2626' : '#d97706'),
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.65,
+                    categoryPercentage: 0.8,
+                    valueSuffix: ' Jam',
+                }
+            ];
+        } else if (selectedMetric === 'ma') {
+            yAxisLabel = 'Mechanical Availability (%)';
+            yMax = 105;
+
+            datasets = [
+                {
+                    label: 'MA Actual (%)',
+                    data: processedUnits.map(u => u.ma),
+                    backgroundColor: 'rgba(139, 92, 246, 0.85)',
+                    borderColor: '#7c3aed',
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.65,
+                    categoryPercentage: 0.8,
+                    valueSuffix: '%',
+                }
+            ];
+        } else if (selectedMetric === 'utilization') {
+            yAxisLabel = 'Persentase (%)';
+            yMax = 105;
+
+            datasets = [
+                {
+                    label: 'UA (%) - Utilization of Availability',
+                    data: processedUnits.map(u => u.ua),
+                    backgroundColor: 'rgba(6, 182, 212, 0.85)',
+                    borderColor: '#0891b2',
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.75,
+                    valueSuffix: '%',
+                },
+                {
+                    label: 'EU (%) - Effective Utilization',
+                    data: processedUnits.map(u => u.eu),
+                    backgroundColor: 'rgba(236, 72, 153, 0.85)',
+                    borderColor: '#db2777',
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.75,
+                    valueSuffix: '%',
+                }
+            ];
+        }
+
+        // Custom Plugin for drawing numerical values right on top of each bar
+        const barValueLabelsPlugin = {
+            id: 'barValueLabelsPlugin',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                chart.data.datasets.forEach((dataset, datasetIndex) => {
+                    if (dataset.skipDataLabels) return;
+                    const meta = chart.getDatasetMeta(datasetIndex);
+                    if (meta.hidden) return;
+
+                    meta.data.forEach((bar, index) => {
+                        const val = dataset.data[index];
+                        if (val !== undefined && val !== null && val > 0) {
+                            ctx.save();
+                            ctx.fillStyle = document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#334155';
+                            ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            const suffix = dataset.valueSuffix || '';
+                            ctx.fillText(`${val}${suffix}`, bar.x, bar.y - 3);
+                            ctx.restore();
+                        }
+                    });
+                });
+            }
+        };
+
+        // Custom Plugin for dashed Target line
+        const targetLinePlugin = {
+            id: 'targetLinePlugin',
+            afterDraw(chart) {
+                if (!showTargetLine) return;
+                const yScale = chart.scales.y;
+                const yPos = yScale.getPixelForValue(targetLineVal);
+                if (yPos === undefined || isNaN(yPos)) return;
+
+                const { ctx, chartArea: { left, right } } = chart;
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([6, 6]);
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = 2;
+                ctx.moveTo(left, yPos);
+                ctx.lineTo(right, yPos);
+                ctx.stroke();
+
+                ctx.fillStyle = '#6366f1';
+                ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`Target Benchmark: ${targetLineVal}%`, right - 4, yPos - 6);
+                ctx.restore();
+            }
+        };
+
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: datasets,
+            },
+            plugins: [barValueLabelsPlugin, targetLinePlugin],
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: { top: 25, bottom: 5, left: 10, right: 15 }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            font: { size: 11, weight: 'bold' },
+                            color: document.documentElement.classList.contains('dark') ? '#cbd5e1' : '#1e293b',
+                            maxRotation: 45,
+                            minRotation: 0,
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: selectedMetric === 'pa' ? 105 : yMax,
+                        grid: {
+                            color: document.documentElement.classList.contains('dark') ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                        },
+                        ticks: {
+                            font: { size: 10 },
+                            color: '#94a3b8',
+                            callback: (v) => `${v}${selectedMetric === 'pa' || selectedMetric === 'ma' || selectedMetric === 'utilization' ? '%' : 'h'}`
+                        },
+                        title: {
+                            display: true,
+                            text: selectedMetric === 'pa' ? 'Physical Availability (%)' : yAxisLabel,
+                            font: { size: 11, weight: '600' },
+                            color: '#94a3b8'
+                        }
+                    },
+                    ...(selectedMetric === 'pa' ? {
+                        y2: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                font: { size: 10 },
+                                color: '#10b981',
+                                callback: (v) => `${v}h`
+                            },
+                            title: {
+                                display: true,
+                                text: 'MTBF / MTTR (Jam)',
+                                font: { size: 11, weight: '600' },
+                                color: '#10b981'
+                            }
+                        }
+                    } : {})
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'end',
+                        labels: {
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            font: { size: 11, weight: '600' },
+                            color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        padding: 12,
+                        cornerRadius: 10,
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                        borderWidth: 1,
+                        titleFont: { size: 13, weight: 'bold' },
+                        bodyFont: { size: 11 },
+                        callbacks: {
+                            title: (items) => {
+                                const idx = items[0].dataIndex;
+                                const u = processedUnits[idx];
+                                return `🚜 No Unit: ${u.unit} (${u.model || 'Equipment'})`;
+                            },
+                            afterBody: (items) => {
+                                const idx = items[0].dataIndex;
+                                const u = processedUnits[idx];
+                                return [
+                                    `━━━━━━━━━━━━━━━━━━━━`,
+                                    `• PA Actual: ${u.pa_actual}% (Target: ${u.plan_pa}%)`,
+                                    `• Jam Breakdown: ${u.bd_hrs} jam (${u.event_bd} kejadian)`,
+                                    `• MTBF: ${u.mtbf} jam | MTTR: ${u.mttr} jam`,
+                                    `• Jam Operasi: ${u.op_hrs} jam`,
+                                    `• Mechanical Availability: ${u.ma}%`,
+                                    `• Status Target: ${u.pa_actual >= u.plan_pa ? 'Tercapai ✅' : 'Di Bawah Target ⚠️'}`
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        return () => chart.destroy();
+    }, [processedUnits, selectedMetric]);
+
+    return (
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-4">
+            {/* Header & Controls Toolbar */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-3 border-b border-gray-100 dark:border-gray-700/60">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                            Grafik Perbandingan Per No Unit ({typeUnit})
+                        </h3>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Menampilkan perbandingan performa langsung pada setiap <strong>No Unit ({processedUnits.length} Unit)</strong>
+                    </p>
                 </div>
-            );
-        }
-        return this.props.children;
-    }
+
+                {/* Filter and Sort options */}
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                    {/* Search Unit Input */}
+                    <div className="relative flex-1 sm:w-44">
+                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Cari No Unit..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-blue-500 text-gray-800 dark:text-gray-200"
+                        />
+                    </div>
+
+                    {/* Sort Dropdown */}
+                    <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1">
+                        <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="text-xs bg-transparent border-0 py-0.5 pl-1 pr-6 focus:ring-0 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer"
+                        >
+                            <option value="default">Urut: Kode Unit</option>
+                            <option value="pa_asc">PA Terendah (Prioritas Perbaikan)</option>
+                            <option value="pa_desc">PA Tertinggi (Best First)</option>
+                            <option value="bd_desc">Jam BD Terbesar</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {/* Metric Selector Tabs */}
+            <div className="flex flex-wrap gap-1.5 p-1 bg-gray-100 dark:bg-gray-900/60 rounded-xl w-fit">
+                <button
+                    onClick={() => setSelectedMetric('pa')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        selectedMetric === 'pa'
+                            ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                >
+                    <Gauge className="w-3.5 h-3.5" />
+                    Achivement PA
+                </button>
+                <button
+                    onClick={() => setSelectedMetric('mtbf')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        selectedMetric === 'mtbf'
+                            ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                >
+                    <Wrench className="w-3.5 h-3.5" />
+                    Achivement MTBF
+                </button>
+                <button
+                    onClick={() => setSelectedMetric('mttr')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        selectedMetric === 'mttr'
+                            ? 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                >
+                    <Clock className="w-3.5 h-3.5" />
+                    Achivement MTTR
+                </button>
+                <button
+                    onClick={() => setSelectedMetric('breakdown')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        selectedMetric === 'breakdown'
+                            ? 'bg-white dark:bg-gray-800 text-amber-600 dark:text-amber-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                >
+                    <Clock className="w-3.5 h-3.5" />
+                    Jam Breakdown (BD Hours)
+                </button>
+                <button
+                    onClick={() => setSelectedMetric('ma')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        selectedMetric === 'ma'
+                            ? 'bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                >
+                    <Activity className="w-3.5 h-3.5" />
+                    Mechanical Availability (MA %)
+                </button>
+                <button
+                    onClick={() => setSelectedMetric('utilization')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        selectedMetric === 'utilization'
+                            ? 'bg-white dark:bg-gray-800 text-cyan-600 dark:text-cyan-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    Utilisasi (UA & EU %)
+                </button>
+            </div>
+
+            {/* Scrollable Chart Canvas Container */}
+            <div className="overflow-x-auto pb-2">
+                <div 
+                    style={{ 
+                        height: 350, 
+                        minWidth: processedUnits.length > 8 ? `${Math.max(650, processedUnits.length * 48)}px` : '100%' 
+                    }}
+                >
+                    <canvas ref={canvasRef} />
+                </div>
+            </div>
+
+            {/* Visual Color Legend Guide for PA */}
+            {selectedMetric === 'pa' && (
+                <div className="flex flex-wrap items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">Status PA Unit:</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded bg-emerald-500 inline-block"></span>
+                            <span>≥ 90% (Target Tercapai)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded bg-amber-500 inline-block"></span>
+                            <span>80% - 89.9% (Mendekati)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded bg-rose-500 inline-block"></span>
+                            <span>&lt; 80% (Kritis / Prioritas Perbaikan)</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold">
+                        <span className="w-4 h-0.5 border-t-2 border-dashed border-indigo-500 inline-block"></span>
+                        <span>Benchmark Plan PA Target: 90%</span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-function KpiContent({
-    dateFrom = '',
-    dateTo = '',
-    site = 'all',
-    unitType = 'all',
-    unitStatus = { total: 0, running: 0, standby: 0, breakdown: 0, maintenance: 0 },
-    metrics = { pa: 0, mttr: 0, mtbf: 0, woCompletionRate: 0, totalWo: 0, unplannedWoCount: 0, plannedWoCount: 0 },
-    woChart = { labels: [], data: [] },
-    downtimeChart = { labels: [], breakdown: [], maintenance: [] },
-    breakdownByComponent = [],
-}) {
-    const safeUnitStatus = unitStatus || { total: 0, running: 0, standby: 0, breakdown: 0, maintenance: 0 };
-    const safeMetrics = metrics || { pa: 0, mttr: 0, mtbf: 0, woCompletionRate: 0, totalWo: 0, unplannedWoCount: 0, plannedWoCount: 0 };
-    const safeWoChart = woChart || { labels: [], data: [] };
-    const safeDowntimeChart = downtimeChart || { labels: [], breakdown: [], maintenance: [] };
-    const safeBreakdownByComponent = Array.isArray(breakdownByComponent) ? breakdownByComponent : [];
+// --- Grafik MTTR Per No Unit (Terpisah) ---
+function MttrBarChart({ kpiTable, typeUnit }) {
+    const canvasRef = useRef(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
-    // ── Filter state ──────────────────────────────────────────────────────
-    const [fDateFrom, setFDateFrom] = useState(dateFrom || '');
-    const [fDateTo,   setFDateTo]   = useState(dateTo || '');
-    const [fSite,     setFSite]     = useState(site || 'all');
-    const [fUnitType, setFUnitType] = useState(unitType || 'all');
+    const processedUnits = useMemo(() => {
+        if (!kpiTable) return [];
+        let list = [...kpiTable];
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter(u => u.unit.toLowerCase().includes(q) || (u.model && u.model.toLowerCase().includes(q)));
+        }
+        return list;
+    }, [kpiTable, searchQuery]);
+
+    useEffect(() => {
+        if (!canvasRef.current || processedUnits.length === 0) return;
+        const existing = Chart.getChart(canvasRef.current);
+        if (existing) existing.destroy();
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+
+        const labels = processedUnits.map(u => u.unit);
+        const maxMttr = Math.max(...processedUnits.map(u => u.mttr), 10);
+        const yMax = Math.ceil(maxMttr * 1.25);
+
+        const barValueLabelsPlugin = {
+            id: 'mttrBarValueLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx: c } = chart;
+                chart.data.datasets.forEach((dataset, di) => {
+                    const meta = chart.getDatasetMeta(di);
+                    if (meta.hidden) return;
+                    meta.data.forEach((bar, i) => {
+                        const val = dataset.data[i];
+                        if (val !== undefined && val !== null && val > 0) {
+                            c.save();
+                            c.fillStyle = document.documentElement.classList.contains('dark') ? '#fda4af' : '#be123c';
+                            c.font = 'bold 10px Inter, system-ui, sans-serif';
+                            c.textAlign = 'center';
+                            c.textBaseline = 'bottom';
+                            c.fillText(`${val}h`, bar.x, bar.y - 3);
+                            c.restore();
+                        }
+                    });
+                });
+            }
+        };
+
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'MTTR (Jam)',
+                    data: processedUnits.map(u => u.mttr),
+                    backgroundColor: 'rgba(244, 63, 94, 0.80)',
+                    borderColor: '#e11d48',
+                    borderWidth: 1,
+                    borderRadius: { topLeft: 6, topRight: 6 },
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15,23,42,0.92)',
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: (ctx) => ` MTTR: ${ctx.raw}h`,
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11, weight: 'bold' }, color: '#64748b' }
+                    },
+                    y: {
+                        min: 0,
+                        max: yMax,
+                        title: { display: true, text: 'Jam (Hours)', font: { size: 11 }, color: '#94a3b8' },
+                        grid: { color: 'rgba(100,116,139,0.1)' },
+                        ticks: { font: { size: 11 }, color: '#94a3b8', callback: v => `${v}h` }
+                    }
+                }
+            },
+            plugins: [barValueLabelsPlugin]
+        });
+
+        return () => chart.destroy();
+    }, [processedUnits]);
+
+    return (
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl border border-rose-200 dark:border-rose-800/50 p-5 shadow-sm space-y-4">
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 pb-3 border-b border-rose-100 dark:border-rose-800/40">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                            Achivement MTTR Per No Unit ({typeUnit})
+                        </h3>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-bold">
+                            Mean Time To Repair
+                        </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Rata-rata durasi perbaikan per unit — semakin kecil semakin baik
+                    </p>
+                </div>
+                {/* Search */}
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Cari unit..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="pl-8 pr-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-rose-400 focus:border-rose-400 w-36"
+                    />
+                    <svg className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </div>
+
+            {/* Chart Canvas */}
+            <div className="overflow-x-auto pb-2">
+                <div style={{ height: 320, minWidth: processedUnits.length > 8 ? `${Math.max(650, processedUnits.length * 48)}px` : '100%' }}>
+                    <canvas ref={canvasRef} />
+                </div>
+            </div>
+
+            {/* Legend note */}
+            <div className="flex items-center gap-2 pt-2 border-t border-rose-100 dark:border-rose-800/40 text-[11px] text-gray-500 dark:text-gray-400">
+                <span className="w-3 h-3 rounded bg-rose-500 inline-block shrink-0"></span>
+                <span>MTTR (Mean Time To Repair) — durasi rata-rata perbaikan dari breakdown hingga RFU. Target: serendah mungkin.</span>
+            </div>
+        </div>
+    );
+}
+
+// --- Card Komponen untuk Tren Mingguan Modern ---
+function WeeklyTrendCard({ title, icon: Icon, unitLabel, labels, data, color, bgGradient, unitSuffix = '', targetVal = null }) {
+    const canvasRef = useRef(null);
+
+    const latestValue = data && data.length > 0 ? data[data.length - 1] : 0;
+    const firstValue = data && data.length > 0 ? data[0] : 0;
+    const delta = (latestValue - firstValue).toFixed(1);
+    const isPositive = Number(delta) >= 0;
+
+    useEffect(() => {
+        if (!canvasRef.current || !data || data.length === 0) return;
+
+        const existing = Chart.getChart(canvasRef.current);
+        if (existing) {
+            existing.destroy();
+        }
+
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+
+        // Create gradient fill below curve
+        const gradient = ctx.createLinearGradient(0, 0, 0, 130);
+        gradient.addColorStop(0, bgGradient || 'rgba(59, 130, 246, 0.25)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+
+        const datasets = [
+            {
+                data: data,
+                borderColor: color,
+                borderWidth: 2.5,
+                tension: 0.35,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: color,
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 1.5,
+                fill: true,
+                backgroundColor: gradient,
+            }
+        ];
+
+        // Target Line if supplied
+        if (targetVal !== null) {
+            datasets.push({
+                data: Array(labels.length).fill(targetVal),
+                borderColor: '#ef4444',
+                borderWidth: 1.5,
+                borderDash: [4, 4],
+                pointRadius: 0,
+                fill: false,
+            });
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets,
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 8, bottom: 4, left: 4, right: 8 } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                        padding: 8,
+                        cornerRadius: 6,
+                        titleFont: { size: 11, weight: 'bold' },
+                        bodyFont: { size: 11 },
+                        callbacks: {
+                            title: (items) => `${items[0].label} (${unitLabel})`,
+                            label: (c) => ` ${title}: ${c.parsed.y}${unitSuffix}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            font: { size: 10, weight: 'bold' },
+                            color: '#9ca3af'
+                        }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: document.documentElement.classList.contains('dark') ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                        },
+                        ticks: {
+                            font: { size: 9 },
+                            color: '#9ca3af',
+                            callback: (v) => `${v}${unitSuffix}`
+                        }
+                    }
+                }
+            }
+        });
+
+        return () => chart.destroy();
+    }, [labels, data, color, bgGradient, targetVal, unitLabel]);
+
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200/80 dark:border-gray-700/80 flex flex-col justify-between hover:shadow-md transition-shadow">
+            {/* Header */}
+            <div>
+                <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Icon className="w-3.5 h-3.5" style={{ color }} />
+                        {title}
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        isPositive 
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                            : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                    }`}>
+                        {isPositive ? `▲ +${delta}` : `▼ ${delta}`}
+                    </span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-gray-900 dark:text-white">
+                        {latestValue}{unitSuffix}
+                    </span>
+                    <span className="text-[10px] font-medium text-gray-400">
+                        (W4)
+                    </span>
+                </div>
+            </div>
+
+            {/* Chart Area */}
+            <div className="mt-3" style={{ height: 130 }}>
+                <canvas ref={canvasRef} />
+            </div>
+        </div>
+    );
+}
+
+// --- Komponen Modul Tren Mingguan dengan Filter No Unit ---
+function WeeklyTrendSection({ trends, kpiTable, typeTitle }) {
+    const [selectedUnitCode, setSelectedUnitCode] = useState('ALL');
+
+    // Determine current trend data: either fleet aggregate or selected single unit
+    const activeData = useMemo(() => {
+        if (selectedUnitCode === 'ALL') {
+            return {
+                unitLabel: 'Rata-Rata Armada',
+                selectedUnitObj: null,
+                trends: trends || {
+                    labels: ['W1', 'W2', 'W3', 'W4'],
+                    pa: [80, 82, 85, 87],
+                    dev_pa: [-10, -8, -5, -3],
+                    mtbf: [40, 45, 42, 48],
+                    mttr: [12, 10, 8, 6],
+                    ma: [75, 78, 80, 82],
+                }
+            };
+        }
+
+        const foundUnit = kpiTable?.find(u => u.unit === selectedUnitCode);
+        return {
+            unitLabel: `Unit: ${selectedUnitCode}`,
+            selectedUnitObj: foundUnit,
+            trends: foundUnit?.trends || trends,
+        };
+    }, [selectedUnitCode, trends, kpiTable]);
+
+    return (
+        <div className="space-y-4 pt-4 mt-6 border-t border-gray-200 dark:border-gray-700">
+            {/* Header with Unit Selector */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-gray-50/80 dark:bg-gray-800/60 p-3.5 rounded-xl border border-gray-200/80 dark:border-gray-700/60">
+                <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                            Tren Mingguan (W1 - W4)
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Pilih No Unit untuk memantau tren mingguan secara spesifik
+                        </p>
+                    </div>
+                </div>
+
+                {/* Dropdown Filter No Unit */}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        Pilih No Unit:
+                    </span>
+                    <select
+                        value={selectedUnitCode}
+                        onChange={(e) => setSelectedUnitCode(e.target.value)}
+                        className="text-xs font-semibold bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 focus:ring-blue-500 text-gray-800 dark:text-gray-200 shadow-sm w-full sm:w-64 cursor-pointer"
+                    >
+                        <option value="ALL">🌟 Rata-Rata Seluruh Unit (Fleet Average)</option>
+                        {kpiTable?.map(u => (
+                            <option key={u.unit} value={u.unit}>
+                                🚜 {u.unit} - PA: {u.pa_actual}% (BD: {u.bd_hrs}h)
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            {/* If a single unit is selected, show its summary banner */}
+            {activeData.selectedUnitObj && (
+                <div className="bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-transparent p-3 rounded-xl border border-blue-200 dark:border-blue-800/50 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                        <span className="font-bold text-blue-700 dark:text-blue-300 text-sm">
+                            {activeData.selectedUnitObj.unit}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                            Model: <strong>{activeData.selectedUnitObj.model}</strong>
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                            PA Actual: <strong className="text-emerald-600 dark:text-emerald-400">{activeData.selectedUnitObj.pa_actual}%</strong>
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                            Jam BD: <strong className="text-rose-600 dark:text-rose-400">{activeData.selectedUnitObj.bd_hrs} Jam</strong>
+                        </span>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full font-bold text-[11px] ${
+                        activeData.selectedUnitObj.pa_actual >= activeData.selectedUnitObj.plan_pa
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+                            : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200'
+                    }`}>
+                        {activeData.selectedUnitObj.pa_actual >= activeData.selectedUnitObj.plan_pa ? '✓ Target Tercapai' : '⚠️ Perlu Perhatian'}
+                    </span>
+                </div>
+            )}
+
+            {/* 5 Modern Redesigned Trend Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <WeeklyTrendCard
+                    title="Trend PA Actual"
+                    icon={Gauge}
+                    unitLabel={activeData.unitLabel}
+                    labels={activeData.trends.labels}
+                    data={activeData.trends.pa}
+                    color="#3b82f6"
+                    bgGradient="rgba(59, 130, 246, 0.25)"
+                    unitSuffix="%"
+                    targetVal={90}
+                />
+                <WeeklyTrendCard
+                    title="Trend Deviasi PA"
+                    icon={Activity}
+                    unitLabel={activeData.unitLabel}
+                    labels={activeData.trends.labels}
+                    data={activeData.trends.dev_pa}
+                    color="#06b6d4"
+                    bgGradient="rgba(6, 182, 212, 0.25)"
+                    unitSuffix="%"
+                />
+                <WeeklyTrendCard
+                    title="Trend MTBF"
+                    icon={Wrench}
+                    unitLabel={activeData.unitLabel}
+                    labels={activeData.trends.labels}
+                    data={activeData.trends.mtbf}
+                    color="#10b981"
+                    bgGradient="rgba(16, 185, 129, 0.25)"
+                    unitSuffix="h"
+                />
+                <WeeklyTrendCard
+                    title="Trend MTTR"
+                    icon={Clock}
+                    unitLabel={activeData.unitLabel}
+                    labels={activeData.trends.labels}
+                    data={activeData.trends.mttr}
+                    color="#f43f5e"
+                    bgGradient="rgba(244, 63, 94, 0.25)"
+                    unitSuffix="h"
+                />
+                <WeeklyTrendCard
+                    title="Trend MA"
+                    icon={Sparkles}
+                    unitLabel={activeData.unitLabel}
+                    labels={activeData.trends.labels}
+                    data={activeData.trends.ma}
+                    color="#8b5cf6"
+                    bgGradient="rgba(139, 92, 246, 0.25)"
+                    unitSuffix="%"
+                />
+            </div>
+        </div>
+    );
+}
+
+export default function KpiIndex({ month, targetPa: initialTargetPa, kpiData }) {
+    const [fMonth, setFMonth] = useState(month || '');
+    const [fTargetPa, setFTargetPa] = useState(initialTargetPa ?? 90);
+    const [chartViews, setChartViews] = useState({}); // Stores per-typeGroup view toggle: 'both', 'unit', 'trend'
 
     const applyFilter = () => {
-        router.get('/kpi', { date_from: fDateFrom, date_to: fDateTo, site: fSite, unit_type: fUnitType }, { preserveState: true });
+        router.get('/kpi', { month: fMonth, target_pa: fTargetPa }, { preserveState: true });
     };
 
-    // ── Chart refs ────────────────────────────────────────────────────────
-    const donutRef   = useRef(null);
-    const woRef      = useRef(null);
-    const dtRef      = useRef(null);
-    const costRef    = useRef(null);
-
-    const total = safeUnitStatus.total || 0;
-
-    useDonut(donutRef, safeUnitStatus);
-
-    const woDatasets = useMemo(() => [{
-        label: 'WO Count',
-        data: safeWoChart.data || [],
-        backgroundColor: ['#3b82f6','#ef4444','#f59e0b','#6366f1','#10b981','#8b5cf6','#6b7280'],
-        borderRadius: 3,
-        barPercentage: 0.7,
-    }], [safeWoChart.data]);
-    useBarChart(woRef, safeWoChart.labels || [], woDatasets);
-
-    const dtDatasets = useMemo(() => [
-        { label: 'Breakdown',    data: safeDowntimeChart.breakdown || [],   backgroundColor: 'rgba(239,68,68,0.7)',  borderRadius: 2, barPercentage: 0.4 },
-        { label: 'Maintenance',  data: safeDowntimeChart.maintenance || [], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 2, barPercentage: 0.4 },
-    ], [safeDowntimeChart.breakdown, safeDowntimeChart.maintenance]);
-    useLineChart(dtRef, safeDowntimeChart.labels || [], dtDatasets);
-
-    useLineChart(dtRef, safeDowntimeChart.labels || [], dtDatasets);
-
-    // ── Format date display ───────────────────────────────────────────────
-    const fmtDisplayDate = (d) => {
-        if (!d) return '';
-        const dt = new Date(d);
-        return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    const toggleView = (groupId, view) => {
+        setChartViews(prev => ({
+            ...prev,
+            [groupId]: view
+        }));
     };
 
     return (
         <AuthenticatedLayout>
-            <Head title="Key Performance Index" />
+            <Head title="KPI Plant" />
 
-            {/* ── Page Header ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                        <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-extrabold text-gray-800">Key Performance Index</h1>
-                        <nav className="flex items-center gap-1 text-sm text-gray-400 mt-0.5">
-                            <Link href="/dashboard" className="hover:text-gray-600">Home</Link>
-                            <span>›</span>
-                            <span className="text-gray-600">Key Performance Index</span>
-                        </nav>
-                    </div>
+            {/* Header & Date Filter Bar */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                    <h1 className="text-3xl font-black text-gray-900 dark:text-white uppercase tracking-wider drop-shadow-sm flex items-center gap-3">
+                        <Gauge className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                        KPI PLANT
+                    </h1>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Monitoring Kesiapan Fisik (PA), Mechanical Availability (MA), Downtime B0-B8, dan Keandalan (MTBF/MTTR) Armada
+                    </p>
                 </div>
-
-                {/* Filter Bar */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600">
-                        <svg className="w-3.5 h-3.5 text-gray-400 fill-current" viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
-                        <input type="date" value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} className="border-none outline-none text-sm bg-transparent w-28" style={{colorScheme:'light'}} />
-                        <span className="text-gray-400">-</span>
-                        <input type="date" value={fDateTo} onChange={e => setFDateTo(e.target.value)} className="border-none outline-none text-sm bg-transparent w-28" style={{colorScheme:'light'}} />
+                
+                <div className="flex flex-wrap items-center gap-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-md p-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300 px-2 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-blue-500" />
+                        Periode:
+                    </span>
+                    <input 
+                        type="month" 
+                        value={fMonth}
+                        onChange={(e) => setFMonth(e.target.value)}
+                        className="bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-xs px-3 py-1.5 focus:ring-blue-500 font-semibold"
+                    />
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                        <Gauge className="w-4 h-4 text-indigo-500" />
+                        Target PA:
+                    </span>
+                    <div className="relative flex items-center">
+                        <input
+                            type="number"
+                            min="50"
+                            max="100"
+                            step="0.5"
+                            value={fTargetPa}
+                            onChange={(e) => setFTargetPa(Number(e.target.value))}
+                            className="bg-white dark:bg-gray-900 border-indigo-300 dark:border-indigo-700 rounded-lg text-xs px-3 py-1.5 focus:ring-indigo-500 font-black text-indigo-700 dark:text-indigo-300 w-20 text-center"
+                        />
+                        <span className="absolute right-2 text-[10px] font-bold text-indigo-400 pointer-events-none">%</span>
                     </div>
-                    <select value={fSite} onChange={e => setFSite(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 outline-none">
-                        <option value="all">All Site</option>
-                        <option value="pit1">Pit 1</option>
-                        <option value="pit2">Pit 2</option>
-                    </select>
-                    <select value={fUnitType} onChange={e => setFUnitType(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 outline-none">
-                        <option value="all">All Unit Type</option>
-                        <option value="excavator">Excavator</option>
-                        <option value="hauler">Hauler</option>
-                        <option value="dozer">Dozer</option>
-                    </select>
-                    <button onClick={applyFilter} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors">
-                        Apply
+                    <button 
+                        onClick={applyFilter}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-4 rounded-lg shadow-sm transition-colors text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                        Tampilkan
                     </button>
                 </div>
             </div>
 
-            {/* ── ROW 1: Fleet Status Cards ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-                {/* Total Unit */}
-                <div className="col-span-2 sm:col-span-1 rounded-xl p-4 flex items-center gap-3 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #1d6bdc 0%, #1a56c4 100%)' }}>
-                    <div className="absolute -right-3 -bottom-4 opacity-20">
-                        <svg className="w-20 h-20 fill-white" viewBox="0 0 24 24"><path d="M18 4h-2.18C15.4 1.84 14.3 1 13 1H11C9.7 1 8.6 1.84 8.18 4H6C4.9 4 4 4.9 4 6v14c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/></svg>
-                    </div>
-                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                        <svg className="w-8 h-8 fill-white" viewBox="0 0 24 24"><path d="M20.93 12.64C21 12.11 21 11.56 21 11c0-5.52-4.48-10-10-10S1 5.48 1 11c0 2.13.67 4.09 1.8 5.71L2 22l5.45-.55C8.73 21.79 10 22 11 22c5.52 0 10-4.48 10-10 0-.46-.02-.91-.07-1.36z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-sm font-semibold text-blue-100 uppercase tracking-wide">Total Unit</div>
-                        <div className="text-4xl font-black leading-none">{safeUnitStatus.total}</div>
-                        <div className="text-sm text-blue-200 mt-0.5">Unit</div>
-                    </div>
-                </div>
+            {kpiData && kpiData.length > 0 ? (
+                <div className="space-y-12">
+                    {kpiData.map((typeGroup) => {
+                        const currentView = chartViews[typeGroup.id] || 'unit'; // default to 'unit' comparison view
 
-                {/* Running */}
-                <div className="rounded-xl p-4 flex items-center gap-3 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' }}>
-                    <div className="absolute -right-2 -bottom-3 opacity-20">
-                        <svg className="w-16 h-16 fill-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                        <svg className="w-6 h-6 fill-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-sm font-semibold text-green-100 uppercase">Running</div>
-                        <div className="text-3xl font-black leading-none">{safeUnitStatus.running}</div>
-                        <div className="text-sm text-green-200">Unit ({pct(safeUnitStatus.running, total)}%)</div>
-                    </div>
-                </div>
+                        return (
+                            <div key={typeGroup.id} className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden">
+                                
+                                {/* Section Header */}
+                                <div className="bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 p-4 border-b border-gray-300 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2.5 h-6 bg-blue-600 rounded-full"></div>
+                                        <h2 className="text-xl font-black text-gray-800 dark:text-gray-100 tracking-wide">
+                                            {typeGroup.title}
+                                        </h2>
+                                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold ml-2">
+                                            {typeGroup.kpi_table?.length || 0} Unit
+                                        </span>
+                                    </div>
 
-                {/* Standby */}
-                <div className="rounded-xl p-4 flex items-center gap-3 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
-                    <div className="absolute -right-2 -bottom-3 opacity-20">
-                        <svg className="w-16 h-16 fill-white" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                        <svg className="w-6 h-6 fill-white" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-sm font-semibold text-amber-100 uppercase">Standby</div>
-                        <div className="text-3xl font-black leading-none">{safeUnitStatus.standby}</div>
-                        <div className="text-sm text-amber-200">Unit ({pct(safeUnitStatus.standby, total)}%)</div>
-                    </div>
-                </div>
-
-                {/* Breakdown */}
-                <div className="rounded-xl p-4 flex items-center gap-3 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' }}>
-                    <div className="absolute -right-2 -bottom-3 opacity-20">
-                        <svg className="w-16 h-16 fill-white" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                        <svg className="w-6 h-6 fill-white" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-sm font-semibold text-red-100 uppercase">Breakdown</div>
-                        <div className="text-3xl font-black leading-none">{safeUnitStatus.breakdown}</div>
-                        <div className="text-sm text-red-200">Unit ({pct(safeUnitStatus.breakdown, total)}%)</div>
-                    </div>
-                </div>
-
-                {/* Under Maintenance */}
-                <div className="rounded-xl p-4 flex items-center gap-3 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
-                    <div className="absolute -right-2 -bottom-3 opacity-20">
-                        <svg className="w-16 h-16 fill-white" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.73 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                        <svg className="w-6 h-6 fill-white" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.73 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-                    </div>
-                    <div>
-                        <div className="text-sm font-semibold text-purple-100 uppercase">Under Maintenance</div>
-                        <div className="text-3xl font-black leading-none">{safeUnitStatus.maintenance}</div>
-                        <div className="text-sm text-purple-200">Unit ({pct(safeUnitStatus.maintenance, total)}%)</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── ROW 2: KPI Metrics ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-                {/* Physical Availability (PA) */}
-                <div className="glass-panel rounded-xl p-4 shadow-sm hover:-translate-y-1 transition-transform duration-300">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-50/80 flex items-center justify-center shrink-0 border border-blue-100">
-                            <svg className="w-5 h-5 fill-blue-600" viewBox="0 0 24 24"><path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.28-10.43zM10.59 15.41a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"/></svg>
-                        </div>
-                        <div>
-                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Physical Avail.</div>
-                            <div className="text-2xl font-black text-gray-800 leading-tight">{safeMetrics.pa}%</div>
-                            <div className="text-xs text-emerald-600 font-bold mt-1 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">Target ≥ 85%</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Unplanned vs Total WO */}
-                <div className="glass-panel rounded-xl p-4 shadow-sm hover:-translate-y-1 transition-transform duration-300">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-orange-50/80 flex items-center justify-center shrink-0 border border-orange-100">
-                            <svg className="w-5 h-5 fill-orange-500" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
-                        </div>
-                        <div>
-                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Unplanned WO</div>
-                            <div className="text-2xl font-black text-gray-800 leading-tight">{safeMetrics.unplannedWoCount} <span className="text-sm font-semibold text-gray-400">/ {safeMetrics.totalWo}</span></div>
-                            <div className="text-xs text-orange-600 font-bold mt-1 bg-orange-50 px-2 py-0.5 rounded-full inline-block">BD & CM</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* MTTR */}
-                <div className="glass-panel rounded-xl p-4 shadow-sm hover:-translate-y-1 transition-transform duration-300">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-sky-50/80 flex items-center justify-center shrink-0 border border-sky-100">
-                            <svg className="w-5 h-5 fill-sky-500" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-                        </div>
-                        <div>
-                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">MTTR</div>
-                            <div className="text-2xl font-black text-gray-800 leading-tight">{safeMetrics.mttr} <span className="text-sm font-semibold text-gray-400">Hrs</span></div>
-                            <div className="text-xs text-sky-600 font-bold mt-1 bg-sky-50 px-2 py-0.5 rounded-full inline-block">Avg Repair Time</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* MTBF */}
-                <div className="glass-panel rounded-xl p-4 shadow-sm hover:-translate-y-1 transition-transform duration-300">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-50/80 flex items-center justify-center shrink-0 border border-emerald-100">
-                            <svg className="w-5 h-5 fill-emerald-500" viewBox="0 0 24 24"><path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
-                        </div>
-                        <div>
-                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">MTBF</div>
-                            <div className="text-2xl font-black text-gray-800 leading-tight">{safeMetrics.mtbf} <span className="text-sm font-semibold text-gray-400">Hrs</span></div>
-                            <div className="text-xs text-emerald-600 font-bold mt-1 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">Avg Time Btw Fails</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* WO Completion Rate */}
-                <div className="glass-panel rounded-xl p-4 shadow-sm hover:-translate-y-1 transition-transform duration-300">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-purple-50/80 flex items-center justify-center shrink-0 border border-purple-100">
-                            <svg className="w-5 h-5 fill-purple-500" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
-                        </div>
-                        <div>
-                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">WO Completion</div>
-                            <div className="text-2xl font-black text-gray-800 leading-tight">{safeMetrics.woCompletionRate}%</div>
-                            <div className="text-xs text-purple-600 font-bold mt-1 bg-purple-50 px-2 py-0.5 rounded-full inline-block">Closed WOs</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── ROW 3: Charts ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                {/* Unit Status Donut */}
-                <div className="glass-panel rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                    <h2 className="text-sm font-extrabold text-gray-700 mb-4 tracking-wide">UNIT STATUS</h2>
-                    <div className="flex items-center gap-4">
-                        {/* Donut */}
-                        <div className="relative" style={{ width: 160, height: 160, flexShrink: 0 }}>
-                            <canvas ref={donutRef} width={160} height={160} />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-3xl font-black text-gray-800">{safeUnitStatus.total}</span>
-                                <span className="text-xs font-bold text-gray-400">Total Unit</span>
-                            </div>
-                        </div>
-                        {/* Legend */}
-                        <div className="flex flex-col gap-2 text-sm w-full">
-                            {[
-                                { label: 'Running',     val: safeUnitStatus.running,     color: '#22c55e' },
-                                { label: 'Standby',     val: safeUnitStatus.standby,     color: '#f59e0b' },
-                                { label: 'Breakdown',   val: safeUnitStatus.breakdown,   color: '#ef4444' },
-                                { label: 'Maintenance', val: safeUnitStatus.maintenance, color: '#a855f7' },
-                            ].map(({ label, val, color }) => (
-                                <div key={label} className="flex items-center gap-2">
-                                    <span className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ background: color }} />
-                                    <span className="text-gray-600 font-semibold">{label}</span>
-                                    <span className="ml-auto text-gray-800 font-black">{val} <span className="text-xs font-medium text-gray-400">({pct(val, total)}%)</span></span>
+                                    {/* View Toggle Buttons */}
+                                    <div className="flex items-center gap-1 bg-gray-200 dark:bg-gray-700/60 p-1 rounded-xl text-xs font-bold">
+                                        <button
+                                            onClick={() => toggleView(typeGroup.id, 'unit')}
+                                            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                currentView === 'unit'
+                                                    ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <BarChart3 className="w-3.5 h-3.5" />
+                                            Grafik Per No Unit
+                                        </button>
+                                        <button
+                                            onClick={() => toggleView(typeGroup.id, 'trend')}
+                                            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                currentView === 'trend'
+                                                    ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <TrendingUp className="w-3.5 h-3.5" />
+                                            Tren Mingguan (W1-W4)
+                                        </button>
+                                        <button
+                                            onClick={() => toggleView(typeGroup.id, 'both')}
+                                            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                currentView === 'both'
+                                                    ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <Layers className="w-3.5 h-3.5" />
+                                            Semua Grafik
+                                        </button>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
 
-                {/* WO by Type */}
-                <div className="glass-panel rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                    <h2 className="text-sm font-extrabold text-gray-700 mb-4 tracking-wide">WORK ORDER BY TYPE</h2>
-                    <div style={{ height: 170 }}>
-                        <canvas ref={woRef} />
-                    </div>
-                </div>
+                                <div className="p-5 space-y-6">
+                                    
+                                    {/* Fleet Highlights Strip */}
+                                    <KpiFleetHighlights 
+                                        highlights={typeGroup.highlights} 
+                                        typeTitle={typeGroup.title} 
+                                    />
 
-                {/* Downtime Hours */}
-                <div className="glass-panel rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                    <h2 className="text-sm font-extrabold text-gray-700 mb-4 tracking-wide">DOWNTIME TREND (HOURS)</h2>
-                    <div style={{ height: 170 }}>
-                        <canvas ref={dtRef} />
-                    </div>
-                </div>
-            </div>
+                                    {/* --- DYNAMIC GRAPHICS MODULE (Per No Unit & Trend) --- */}
+                                    <div className="space-y-6">
+                                        {(currentView === 'unit' || currentView === 'both') && (
+                                            <UnitComparisonChart 
+                                                kpiTable={typeGroup.kpi_table} 
+                                                typeUnit={typeGroup.type_unit} 
+                                            />
+                                        )}
 
-            {/* ── ROW 4: Tables ── */}
-            <div className="grid grid-cols-1 gap-4">
-                {/* Top 5 Breakdown by Component */}
-                <div className="glass-panel rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                    <h2 className="text-sm font-extrabold text-gray-700 mb-4 tracking-wide">TOP 5 BREAKDOWN COMPONENT</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b-2 border-gray-100">
-                                    <th className="text-left py-2 text-gray-400 font-bold uppercase w-12">No</th>
-                                    <th className="text-left py-2 text-gray-400 font-bold uppercase">Component</th>
-                                    <th className="text-center py-2 text-gray-400 font-bold uppercase">Breakdown Count</th>
-                                    <th className="text-center py-2 text-gray-400 font-bold uppercase">Percentage</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {safeBreakdownByComponent.map((row, idx) => (
-                                    <tr key={idx} className={`border-b border-gray-50/50 hover:bg-white/40 transition-colors ${idx % 2 === 0 ? 'bg-gray-50/30' : ''}`}>
-                                        <td className="py-3 text-gray-400 font-bold">{row.no}</td>
-                                        <td className="py-3 text-gray-800 font-extrabold">{row.component}</td>
-                                        <td className="py-3 text-center">
-                                            <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full font-black">{row.jumlah}</span>
-                                        </td>
-                                        <td className="py-3 text-center text-blue-600 font-black">{row.pct}%</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                        {(currentView === 'trend' || currentView === 'both') && (
+                                            <WeeklyTrendSection 
+                                                trends={typeGroup.trends} 
+                                                kpiTable={typeGroup.kpi_table}
+                                                typeTitle={typeGroup.title} 
+                                            />
+                                        )}
+                                    </div>
+
+                                    {/* --- TOP TABLES ROW (Breakdown Table & Summary BD) --- */}
+                                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 pt-4 border-t border-gray-200 dark:border-gray-800">
+                                        
+                                        {/* Table Breakdown B0-B8 */}
+                                        <div className="xl:col-span-2 overflow-x-auto">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h3 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                                                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                                    Tabel Breakdown B0 - B8 per Unit (Jam)
+                                                </h3>
+                                            </div>
+                                            <table className="w-full text-xs whitespace-nowrap border-collapse">
+                                                <thead>
+                                                    <tr className="bg-amber-700 text-white uppercase text-center font-bold">
+                                                        <th className="px-3 py-2 border border-amber-800">TYPE</th>
+                                                        <th className="px-3 py-2 border border-amber-800">UNIT</th>
+                                                        {['B0','B1','B2','B3','B4','B5','B6','B7','B8'].map(b => (
+                                                            <th key={b} className="px-2 py-2 border border-amber-800 w-10">{b}</th>
+                                                        ))}
+                                                        <th className="px-3 py-2 border border-amber-800 w-16">Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                                                    {typeGroup.breakdown_table.map((group, idx) => (
+                                                        <React.Fragment key={idx}>
+                                                            {group.units.map((u, uIdx) => (
+                                                                <tr key={u.code_unit} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                                                    {uIdx === 0 && (
+                                                                        <td rowSpan={group.units.length + 1} className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 align-top font-bold bg-gray-50 dark:bg-gray-900">
+                                                                            <div className="flex items-center gap-1">
+                                                                                <span>⊟</span> {group.group_name}
+                                                                            </div>
+                                                                        </td>
+                                                                    )}
+                                                                    <td className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 font-bold text-blue-600 dark:text-blue-400">{u.code_unit}</td>
+                                                                    {['B0','B1','B2','B3','B4','B5','B6','B7','B8'].map(b => (
+                                                                        <ValueCell key={b} value={u.b_codes[b]} />
+                                                                    ))}
+                                                                    <td className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 text-right font-bold bg-gray-50 dark:bg-gray-700/50">
+                                                                        {u.total > 0 ? u.total : ''}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                            {/* Group Total Row */}
+                                                            <tr className="bg-gray-100 dark:bg-gray-700 font-bold">
+                                                                <td className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 text-right text-gray-700 dark:text-gray-300">Total</td>
+                                                                {['B0','B1','B2','B3','B4','B5','B6','B7','B8'].map(b => (
+                                                                    <ValueCell key={b} value={group.group_totals[b]} className="text-gray-900 dark:text-white" />
+                                                                ))}
+                                                                <td className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 text-right text-gray-900 dark:text-white">
+                                                                    {group.group_total_all > 0 ? group.group_total_all : ''}
+                                                                </td>
+                                                            </tr>
+                                                        </React.Fragment>
+                                                    ))}
+                                                    {/* Grand Total Breakdown */}
+                                                    <tr className="bg-amber-100 dark:bg-amber-900/30 font-bold text-gray-900 dark:text-white border-t-2 border-amber-700">
+                                                        <td colSpan="2" className="px-3 py-2 border border-gray-300 dark:border-gray-700 text-right">Total</td>
+                                                        {['B0','B1','B2','B3','B4','B5','B6','B7','B8'].map(b => (
+                                                            <ValueCell key={b} value={typeGroup.breakdown_totals[b]} />
+                                                        ))}
+                                                        <td className="px-3 py-2 border border-gray-300 dark:border-gray-700 text-right">
+                                                            {typeGroup.breakdown_total_all > 0 ? typeGroup.breakdown_total_all : ''}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Table Summary BD & Pie Chart */}
+                                        <div className="xl:col-span-1 space-y-4">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-xs whitespace-nowrap border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-amber-700 text-white uppercase text-center font-bold">
+                                                            <th className="px-2 py-2 border border-amber-800 text-left">TYPE BD</th>
+                                                            <th className="px-2 py-2 border border-amber-800 text-left">DESCRIPTION</th>
+                                                            <th className="px-2 py-2 border border-amber-800">Total Jam BD</th>
+                                                            <th className="px-2 py-2 border border-amber-800">% BD</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                                                        {typeGroup.summary_bd.map((row) => (
+                                                            <tr key={row.type_bd} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                                                <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 font-bold">{row.type_bd}</td>
+                                                                <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700">{row.description}</td>
+                                                                <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right">{row.total_jam}</td>
+                                                                <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right font-bold">{row.pct}%</td>
+                                                            </tr>
+                                                        ))}
+                                                        {typeGroup.summary_bd.length === 0 && (
+                                                            <tr>
+                                                                <td colSpan="4" className="px-2 py-4 border border-gray-300 dark:border-gray-700 text-center text-gray-400 italic">No breakdown data</td>
+                                                            </tr>
+                                                        )}
+                                                        <tr className="bg-gray-100 dark:bg-gray-700 font-bold">
+                                                            <td colSpan="2" className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-left">Total</td>
+                                                            <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right text-gray-900 dark:text-white">{typeGroup.breakdown_total_all}</td>
+                                                            <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right text-gray-900 dark:text-white">100.0%</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* Donut Chart Card */}
+                                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm flex flex-col items-center">
+                                                <h3 className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Proporsi Breakdown (Type BD)</h3>
+                                                <div style={{ height: 160, width: '100%' }}>
+                                                    <PieChart data={typeGroup.summary_bd} />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    {/* --- BOTTOM MAIN KPI TABLE --- */}
+                                    <div className="overflow-x-auto mt-6">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                                                <Gauge className="w-3.5 h-3.5 text-blue-600" />
+                                                Tabel Lengkap Parameter KPI Per Unit
+                                            </h3>
+                                        </div>
+                                        <table className="w-full text-xs whitespace-nowrap border-collapse">
+                                            <thead>
+                                                <tr className="bg-amber-600 dark:bg-amber-700 text-white uppercase text-center font-bold">
+                                                    <th className="px-2 py-2 border border-amber-800 bg-amber-700 text-left">UNIT</th>
+                                                    <th className="px-2 py-2 border border-amber-800">Start HM</th>
+                                                    <th className="px-2 py-2 border border-amber-800">Max HM</th>
+                                                    <th className="px-2 py-2 border border-amber-800 text-amber-100">OP (hrs)</th>
+                                                    <th className="px-2 py-2 border border-amber-800">EWH</th>
+                                                    <th className="px-2 py-2 border border-amber-800 text-amber-100">BD (hrs)</th>
+                                                    <th className="px-2 py-2 border border-amber-800">Event BD</th>
+                                                    <th className="px-2 py-2 border border-amber-800">STB</th>
+                                                    <th className="px-2 py-2 border border-amber-800 bg-amber-700">PA Actual</th>
+                                                    <th className="px-2 py-2 border border-amber-800 bg-amber-700 text-amber-200">Plan PA</th>
+                                                    <th className="px-2 py-2 border border-amber-800 bg-amber-700">PA Achv</th>
+                                                    <th className="px-2 py-2 border border-amber-800 bg-amber-700">MA</th>
+                                                    <th className="px-2 py-2 border border-amber-800 text-amber-100">MTBF</th>
+                                                    <th className="px-2 py-2 border border-amber-800 text-amber-100">MTBF Achv</th>
+                                                    <th className="px-2 py-2 border border-amber-800 text-amber-100">MTTR</th>
+                                                    <th className="px-2 py-2 border border-amber-800 text-amber-100">MTTR Achv</th>
+                                                    <th className="px-2 py-2 border border-amber-800">UA %</th>
+                                                    <th className="px-2 py-2 border border-amber-800">EU (%)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                                                {typeGroup.kpi_table?.map((row) => (
+                                                    <tr key={row.unit} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 font-bold bg-gray-50 dark:bg-gray-900 text-blue-600 dark:text-blue-400">
+                                                            {row.unit}
+                                                        </td>
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right">{row.start_hm}</td>
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right">{row.max_hm}</td>
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right font-semibold">{row.op_hrs}</td>
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right">{row.ewh}</td>
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right font-semibold text-rose-600 dark:text-rose-400">{row.bd_hrs}</td>
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right">{row.event_bd}</td>
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right">{row.stb}</td>
+                                                        
+                                                        {/* Targets and Achvs */}
+                                                        <TargetCell value={row.pa_actual} target={row.plan_pa} isGreaterBetter={true} isPercent={true} />
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200">{row.plan_pa}%</td>
+                                                        <TargetCell value={row.pa_achv} target={100} isGreaterBetter={true} isPercent={true} />
+                                                        <TargetCell value={row.ma} target={row.plan_pa} isGreaterBetter={true} isPercent={true} />
+                                                        
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right text-indigo-600 dark:text-indigo-400 font-bold">{row.mtbf}</td>
+                                                        <TargetCell value={row.mtbf_achv} target={100} isGreaterBetter={true} isPercent={true} />
+                                                        
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right text-indigo-600 dark:text-indigo-400 font-bold">{row.mttr}</td>
+                                                        <TargetCell value={row.mttr_achv} target={100} isGreaterBetter={true} isPercent={true} />
+                                                        
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-200">{row.ua}%</td>
+                                                        <td className="px-2 py-1.5 border border-gray-300 dark:border-gray-700 text-right bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-200">{row.eu}%</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
-            </div>
+            ) : (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-10 text-center shadow-sm">
+                    <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 12h2v5H7zm4-3h2v8h-2zm4-4h2v12h-2z"/></svg>
+                    <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">Tidak ada data KPI untuk periode ini.</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Coba ubah filter periode atau pastikan data unit tersedia.</p>
+                </div>
+            )}
+
         </AuthenticatedLayout>
     );
 }
 
-export default function KpiIndex(props) {
-    return (
-        <ErrorBoundary>
-            <KpiContent {...props} />
-        </ErrorBoundary>
-    );
+// Wrapper component for PieChart
+function PieChart({ data }) {
+    const canvasRef = useRef(null);
+    usePieChart(canvasRef, data);
+    return <canvas ref={canvasRef} />;
 }

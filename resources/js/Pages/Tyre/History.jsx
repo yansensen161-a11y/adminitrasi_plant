@@ -8,7 +8,7 @@ export default function History({ tyre }) {
     const [showActionModal, setShowActionModal] = useState(false);
     const [actionType, setActionType] = useState(''); // ROTATE, REPAIR, SCRAP
 
-    const { data, setData, post, processing, reset } = useForm({
+    const { data, setData, post, processing, reset, transform } = useForm({
         to_position: '',
         hm_at_event: '',
         event_date: new Date().toISOString().split('T')[0],
@@ -24,13 +24,27 @@ export default function History({ tyre }) {
 
     const submitAction = (e) => {
         e.preventDefault();
-        const routeName = actionType === 'ROTATE' ? 'tyres.rotate' : actionType === 'REPAIR' ? 'tyres.repair' : 'tyres.scrap';
-        post(route(routeName, tyre.id), {
-            onSuccess: () => {
-                setShowActionModal(false);
-                alert(`Tyre ${actionType} berhasil!`);
-            }
-        });
+        
+        if (actionType === 'ROTATE') {
+            post(route('tyres.rotate', tyre.id), {
+                onSuccess: () => {
+                    setShowActionModal(false);
+                    alert(`Tyre ROTATE berhasil!`);
+                }
+            });
+        } else {
+            // REPAIR or SCRAP -> maps to remove route
+            transform((data) => ({
+                ...data,
+                reason: actionType
+            }));
+            post(route('tyres.remove', tyre.id), {
+                onSuccess: () => {
+                    setShowActionModal(false);
+                    alert(`Tyre ${actionType} berhasil!`);
+                }
+            });
+        }
     };
 
     return (
@@ -93,6 +107,10 @@ export default function History({ tyre }) {
                                 <div><span className="text-gray-500">S/N:</span> <span className="font-bold">{tyre.serial_number}</span></div>
                                 <div><span className="text-gray-500">Brand:</span> <span className="font-bold">{tyre.brand}</span></div>
                                 <div><span className="text-gray-500">Tipe/Size:</span> <span className="font-bold">{tyre.type_size || '-'}</span></div>
+                                <div><span className="text-gray-500">Pattern:</span> <span className="font-bold">{tyre.pattern || '-'}</span></div>
+                                <div><span className="text-gray-500">PSI:</span> <span className="font-bold">{tyre.psi || '-'}</span></div>
+                                <div><span className="text-gray-500">Target HM:</span> <span className="font-bold">{tyre.plan_rotary_target || '3000'}</span></div>
+                                <div><span className="text-gray-500">OTD/RTD:</span> <span className="font-bold">{tyre.otd || '-'} / {tyre.rtd || '-'}</span></div>
                                 <div>
                                     <span className="text-gray-500">Status:</span> 
                                     <span className={`ml-2 px-2 py-0.5 rounded text-xs font-bold ${tyre.condition==='ACTIVE'?'bg-green-100 text-green-700':tyre.condition==='SCRAP'?'bg-red-100 text-red-700':'bg-yellow-100 text-yellow-700'}`}>
@@ -107,7 +125,9 @@ export default function History({ tyre }) {
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div><span className="text-gray-500">Unit:</span> <span className="font-bold text-blue-600">{unit?.code_unit || 'Di Gudang'}</span></div>
                                 <div><span className="text-gray-500">Posisi:</span> <span className="font-bold">{tyre.position || '-'}</span></div>
-                                <div><span className="text-gray-500">Lifetime HM:</span> <span className="font-bold">{tyre.total_hm}</span></div>
+                                <div><span className="text-gray-500">Prev Life HM:</span> <span className="font-bold text-gray-500">{tyre.total_hm}</span></div>
+                                <div><span className="text-gray-500">Current Life HM:</span> <span className="font-bold text-green-600">{tyre.current_life_time}</span></div>
+                                <div><span className="text-gray-500">Total Lifetime:</span> <span className="font-bold text-blue-600">{tyre.total_lifetime}</span></div>
                             </div>
                         </div>
                     </div>

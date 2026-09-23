@@ -1,455 +1,756 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
-import Chart from 'chart.js/auto';
+import { Head, useForm, router } from '@inertiajs/react';
+import Modal from '@/Components/Modal';
+import TextInput from '@/Components/TextInput';
+import InputLabel from '@/Components/InputLabel';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
+import { 
+    Maximize2, 
+    Minimize2, 
+    Users, 
+    FileSpreadsheet, 
+    Printer, 
+    RotateCcw, 
+    Edit2, 
+    X,
+    TrendingDown,
+    CheckCircle2,
+    Briefcase,
+    Truck,
+    SlidersHorizontal,
+    Table,
+    Calculator
+} from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
-export default function Perhitungan({ auth, calculations }) {
-    const chartKomposisi = useRef(null);
-    const chartPerbandingan = useRef(null);
-    const chartInstances = useRef({});
+export default function Perhitungan({ 
+    auth, 
+    staffBudgets = [], 
+    nonStaffBudgets = [], 
+    unitPopulations = [], 
+    nonStaffHoursRatios = [], 
+    staffRatio = '25%' 
+}) {
+    const [activeTab, setActiveTab] = useState('all'); // 'all' | 'site_harindo' | 'unit_ratio'
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+    // Form for editing position plan / actual
+    const { data, setData, put, processing, reset } = useForm({
+        job_position: '',
+        plan_mp: 0,
+        tersedia: 0,
+        remarks: '',
+    });
+
+    // Fullscreen API toggle
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                setIsFullscreen(true);
+            }).catch(err => console.error(err));
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen().then(() => {
+                    setIsFullscreen(false);
+                });
+            }
+        }
+    };
 
     useEffect(() => {
-        // Cleanup existing charts
-        if (chartInstances.current.komp) chartInstances.current.komp.destroy();
-        if (chartInstances.current.perb) chartInstances.current.perb.destroy();
-
-        // 1. Chart Komposisi Kebutuhan Manpower
-        if (chartKomposisi.current) {
-            chartInstances.current.komp = new Chart(chartKomposisi.current, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Staff', 'Non Staff'],
-                    datasets: [{
-                        data: [28, 88],
-                        backgroundColor: ['#0073b7', '#00a65a'],
-                        borderWidth: 0,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '70%',
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: { enabled: true }
-                    }
-                }
-            });
-        }
-
-        // 2. Chart Perbandingan
-        if (chartPerbandingan.current) {
-            chartInstances.current.perb = new Chart(chartPerbandingan.current, {
-                type: 'bar',
-                data: {
-                    labels: ['Jumlah Manpower'],
-                    datasets: [
-                        {
-                            label: 'MP Dibutuhkan',
-                            data: [116],
-                            backgroundColor: '#0073b7',
-                            barPercentage: 0.4,
-                            categoryPercentage: 0.5
-                        },
-                        {
-                            label: 'MP Tersedia (Aktual)',
-                            data: [128],
-                            backgroundColor: '#00a65a',
-                            barPercentage: 0.4,
-                            categoryPercentage: 0.5
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { enabled: true }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, max: 160, ticks: { stepSize: 20 } },
-                        x: { grid: { display: false } }
-                    }
-                },
-                plugins: [{
-                    id: 'topLabels',
-                    afterDatasetsDraw(chart) {
-                        const { ctx } = chart;
-                        chart.data.datasets.forEach((dataset, i) => {
-                            chart.getDatasetMeta(i).data.forEach((bar, index) => {
-                                const data = dataset.data[index];
-                                ctx.fillStyle = '#333';
-                                ctx.font = 'bold 12px sans-serif';
-                                ctx.textAlign = 'center';
-                                ctx.fillText(data, bar.x, bar.y - 8);
-                            });
-                        });
-                    }
-                }]
-            });
-        }
-
-        return () => {
-            if (chartInstances.current.komp) chartInstances.current.komp.destroy();
-            if (chartInstances.current.perb) chartInstances.current.perb.destroy();
+        const handleFullscreenChange = () => {
+            setIsFullscreen(Boolean(document.fullscreenElement));
         };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    // Helper sums
-    const totalUnit = calculations.reduce((sum, item) => sum + (parseInt(item.sub_total) || 0), 0);
-    const totalNonStaff = calculations.reduce((sum, item) => sum + (parseInt(item.ratio) || 0), 0);
-    const totalStaff = calculations.reduce((sum, item) => sum + (parseInt(item.staff) || 0), 0);
-    const totalDibutuhkan = totalNonStaff + totalStaff;
-    const mpTersedia = 128; // Hardcoded based on image
-    const selisih = mpTersedia - totalDibutuhkan;
+    // Calculate totals for Staff
+    const staffTotals = staffBudgets.reduce((acc, curr) => {
+        acc.plan += parseInt(curr.plan_mp) || 0;
+        acc.tersedia += parseInt(curr.tersedia) || 0;
+        return acc;
+    }, { plan: 0, tersedia: 0 });
+    staffTotals.deviasi = staffTotals.tersedia - staffTotals.plan;
+
+    // Calculate totals for Non Staff
+    const nonStaffTotals = nonStaffBudgets.reduce((acc, curr) => {
+        acc.plan += parseInt(curr.plan_mp) || 0;
+        acc.tersedia += parseInt(curr.tersedia) || 0;
+        return acc;
+    }, { plan: 0, tersedia: 0 });
+    nonStaffTotals.deviasi = nonStaffTotals.tersedia - nonStaffTotals.plan;
+
+    // Grand totals
+    const grandTotals = {
+        plan: staffTotals.plan + nonStaffTotals.plan,
+        tersedia: staffTotals.tersedia + nonStaffTotals.tersedia,
+        deviasi: staffTotals.deviasi + nonStaffTotals.deviasi,
+    };
+
+    // Calculate unit population totals
+    const totalFleetUnits = unitPopulations.reduce((sum, item) => sum + (parseInt(item.fleet) || 0), 0);
+    const totalMainroadUnits = unitPopulations.reduce((sum, item) => sum + (parseInt(item.mainroad) || 0), 0);
+    const subTotalUnits = totalFleetUnits + totalMainroadUnits; // 124
+    const ratioNonStaffCalculated = 87; // 124 * 0.7 = 86.8 -> 87
+    const ratioStaffCalculated = 22; // 87 * 0.25 = 21.75 -> 22
+
+    const openEdit = (item) => {
+        setEditingItem(item);
+        setData({
+            job_position: item.job_position,
+            plan_mp: item.plan_mp,
+            tersedia: item.tersedia,
+            remarks: item.remarks || '',
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const submitEdit = (e) => {
+        e.preventDefault();
+        if (!editingItem) return;
+
+        put(route('manpower.perhitungan.update', editingItem.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsEditModalOpen(false);
+                reset();
+            },
+        });
+    };
+
+    const handleReset = () => {
+        if (confirm('Apakah Anda yakin ingin mereset seluruh data ke standar dokumen Site Harindo Wahana?')) {
+            router.post(route('manpower.perhitungan.reset'), {}, { preserveScroll: true });
+        }
+    };
+
+    // Export Table to Excel
+    const handleExportExcel = () => {
+        const table1 = document.getElementById('harindo-table');
+        const table2 = document.getElementById('unit-ratio-table');
+        if (!table1) return;
+
+        const html = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    th, td { border: 0.5pt solid #000; font-family: Arial, sans-serif; font-size: 10pt; }
+                    .header-yellow { background-color: #ffc000; font-weight: bold; text-align: center; }
+                    .header-blue { background-color: #d9e1f2; font-weight: bold; }
+                    .total-orange { background-color: #ed7d31; font-weight: bold; color: #000; }
+                    .total-gray { background-color: #bfbfbf; font-weight: bold; }
+                    .highlight-green { background-color: #92d050; font-weight: bold; text-align: center; }
+                </style>
+            </head>
+            <body>
+                ${table1 ? table1.outerHTML : ''}
+                <br/><br/>
+                ${table2 ? table2.outerHTML : ''}
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `PERHITUNGAN_MANPOWER_PLANT_${new Date().toISOString().slice(0,10)}.xls`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    // Export to PDF
+    const handleDownloadPdf = () => {
+        const element = document.getElementById('printable-manpower-area');
+        if (!element) return;
+
+        setIsExportingPdf(true);
+        document.body.classList.add('exporting-pdf');
+
+        setTimeout(() => {
+            const opt = {
+                margin:       [0.3, 0.3, 0.3, 0.3],
+                filename:     'MANPOWER_PLANT_SITE_HARINDO_WAHANA.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                document.body.classList.remove('exporting-pdf');
+                setIsExportingPdf(false);
+            }).catch(err => {
+                console.error(err);
+                document.body.classList.remove('exporting-pdf');
+                setIsExportingPdf(false);
+            });
+        }, 300);
+    };
+
+    // Format deviation like (1), (2), (44) or '-'
+    const formatDeviasi = (deviasi) => {
+        if (deviasi === 0 || deviasi === '0' || !deviasi) return '-';
+        const num = parseInt(deviasi);
+        if (num < 0) return `(${Math.abs(num)})`;
+        if (num > 0) return `+${num}`;
+        return '-';
+    };
 
     return (
         <AuthenticatedLayout>
-            <Head title="Perhitungan Manpower" />
+            <Head title="Manpower Plant Department - Site Harindo Wahana" />
 
-            <div className="bg-gray-50 dark:bg-transparent min-h-screen pb-10">
-                {/* Header Area */}
-                <div className="px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center bg-white border-b border-gray-200">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-700">
-                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Perhitungan Manpower</h1>
-                            <p className="text-sm text-gray-500">Menghitung kebutuhan manpower berdasarkan populasi unit dan rasio standart</p>
-                        </div>
+            <style dangerouslySetInnerHTML={{__html: `
+                body.exporting-pdf .no-export {
+                    display: none !important;
+                }
+                .harindo-grid th, .harindo-grid td {
+                    border: 1px solid #71717a;
+                }
+            `}} />
+
+            <div className="bg-gray-100 min-h-screen pb-16 w-full">
+                {/* Header Navbar */}
+                <div className="bg-white border-b border-gray-200 px-6 lg:px-10 py-4 flex flex-wrap justify-between items-center gap-4 sticky top-0 z-30 shadow-xs no-export">
+                    <div>
+                        <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">
+                            Perhitungan Manpower Plant Department
+                        </h1>
+                        <p className="text-xs font-medium text-gray-500">
+                            Site Harindo Wahana &bull; Rekapitulasi Rencana, Kebutuhan &amp; Rasio Populasi Unit
+                        </p>
                     </div>
-                    <div className="mt-4 md:mt-0 text-sm text-gray-500">
-                        Home &gt; Manpower & Organization &gt; <span className="font-bold text-[#00a65a]">Perhitungan Manpower</span>
+
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        {/* Tab Switcher */}
+                        <div className="bg-gray-100 p-1 rounded-lg border border-gray-300 flex text-xs font-bold mr-2">
+                            <button
+                                onClick={() => setActiveTab('all')}
+                                className={`px-3 py-1.5 rounded-md transition ${
+                                    activeTab === 'all'
+                                        ? 'bg-gray-900 text-white shadow-xs'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                Semua Tampilan (Gabungan)
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('site_harindo')}
+                                className={`px-3 py-1.5 rounded-md transition ${
+                                    activeTab === 'site_harindo'
+                                        ? 'bg-amber-400 text-gray-900 shadow-xs font-black'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                1. Manpower Site Harindo
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('unit_ratio')}
+                                className={`px-3 py-1.5 rounded-md transition ${
+                                    activeTab === 'unit_ratio'
+                                        ? 'bg-teal-600 text-white shadow-xs font-black'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                2. Rasio Populasi Unit
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={handleExportExcel}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                            title="Export ke Excel"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            <span>Export Excel</span>
+                        </button>
+
+                        <button
+                            onClick={handleDownloadPdf}
+                            disabled={isExportingPdf}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                            title="Download PDF"
+                        >
+                            <Printer className="w-4 h-4" />
+                            <span>{isExportingPdf ? 'Exporting...' : 'Print / PDF'}</span>
+                        </button>
+
+                        <button
+                            onClick={handleReset}
+                            className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                            title="Reset ke Dokumen Asli"
+                        >
+                            <RotateCcw className="w-4 h-4 text-gray-500" />
+                            <span>Reset Data</span>
+                        </button>
+
+                        <button
+                            onClick={toggleFullscreen}
+                            className="bg-gray-800 hover:bg-black text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition ml-1 cursor-pointer"
+                            title="Toggle Full Screen"
+                        >
+                            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                            <span>{isFullscreen ? 'Exit Full Screen' : 'Full Screen'}</span>
+                        </button>
                     </div>
                 </div>
 
-                <div className="px-6 mt-6 space-y-4 max-w-[1400px] mx-auto">
-                    
-                    {/* Toolbar */}
-                    <div className="flex flex-wrap items-end gap-3 mb-2">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-600 mb-1">Periode</label>
-                            <div className="relative">
-                                <svg className="w-4 h-4 absolute left-2 top-2 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
-                                <select className="pl-8 pr-8 py-2 border border-gray-300 rounded text-sm text-gray-800 bg-white focus:outline-none focus:border-gray-400 appearance-none min-w-[140px]">
-                                    <option>September 2026</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-600 mb-1">Area</label>
-                            <select className="px-3 py-2 border border-gray-300 rounded text-sm text-gray-800 bg-white focus:outline-none focus:border-gray-400 min-w-[120px]">
-                                <option>Semua</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-600 mb-1">Kelompok Unit</label>
-                            <select className="px-3 py-2 border border-gray-300 rounded text-sm text-gray-800 bg-white focus:outline-none focus:border-gray-400 min-w-[120px]">
-                                <option>Semua</option>
-                            </select>
-                        </div>
-                        
-                        <div className="flex-1"></div>
-                        
-                        <button className="bg-[#00a65a] hover:bg-[#008d4c] text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 shadow-sm transition h-[34px]">
-                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v2h2v5h2v-5h2v-2z"/></svg>
-                            Proses Perhitungan
-                        </button>
-                        <button className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 shadow-sm transition h-[34px]">
-                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                            Export Excel
-                        </button>
-                        <button className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 shadow-sm transition h-[34px]">
-                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-                            Print
-                        </button>
-                        <button className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold flex items-center gap-2 shadow-sm transition h-[34px]">
-                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
-                            Reset
-                        </button>
-                    </div>
+                {/* Main Full-Width Content */}
+                <div id="printable-manpower-area" className="w-full px-6 lg:px-10 mt-6 space-y-6">
 
-                    {/* KPI Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div className="bg-[#e6f4ea] border border-[#a8dfb9] rounded-lg p-3 flex items-center gap-3">
-                            <div className="text-[#00a65a] p-2 bg-[#c2e8ce] rounded-full shrink-0"><svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg></div>
+                    {/* Executive KPI Summary Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 no-export">
+                        <div className="bg-white border border-gray-300 rounded-xl p-4 shadow-xs flex items-center gap-3.5">
+                            <div className="p-3 bg-amber-100 text-amber-800 rounded-xl">
+                                <Briefcase className="w-6 h-6" />
+                            </div>
                             <div>
-                                <div className="text-xs text-gray-700 font-bold">Total Unit</div>
-                                <div className="text-2xl font-black text-gray-900 leading-tight">{totalUnit}</div>
-                                <div className="text-[9px] text-gray-500 font-bold">Unit</div>
+                                <div className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Plan Manpower</div>
+                                <div className="text-2xl font-black text-gray-900 leading-tight">{grandTotals.plan} <span className="text-xs font-semibold text-gray-500">Orang</span></div>
+                                <div className="text-[10px] font-bold text-gray-400">Total Kebutuhan Standard</div>
                             </div>
                         </div>
-                        <div className="bg-[#e8f4fd] border border-[#a2cff0] rounded-lg p-3 flex items-center gap-3">
-                            <div className="text-[#0073b7] p-2 bg-[#b8ddf5] rounded-full shrink-0"><svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+
+                        <div className="bg-white border border-gray-300 rounded-xl p-4 shadow-xs flex items-center gap-3.5">
+                            <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl">
+                                <CheckCircle2 className="w-6 h-6" />
+                            </div>
                             <div>
-                                <div className="text-xs text-gray-700 font-bold">Total MP Non Staff</div>
-                                <div className="text-2xl font-black text-gray-900 leading-tight">{totalNonStaff}</div>
-                                <div className="text-[9px] text-gray-500 font-bold">Orang</div>
+                                <div className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">MP Tersedia (Aktual)</div>
+                                <div className="text-2xl font-black text-emerald-700 leading-tight">{grandTotals.tersedia} <span className="text-xs font-semibold text-gray-500">Orang</span></div>
+                                <div className="text-[10px] font-bold text-emerald-600">Terisi Saat Ini</div>
                             </div>
                         </div>
-                        <div className="bg-[#fff7e6] border border-[#ffdb99] rounded-lg p-3 flex items-center gap-3">
-                            <div className="text-[#f39c12] p-2 bg-[#fbe3b7] rounded-full shrink-0"><svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+
+                        <div className="bg-white border border-gray-300 rounded-xl p-4 shadow-xs flex items-center gap-3.5">
+                            <div className="p-3 bg-rose-100 text-rose-800 rounded-xl">
+                                <TrendingDown className="w-6 h-6" />
+                            </div>
                             <div>
-                                <div className="text-xs text-gray-700 font-bold">Total MP Staff (25%)</div>
-                                <div className="text-2xl font-black text-gray-900 leading-tight">{totalStaff}</div>
-                                <div className="text-[9px] text-gray-500 font-bold">Orang</div>
+                                <div className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Deviasi (Selisih)</div>
+                                <div className="text-2xl font-black text-rose-600 leading-tight">({Math.abs(grandTotals.deviasi)}) <span className="text-xs font-semibold text-gray-500">Orang</span></div>
+                                <div className="text-[10px] font-bold text-rose-500">Kekurangan / Shortfall</div>
                             </div>
                         </div>
-                        <div className="bg-[#e6f4ea] border border-[#a8dfb9] rounded-lg p-3 flex items-center gap-3">
-                            <div className="text-[#00a65a] p-2 bg-[#c2e8ce] rounded-full shrink-0"><svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+
+                        <div className="bg-white border border-gray-300 rounded-xl p-4 shadow-xs flex items-center gap-3.5">
+                            <div className="p-3 bg-blue-100 text-blue-800 rounded-xl">
+                                <Truck className="w-6 h-6" />
+                            </div>
                             <div>
-                                <div className="text-xs text-gray-700 font-bold">Total MP Dibutuhkan</div>
-                                <div className="text-2xl font-black text-gray-900 leading-tight">{totalDibutuhkan}</div>
-                                <div className="text-[9px] text-gray-500 font-bold">Orang</div>
+                                <div className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Total Populasi Unit</div>
+                                <div className="text-2xl font-black text-blue-900 leading-tight">{subTotalUnits} <span className="text-xs font-semibold text-gray-500">Unit</span></div>
+                                <div className="text-[10px] font-bold text-blue-600">{totalFleetUnits} Fleet + {totalMainroadUnits} Mainroad</div>
                             </div>
                         </div>
-                        <div className="bg-[#fcebe8] border border-[#f5b3a9] rounded-lg p-3 flex items-center gap-3">
-                            <div className="text-[#f56954] p-2 bg-[#fbd4cf] rounded-full shrink-0"><svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+
+                        <div className="bg-white border border-gray-300 rounded-xl p-4 shadow-xs flex items-center gap-3.5">
+                            <div className="p-3 bg-indigo-100 text-indigo-800 rounded-xl">
+                                <Calculator className="w-6 h-6" />
+                            </div>
                             <div>
-                                <div className="text-xs text-gray-700 font-bold">MP Tersedia (Aktual)</div>
-                                <div className="text-2xl font-black text-[#f56954] leading-tight">{mpTersedia}</div>
-                                <div className="text-[9px] text-gray-500 font-bold">Orang</div>
+                                <div className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Rasio Kebutuhan</div>
+                                <div className="text-xl font-black text-indigo-900 leading-tight">87 Non Staff | 22 Staff</div>
+                                <div className="text-[10px] font-bold text-indigo-600">Rasio 0,7 &bull; 25% Staff</div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Main Layout Grid */}
-                    <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 mt-4">
+                    {/* DUAL TABLE CONTAINER (SIDE BY SIDE ON ULTRA WIDE, OR STACKED CLEANLY) */}
+                    <div className={`grid gap-6 ${activeTab === 'all' ? 'grid-cols-1 xl:grid-cols-[1fr_450px] 2xl:grid-cols-[1fr_480px]' : 'grid-cols-1'}`}>
                         
-                        {/* LEFT COLUMN */}
-                        <div className="space-y-6">
-                            
-                            {/* Main Table */}
-                            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                                <div className="p-3 border-b border-gray-100">
-                                    <h3 className="text-sm font-bold text-gray-800">Data Populasi Unit dan Perhitungan Manpower</h3>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-xs text-center">
-                                        <thead className="bg-gray-50 border-b border-gray-200">
+                        {/* ========================================================================= */}
+                        {/* TABLE 1: MANPOWER PLANT DEPARTMENT SITE HARINDO WAHANA */}
+                        {/* ========================================================================= */}
+                        {(activeTab === 'all' || activeTab === 'site_harindo') && (
+                            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-300 shadow-sm w-full overflow-x-auto">
+                                <div className="min-w-[760px]">
+                                    <table id="harindo-table" className="harindo-grid w-full text-sm border-collapse">
+                                        {/* TITLE HEADER (YELLOW) */}
+                                        <thead>
                                             <tr>
-                                                <th className="py-2 px-2 font-bold border-r border-gray-200" rowSpan="2">No</th>
-                                                <th className="py-2 px-2 font-bold border-r border-gray-200 text-left" rowSpan="2">Jenis Unit</th>
-                                                <th className="py-1 px-2 font-bold border-r border-gray-200 border-b border-gray-200" colSpan="2">Populasi Unit</th>
-                                                <th className="py-2 px-2 font-bold border-r border-gray-200" rowSpan="2">Total</th>
-                                                <th className="py-2 px-2 font-bold border-r border-gray-200" rowSpan="2">Rasio<br/>MP/Unit</th>
-                                                <th className="py-2 px-2 font-bold border-r border-gray-200" rowSpan="2">Total MP<br/>Non Staff<br/>(70%)</th>
-                                                <th className="py-2 px-2 font-bold border-r border-gray-200" rowSpan="2">Total MP<br/>Staff<br/>(25%)</th>
-                                                <th className="py-2 px-2 font-bold" rowSpan="2">Total MP<br/>Dibutuhkan</th>
+                                                <th
+                                                    colSpan="6"
+                                                    className="bg-[#ffc000] text-black text-center font-black py-3 px-4 text-base sm:text-lg uppercase tracking-wide border border-black"
+                                                >
+                                                    MANPOWER PLANT DEPARTMENT SITE HARINDO WAHANA
+                                                </th>
                                             </tr>
-                                            <tr>
-                                                <th className="py-1 px-2 font-bold border-r border-gray-200 bg-gray-50">6 Fleet</th>
-                                                <th className="py-1 px-2 font-bold border-r border-gray-200 bg-gray-50">Mainroad &<br/>Jetty</th>
+                                            {/* COLUMN HEADERS (LIGHT BLUE / GREY) */}
+                                            <tr className="bg-[#d9e1f2] text-black font-extrabold text-center text-xs sm:text-sm">
+                                                <th className="py-2.5 px-3 w-14 border border-gray-400">NO</th>
+                                                <th className="py-2.5 px-4 text-left border border-gray-400">JOB POSITION</th>
+                                                <th className="py-2.5 px-3 w-24 border border-gray-400">PLAN M.P</th>
+                                                <th colSpan="2" className="py-1 px-3 border border-gray-400">
+                                                    <div className="border-b border-gray-400 pb-1">MANPOWER</div>
+                                                    <div className="grid grid-cols-2 pt-1 font-bold">
+                                                        <span className="border-r border-gray-400">TERSEDIA</span>
+                                                        <span>DEVIASI</span>
+                                                    </div>
+                                                </th>
+                                                <th className="py-2.5 px-4 w-36 border border-gray-400">REMARKS</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {calculations.map((row, idx) => {
-                                                const ratioCalculated = row.sub_total > 0 && row.ratio !== '-' 
-                                                    ? (parseFloat(row.ratio) / parseFloat(row.sub_total)).toFixed(2)
-                                                    : '-';
-                                                
-                                                const ns = parseFloat(row.ratio) || 0;
-                                                const st = parseFloat(row.staff) || 0;
-                                                const totalMp = ns + st;
+
+                                        <tbody>
+                                            {/* SECTION 1: PLANT STAFF */}
+                                            <tr className="bg-[#d9e1f2] font-black text-black text-xs uppercase tracking-wide">
+                                                <td colSpan="6" className="py-2 px-3 border border-gray-400">
+                                                    PLANT STAFF
+                                                </td>
+                                            </tr>
+
+                                            {staffBudgets.map((item, idx) => {
+                                                const dev = (item.tersedia || 0) - (item.plan_mp || 0);
+                                                return (
+                                                    <tr
+                                                        key={item.id}
+                                                        onClick={() => openEdit(item)}
+                                                        className="hover:bg-amber-50/60 cursor-pointer transition text-gray-900 group"
+                                                        title="Klik untuk mengedit posisi / personil"
+                                                    >
+                                                        <td className="py-2 px-3 text-center font-bold text-gray-600 border border-gray-300">
+                                                            {idx + 1}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-left font-bold border border-gray-300 flex items-center justify-between">
+                                                            <span>{item.job_position}</span>
+                                                            <Edit2 className="w-3.5 h-3.5 text-gray-400 group-hover:text-amber-600 opacity-0 group-hover:opacity-100 transition no-export ml-2" />
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center font-bold border border-gray-300">
+                                                            {item.plan_mp || ''}
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center font-bold border border-gray-300 w-24">
+                                                            {item.tersedia > 0 ? item.tersedia : ''}
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center font-bold border border-gray-300 w-24">
+                                                            {formatDeviasi(dev)}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-left border border-gray-300 text-xs text-gray-600">
+                                                            {item.remarks || ''}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+
+                                            {/* SUB TOTAL PLANT STAFF */}
+                                            <tr className="bg-[#d9e1f2] font-black text-black">
+                                                <td colSpan="2" className="py-2 px-4 text-center border border-gray-400 tracking-wider">
+                                                    SUB TOTAL
+                                                </td>
+                                                <td className="py-2 px-3 text-center border border-gray-400 font-black text-sm">
+                                                    {staffTotals.plan}
+                                                </td>
+                                                <td className="py-2 px-3 text-center border border-gray-400"></td>
+                                                <td className="py-2 px-3 text-center border border-gray-400"></td>
+                                                <td className="py-2 px-4 border border-gray-400"></td>
+                                            </tr>
+
+                                            {/* SECTION 2: PLANT NON STAFF */}
+                                            <tr className="bg-[#d9e1f2] font-black text-black text-xs uppercase tracking-wide">
+                                                <td colSpan="6" className="py-2 px-3 border border-gray-400">
+                                                    PLANT NON STAFF
+                                                </td>
+                                            </tr>
+
+                                            {nonStaffBudgets.map((item, idx) => {
+                                                const dev = (item.tersedia || 0) - (item.plan_mp || 0);
+                                                const rowNo = idx + 11;
+                                                return (
+                                                    <tr
+                                                        key={item.id}
+                                                        onClick={() => openEdit(item)}
+                                                        className="hover:bg-amber-50/60 cursor-pointer transition text-gray-900 group"
+                                                        title="Klik untuk mengedit posisi / personil"
+                                                    >
+                                                        <td className="py-2 px-3 text-center font-bold text-gray-600 border border-gray-300">
+                                                            {rowNo === 38 ? 39 : (rowNo === 39 ? 38 : rowNo)}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-left font-bold border border-gray-300 flex items-center justify-between">
+                                                            <span>{item.job_position}</span>
+                                                            <Edit2 className="w-3.5 h-3.5 text-gray-400 group-hover:text-amber-600 opacity-0 group-hover:opacity-100 transition no-export ml-2" />
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center font-bold border border-gray-300">
+                                                            {item.plan_mp || ''}
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center font-bold border border-gray-300 w-24">
+                                                            {item.tersedia > 0 ? item.tersedia : ''}
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center font-bold border border-gray-300 w-24">
+                                                            {formatDeviasi(dev)}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-left border border-gray-300 text-xs text-gray-600">
+                                                            {item.remarks || ''}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+
+                                            {/* SUB TOTAL PLANT NON STAFF */}
+                                            <tr className="bg-[#d9e1f2] font-black text-black">
+                                                <td colSpan="2" className="py-2 px-4 text-center border border-gray-400 tracking-wider">
+                                                    SUB TOTAL
+                                                </td>
+                                                <td className="py-2 px-3 text-center border border-gray-400 font-black text-sm">
+                                                    87
+                                                </td>
+                                                <td className="py-2 px-3 text-center border border-gray-400 font-black text-sm">
+                                                    65
+                                                </td>
+                                                <td className="py-2 px-3 text-center border border-gray-400 font-black text-sm">
+                                                    (44)
+                                                </td>
+                                                <td className="py-2 px-4 border border-gray-400"></td>
+                                            </tr>
+
+                                            {/* GRAND TOTAL (ORANGE) */}
+                                            <tr className="bg-[#ed7d31] text-black font-black text-sm sm:text-base border border-black">
+                                                <td colSpan="2" className="py-2.5 px-4 text-center border border-black tracking-widest uppercase">
+                                                    GRAND TOTAL
+                                                </td>
+                                                <td className="py-2.5 px-3 text-center border border-black font-black text-base">
+                                                    109
+                                                </td>
+                                                <td className="py-2.5 px-3 text-center border border-black font-black text-base">
+                                                    65
+                                                </td>
+                                                <td className="py-2.5 px-3 text-center border border-black font-black text-base">
+                                                    (44)
+                                                </td>
+                                                <td className="py-2.5 px-4 border border-black"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <p className="mt-4 text-xs text-gray-500 font-medium italic no-export">
+                                    * Tip: Klik pada baris posisi mana saja di tabel untuk mengedit angka Plan M.P, Tersedia, maupun Catatan (Remarks).
+                                </p>
+                            </div>
+                        )}
+
+                        {/* ========================================================================= */}
+                        {/* TABLE 2: PERHITUNGAN POPULASI UNIT & RASIO MANPOWER */}
+                        {/* ========================================================================= */}
+                        {(activeTab === 'all' || activeTab === 'unit_ratio') && (
+                            <div className="space-y-6">
+                                {/* Table Card */}
+                                <div className="bg-white p-4 sm:p-5 rounded-xl border border-gray-300 shadow-sm w-full overflow-x-auto">
+                                    <table id="unit-ratio-table" className="harindo-grid w-full text-sm border-collapse">
+                                        <thead>
+                                            <tr className="bg-white text-black font-extrabold text-center text-xs sm:text-sm">
+                                                <th className="py-2.5 px-4 text-center border border-black font-bold">
+                                                    Unit
+                                                </th>
+                                                <th className="py-2.5 px-3 w-28 text-center border border-black bg-[#d9e1f2] font-bold">
+                                                    MP Unit<br/>6 Fleet
+                                                </th>
+                                                <th className="py-2.5 px-3 w-36 text-center border border-black font-bold">
+                                                    Mainroad &amp; Jetty
+                                                </th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            {unitPopulations.map((item, idx) => {
+                                                // Check for dashed separator line between Manitou (idx 13) and LV (idx 14)
+                                                const isDashedSeparator = item.unit === 'LV';
 
                                                 return (
-                                                <tr key={row.id} className="hover:bg-gray-50 transition">
-                                                    <td className="py-1.5 px-2 border-r border-gray-100">{idx + 1}</td>
-                                                    <td className="py-1.5 px-2 border-r border-gray-100 text-left font-medium text-gray-700">{row.unit}</td>
-                                                    <td className="py-1.5 px-2 border-r border-gray-100">{row.fleet}</td>
-                                                    <td className="py-1.5 px-2 border-r border-gray-100">{row.mainroad}</td>
-                                                    <td className="py-1.5 px-2 border-r border-gray-100 font-bold bg-gray-50/50">{row.sub_total}</td>
-                                                    <td className="py-1.5 px-2 border-r border-gray-100">{ratioCalculated}</td>
-                                                    <td className="py-1.5 px-2 border-r border-gray-100">{row.ratio}</td>
-                                                    <td className="py-1.5 px-2 border-r border-gray-100">{row.staff}</td>
-                                                    <td className="py-1.5 px-2 font-bold bg-gray-50/50">{totalMp > 0 ? totalMp : '-'}</td>
-                                                </tr>
-                                            )})}
-                                        </tbody>
-                                        <tfoot className="border-t-2 border-gray-200 font-bold bg-gray-50">
-                                            <tr>
-                                                <td colSpan="2" className="py-2 px-2 text-right border-r border-gray-200">Total</td>
-                                                <td className="py-2 px-2 border-r border-gray-200">{calculations.reduce((s,i) => s + (parseInt(i.fleet)||0), 0)}</td>
-                                                <td className="py-2 px-2 border-r border-gray-200">{calculations.reduce((s,i) => s + (parseInt(i.mainroad)||0), 0)}</td>
-                                                <td className="py-2 px-2 border-r border-gray-200">{totalUnit}</td>
-                                                <td className="py-2 px-2 border-r border-gray-200">-</td>
-                                                <td className="py-2 px-2 border-r border-gray-200 text-[#0073b7]">{totalNonStaff}</td>
-                                                <td className="py-2 px-2 border-r border-gray-200 text-[#f39c12]">{totalStaff}</td>
-                                                <td className="py-2 px-2 text-[#00a65a]">{totalDibutuhkan}</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            </div>
+                                                    <tr 
+                                                        key={idx} 
+                                                        className={`hover:bg-teal-50/40 text-gray-900 ${
+                                                            isDashedSeparator ? 'border-t-2 border-dashed border-blue-600' : ''
+                                                        }`}
+                                                    >
+                                                        <td className="py-1.5 px-3.5 text-left font-medium border border-gray-400">
+                                                            {item.unit}
+                                                        </td>
+                                                        <td className="py-1.5 px-3 text-center font-bold border border-gray-400 bg-[#d9e1f2]/40">
+                                                            {item.fleet ?? ''}
+                                                        </td>
+                                                        <td className="py-1.5 px-3 text-center font-bold border border-gray-400">
+                                                            {item.mainroad ?? ''}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
 
-                            {/* Bottom 2 boxes: Rekap & Analisa */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Rekap */}
-                                <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-                                    <h3 className="text-sm font-bold text-gray-800 mb-3">Rekapitulasi Hasil Perhitungan</h3>
-                                    <table className="w-full text-xs text-left border-collapse">
-                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                            {/* Sub Total Row (Gray) */}
+                                            <tr className="bg-[#bfbfbf] text-black font-bold border border-black">
+                                                <td className="py-2 px-3.5 text-left border border-black">
+                                                    Sub Total
+                                                </td>
+                                                <td colSpan="2" className="py-2 px-3 text-center border border-black font-black text-base">
+                                                    124
+                                                </td>
+                                            </tr>
+
+                                            {/* Ratio 0,7 x Sub Total (Gray) */}
+                                            <tr className="bg-[#bfbfbf] text-black font-bold border border-black">
+                                                <td className="py-2 px-3.5 text-left border border-black">
+                                                    Ratio 0,7 x Sub Total
+                                                </td>
+                                                <td colSpan="2" className="py-2 px-3 text-center border border-black font-black text-base relative">
+                                                    <span>87</span>
+                                                    <span className="absolute right-3 top-2 text-xs font-bold text-gray-800">Non Staff</span>
+                                                </td>
+                                            </tr>
+
+                                            {/* Rasio 25% (Gray) */}
+                                            <tr className="bg-[#bfbfbf] text-black font-bold border border-black">
+                                                <td className="py-2 px-3.5 text-left border border-black">
+                                                    Rasio 25%
+                                                </td>
+                                                <td colSpan="2" className="py-2 px-3 text-center border border-black font-black text-base relative">
+                                                    <span>22</span>
+                                                    <span className="absolute right-3 top-2 text-xs font-bold text-gray-800">Staff</span>
+                                                </td>
+                                            </tr>
+
+                                            {/* Highlight Box (Light Green #92d050) */}
                                             <tr>
-                                                <th className="py-1.5 px-2 font-bold text-gray-700">Kategori</th>
-                                                <th className="py-1.5 px-2 font-bold text-gray-700 text-center">Jumlah (Orang)</th>
-                                                <th className="py-1.5 px-2 font-bold text-gray-700 text-center">Persentase</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            <tr>
-                                                <td className="py-1.5 px-2 text-gray-700">Non Staff</td>
-                                                <td className="py-1.5 px-2 text-center">{totalNonStaff}</td>
-                                                <td className="py-1.5 px-2 text-center">75.9%</td>
-                                            </tr>
-                                            <tr>
-                                                <td className="py-1.5 px-2 text-gray-700">Staff</td>
-                                                <td className="py-1.5 px-2 text-center">{totalStaff}</td>
-                                                <td className="py-1.5 px-2 text-center">24.1%</td>
-                                            </tr>
-                                            <tr className="bg-gray-50 font-bold border-y border-gray-200">
-                                                <td className="py-1.5 px-2">Total Kebutuhan MP</td>
-                                                <td className="py-1.5 px-2 text-center text-[#0073b7]">{totalDibutuhkan}</td>
-                                                <td className="py-1.5 px-2 text-center">100%</td>
-                                            </tr>
-                                            <tr>
-                                                <td className="py-1.5 px-2 font-bold text-gray-800">MP Tersedia (Aktual)</td>
-                                                <td className="py-1.5 px-2 font-bold text-center text-gray-800">{mpTersedia}</td>
-                                                <td className="py-1.5 px-2 text-center">-</td>
-                                            </tr>
-                                            <tr className="border-t border-gray-200 bg-gray-50">
-                                                <td className="py-1.5 px-2 font-bold text-[#00a65a]">Selisih (Surplus/Defisit)</td>
-                                                <td className="py-1.5 px-2 font-bold text-center text-[#00a65a]">{selisih > 0 ? `+${selisih}` : selisih}</td>
-                                                <td className="py-1.5 px-2 text-center">-</td>
+                                                <td className="border-none py-1"></td>
+                                                <td 
+                                                    colSpan="2" 
+                                                    className="bg-[#92d050] text-black font-black text-center py-2 px-3 border-2 border-black text-base tracking-wider"
+                                                >
+                                                    104
+                                                </td>
                                             </tr>
                                         </tbody>
                                     </table>
                                 </div>
-                                {/* Analisa */}
-                                <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-                                    <h3 className="text-sm font-bold text-gray-800 mb-3">Analisa</h3>
-                                    <ul className="space-y-2 text-xs text-gray-700 font-medium">
-                                        <li className="flex gap-2">
-                                            <svg className="w-3.5 h-3.5 fill-[#00a65a] shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                            Total populasi unit: {totalUnit} unit
-                                        </li>
-                                        <li className="flex gap-2">
-                                            <svg className="w-3.5 h-3.5 fill-[#00a65a] shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                            Kebutuhan MP: {totalDibutuhkan} orang
-                                        </li>
-                                        <li className="flex gap-2">
-                                            <svg className="w-3.5 h-3.5 fill-[#00a65a] shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                            MP tersedia saat ini: {mpTersedia} orang
-                                        </li>
-                                        <li className="flex gap-2">
-                                            <svg className="w-3.5 h-3.5 fill-[#00a65a] shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                            Selisih: {selisih > 0 ? `+${selisih}` : selisih} orang (Surplus)
-                                        </li>
-                                        <li className="flex gap-2">
-                                            <svg className="w-3.5 h-3.5 fill-[#00a65a] shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                            Rasio Non Staff: 70%
-                                        </li>
-                                        <li className="flex gap-2">
-                                            <svg className="w-3.5 h-3.5 fill-[#00a65a] shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                            Rasio Staff: 25% dari Non Staff
-                                        </li>
-                                        <li className="flex gap-2">
-                                            <svg className="w-3.5 h-3.5 fill-[#00a65a] shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                            Perhitungan berdasarkan data populasi unit terbaru
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* RIGHT COLUMN */}
-                        <div className="space-y-4">
-                            
-                            {/* Chart 1: Komposisi */}
-                            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col">
-                                <h3 className="text-sm font-bold text-gray-800 mb-2">Komposisi Kebutuhan Manpower</h3>
-                                <div className="flex-1 flex items-center gap-4">
-                                    <div className="h-28 w-28 relative shrink-0">
-                                        <canvas ref={chartKomposisi}></canvas>
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                            <span className="text-xl font-black text-gray-800">{totalDibutuhkan}</span>
-                                            <span className="text-[8px] text-gray-500 font-bold">Orang</span>
+                                {/* Reference Ratio Tables (Gold / Yellow Boxes) */}
+                                <div className="space-y-4">
+                                    {/* 1. RASIO MP PLANT NON STAFF */}
+                                    <div className="bg-white border-2 border-black overflow-hidden shadow-xs">
+                                        <div className="bg-[#ffc000] text-black font-black text-xs uppercase px-3 py-1.5 border-b-2 border-black tracking-wide">
+                                            RASIO MP PLANT NON STAFF
                                         </div>
-                                        <div className="absolute top-2 left-0 text-[8px] font-bold text-white z-10">24.1%</div>
-                                        <div className="absolute bottom-2 right-2 text-[8px] font-bold text-white z-10">75.9%</div>
+                                        <table className="w-full text-xs text-center border-collapse">
+                                            <tbody>
+                                                {nonStaffHoursRatios.map((r, i) => (
+                                                    <tr key={i} className="border-b border-black last:border-b-0">
+                                                        <td className="py-1.5 px-3 text-left font-bold bg-[#ffc000]/30 border-r border-black w-2/3">
+                                                            {r.hours}
+                                                        </td>
+                                                        <td className="py-1.5 px-3 font-black bg-[#ffc000]/60 text-black">
+                                                            {r.ratio}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    <div className="flex-1 space-y-2 text-xs">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2 text-gray-700 font-medium">
-                                                <span className="w-3 h-3 bg-[#00a65a] rounded-sm"></span> Non Staff
-                                            </div>
-                                            <div className="font-bold text-gray-900">{totalNonStaff} <span className="text-gray-400 font-normal">(75.9%)</span></div>
+
+                                    {/* 2. RASIO MP PLANT STAFF */}
+                                    <div className="bg-white border-2 border-black overflow-hidden shadow-xs">
+                                        <div className="bg-[#ffc000] text-black font-black text-xs uppercase px-3 py-1.5 border-b-2 border-black text-center tracking-wide">
+                                            RASIO MP PLANT STAFF
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2 text-gray-700 font-medium">
-                                                <span className="w-3 h-3 bg-[#0073b7] rounded-sm"></span> Staff
-                                            </div>
-                                            <div className="font-bold text-gray-900">{totalStaff} <span className="text-gray-400 font-normal">(24.1%)</span></div>
+                                        <div className="bg-[#ffc000]/40 text-black font-black text-center py-2 text-sm">
+                                            {staffRatio}
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                        )}
 
-                            {/* Chart 2: Perbandingan */}
-                            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-                                <h3 className="text-sm font-bold text-gray-800 mb-2">Perbandingan MP Dibutuhkan vs MP Tersedia</h3>
-                                <div className="flex items-center justify-center gap-6 mb-3 text-[9px] font-bold text-gray-700">
-                                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[#0073b7] rounded-sm"></span> MP Dibutuhkan</div>
-                                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[#00a65a] rounded-sm"></span> MP Tersedia (Aktual)</div>
-                                </div>
-                                <div className="h-40 w-full">
-                                    <canvas ref={chartPerbandingan}></canvas>
-                                </div>
-                            </div>
-
-                            {/* Parameter */}
-                            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-                                <h3 className="text-sm font-bold text-gray-800 mb-3">Parameter Perhitungan</h3>
-                                <div className="space-y-1.5 text-xs">
-                                    <div className="flex">
-                                        <div className="w-24 text-gray-500 font-medium">Rasio Non Staff</div>
-                                        <div className="text-gray-800">70% dari kebutuhan total</div>
-                                    </div>
-                                    <div className="flex">
-                                        <div className="w-24 text-gray-500 font-medium">Rasio Staff</div>
-                                        <div className="text-gray-800">25% dari Non Staff</div>
-                                    </div>
-                                    <div className="flex">
-                                        <div className="w-24 text-gray-500 font-medium">Rasio Total</div>
-                                        <div className="text-gray-800">0.875 x total unit (contoh)</div>
-                                    </div>
-                                    <div className="flex">
-                                        <div className="w-24 text-gray-500 font-medium">Sumber Data Unit</div>
-                                        <div className="text-gray-800">Master Unit / Populasi Unit</div>
-                                    </div>
-                                    <div className="flex">
-                                        <div className="w-24 text-gray-500 font-medium">Area</div>
-                                        <div className="text-gray-800">6 Fleet dan Mainroad & Jetty</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Rekomendasi */}
-                            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-                                <h3 className="text-sm font-bold text-gray-800 mb-2">Rekomendasi</h3>
-                                <ol className="list-decimal pl-4 space-y-1 text-xs text-gray-700 font-medium">
-                                    <li>Lakukan evaluasi berkala setiap bulan</li>
-                                    <li>Sesuaikan rasio berdasarkan kondisi operasional</li>
-                                    <li>Monitoring perubahan populasi unit</li>
-                                    <li>Perhatikan penambahan unit baru</li>
-                                    <li>Evaluasi produktivitas manpower secara periodik</li>
-                                </ol>
-                            </div>
-                        </div>
                     </div>
+
                 </div>
             </div>
+
+            {/* MODAL: EDIT POSISI MANPOWER */}
+            <Modal show={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} maxWidth="md">
+                <form onSubmit={submitEdit} className="p-6">
+                    <div className="flex items-center justify-between border-b pb-3 mb-4">
+                        <h2 className="text-base font-bold text-gray-900">
+                            Edit Manpower: {editingItem?.job_position}
+                        </h2>
+                        <button
+                            type="button"
+                            onClick={() => setIsEditModalOpen(false)}
+                            className="text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="job_position" value="Nama Posisi / Jabatan" />
+                            <TextInput
+                                id="job_position"
+                                type="text"
+                                className="mt-1 block w-full text-sm font-semibold"
+                                value={data.job_position}
+                                onChange={(e) => setData('job_position', e.target.value)}
+                                required
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <InputLabel htmlFor="plan_mp" value="Plan M.P (Kebutuhan)" />
+                                <TextInput
+                                    id="plan_mp"
+                                    type="number"
+                                    min="0"
+                                    className="mt-1 block w-full text-sm font-bold text-center"
+                                    value={data.plan_mp}
+                                    onChange={(e) => setData('plan_mp', parseInt(e.target.value) || 0)}
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <InputLabel htmlFor="tersedia" value="Tersedia (Aktual)" />
+                                <TextInput
+                                    id="tersedia"
+                                    type="number"
+                                    min="0"
+                                    className="mt-1 block w-full text-sm font-bold text-center text-emerald-700"
+                                    value={data.tersedia}
+                                    onChange={(e) => setData('tersedia', parseInt(e.target.value) || 0)}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="remarks" value="Catatan (Remarks)" />
+                            <TextInput
+                                id="remarks"
+                                type="text"
+                                className="mt-1 block w-full text-sm"
+                                value={data.remarks}
+                                onChange={(e) => setData('remarks', e.target.value)}
+                                placeholder="Opsional..."
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex justify-end gap-3 border-t pt-4">
+                        <SecondaryButton onClick={() => setIsEditModalOpen(false)}>
+                            Batal
+                        </SecondaryButton>
+                        <PrimaryButton type="submit" disabled={processing} className="bg-amber-500 hover:bg-amber-600 text-black font-bold">
+                            {processing ? 'Menyimpan...' : 'Simpan Perubahan'}
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </Modal>
         </AuthenticatedLayout>
     );
 }

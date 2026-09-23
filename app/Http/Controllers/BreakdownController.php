@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Breakdown;
 use App\Models\MaintenanceOrder;
 use App\Models\Unit;
+use App\Services\WorkOrderService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -102,7 +103,7 @@ class BreakdownController extends Controller
         ]);
 
         // Auto-generate CMMS Master Work Order
-        $wo = \App\Services\WorkOrderService::createWorkOrder([
+        $wo = WorkOrderService::createWorkOrder([
             'tipe_wo' => 'BREAKDOWN',
             'unit_id' => $validated['unit_id'],
             'hm_unit' => $validated['hm'],
@@ -127,7 +128,7 @@ class BreakdownController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'Breakdown and Work Order (' . $wo->no_wo . ') created successfully');
+        return redirect()->back()->with('success', 'Breakdown and Work Order ('.$wo->no_wo.') created successfully');
     }
 
     public function update(Request $request, Breakdown $breakdown)

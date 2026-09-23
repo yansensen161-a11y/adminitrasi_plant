@@ -234,6 +234,8 @@ class MaintenanceOrderController extends Controller
 
     public function store(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menambah order.');
+
         if (in_array($request->input('unit_id'), ['CONSUMABLES', 'ATK', 'TOOL'])) {
             $request->merge(['unit_id' => null]);
         }
@@ -262,7 +264,7 @@ class MaintenanceOrderController extends Controller
             'parts.*.due_date_part' => 'nullable|date',
             'parts.*.pr' => 'nullable|string|max:255',
             'parts.*.po' => 'nullable|string|max:255',
-            'parts.*.image' => 'nullable|image|max:10240',
+            'parts.*.image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'parts.*.swap_to_unit_id' => 'nullable|exists:units,id',
             'parts.*.remark_part_swap' => 'nullable|string|max:255',
         ]);
@@ -354,6 +356,8 @@ class MaintenanceOrderController extends Controller
 
     public function update(Request $request, MaintenanceOrder $monitoring_order)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk mengubah order.');
+
         if (in_array($request->input('unit_id'), ['CONSUMABLES', 'ATK', 'TOOL'])) {
             $request->merge(['unit_id' => null]);
         }
@@ -383,7 +387,7 @@ class MaintenanceOrderController extends Controller
             'parts.*.due_date_part' => 'nullable|date',
             'parts.*.pr' => 'nullable|string|max:255',
             'parts.*.po' => 'nullable|string|max:255',
-            'parts.*.image' => 'nullable|image|max:10240',
+            'parts.*.image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'parts.*.swap_to_unit_id' => 'nullable|exists:units,id',
             'parts.*.remark_part_swap' => 'nullable|string|max:255',
         ]);
@@ -444,6 +448,8 @@ class MaintenanceOrderController extends Controller
 
     public function destroy(MaintenanceOrder $monitoring_order)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk menghapus order.');
+
         foreach ($monitoring_order->parts as $part) {
             if ($part->image) {
                 Storage::disk('public')->delete($part->image);
@@ -459,6 +465,8 @@ class MaintenanceOrderController extends Controller
 
     public function import(Request $request)
     {
+        abort_if(! auth()->user()?->hasAnyRole(['super-admin', 'admin', 'planner']), 403, 'Akses ditolak: Anda tidak memiliki izin untuk mengimpor order.');
+
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv|max:20480',
         ]);
