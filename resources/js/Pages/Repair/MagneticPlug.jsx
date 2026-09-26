@@ -2,14 +2,26 @@ import React, { useState, useEffect, useRef } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import Chart from 'chart.js/auto';
+import { compressImage, formatBytes } from '@/utils/imageCompressor';
 
-export default function MagneticPlug({ auth, data, filters = {}, kpi = {} }) {
+export default function MagneticPlug({ auth, data, filters = {}, kpi = {}, units = [] }) {
     const [codeUnitFilter, setCodeUnitFilter] = useState(filters.codeUnitFilter || '');
     const [metodeFilter, setMetodeFilter] = useState(filters.metodeFilter || '');
     const [componentFilter, setComponentFilter] = useState(filters.componentFilter || '');
     const [ratingFilter, setRatingFilter] = useState(filters.ratingFilter || '');
     const [dateFrom, setDateFrom] = useState(filters.dateFrom || '');
     const [dateTo, setDateTo] = useState(filters.dateTo || '');
+
+    // Import modal states
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [loosePhotos, setLoosePhotos] = useState([]);
+    const [isCompressingPhotos, setIsCompressingPhotos] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [importErrors, setImportErrors] = useState(null);
+
+    // Photo preview lightbox state
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
 
     const handleFilterSubmit = () => {
         router.get(route('repair.magnetic-plug'), {
@@ -30,6 +42,67 @@ export default function MagneticPlug({ auth, data, filters = {}, kpi = {} }) {
         setDateFrom('');
         setDateTo('');
         router.get(route('repair.magnetic-plug'), {}, { preserveState: true });
+    };
+
+    const handleExport = () => {
+        const params = new URLSearchParams();
+        if (codeUnitFilter) params.set('codeUnitFilter', codeUnitFilter);
+        if (metodeFilter) params.set('metodeFilter', metodeFilter);
+        if (componentFilter) params.set('componentFilter', componentFilter);
+        if (ratingFilter) params.set('ratingFilter', ratingFilter);
+        if (dateFrom) params.set('dateFrom', dateFrom);
+        if (dateTo) params.set('dateTo', dateTo);
+        window.location.href = `${route('repair.magnetic-plug.export')}?${params.toString()}`;
+    };
+
+    const handleLoosePhotosChange = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+        setIsCompressingPhotos(true);
+        try {
+            const results = [];
+            for (const f of files) {
+                const res = await compressImage(f, { maxWidth: 1400, quality: 0.75 });
+                results.push(res);
+            }
+            setLoosePhotos(prev => [...prev, ...results]);
+        } catch (err) {
+            console.error('Compression error:', err);
+        } finally {
+            setIsCompressingPhotos(false);
+        }
+    };
+
+    const handleRemoveLoosePhoto = (index) => {
+        setLoosePhotos(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleImportSubmit = (e) => {
+        e.preventDefault();
+        if (!importFile) return;
+
+        setIsUploading(true);
+        setImportErrors(null);
+
+        const formData = new FormData();
+        formData.append('file', importFile);
+        loosePhotos.forEach((item, idx) => {
+            formData.append(`photos[${idx}]`, item.file);
+        });
+
+        router.post(route('repair.magnetic-plug.import'), formData, {
+            forceFormData: true,
+            onSuccess: () => {
+                setIsUploading(false);
+                setIsImportModalOpen(false);
+                setImportFile(null);
+                setLoosePhotos([]);
+            },
+            onError: (errs) => {
+                setIsUploading(false);
+                setImportErrors(errs);
+            }
+        });
     };
 
     // Use KPI from backend
@@ -206,21 +279,58 @@ export default function MagneticPlug({ auth, data, filters = {}, kpi = {} }) {
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                    <Link href={route('repair.magnetic-plug.create')} className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5 shadow-sm h-9">
+                <div className="flex items-center flex-wrap gap-2.5">
+                    <Link href={route('repair.magnetic-plug.create')} className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-3.5 py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5 shadow-sm h-9">
                         <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                         Input Data
                     </Link>
-                    <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-3 py-2 rounded-lg text-sm transition border border-gray-300 flex items-center justify-center gap-1.5 shadow-sm h-9">
-                        <svg className="w-3.5 h-3.5 fill-current text-gray-500" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
+
+                    {/* Download Template Excel */}
+                    <a 
+                        href={route('repair.magnetic-plug.download-template')} 
+                        download
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold px-3 py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5 shadow-xs h-9"
+                        title="Unduh template Excel dengan kolom sesuai sistem"
+                    >
+                        <svg className="w-4 h-4 fill-current text-emerald-700" viewBox="0 0 24 24">
+                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                        </svg>
+                        Template Excel
+                    </a>
+
+                    {/* Import Excel */}
+                    <button 
+                        type="button"
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-3 py-2 rounded-lg text-sm transition border border-gray-300 flex items-center justify-center gap-1.5 shadow-xs h-9"
+                    >
+                        <svg className="w-3.5 h-3.5 fill-current text-gray-500" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/>
+                        </svg>
                         Import Excel
                     </button>
-                    <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-3 py-2 rounded-lg text-sm transition border border-gray-300 flex items-center justify-center gap-1.5 shadow-sm h-9">
-                        <svg className="w-3.5 h-3.5 fill-current text-gray-500" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
+
+                    {/* Export Excel */}
+                    <button 
+                        type="button"
+                        onClick={handleExport}
+                        className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-3 py-2 rounded-lg text-sm transition border border-gray-300 flex items-center justify-center gap-1.5 shadow-xs h-9"
+                    >
+                        <svg className="w-3.5 h-3.5 fill-current text-gray-500" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/>
+                        </svg>
                         Export Excel
                     </button>
-                    <button className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-3 py-2 rounded-lg text-sm transition border border-gray-300 flex items-center justify-center gap-1.5 shadow-sm h-9">
-                        <svg className="w-4 h-4 fill-current text-gray-500" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+
+                    {/* Print */}
+                    <button 
+                        type="button"
+                        onClick={() => window.print()}
+                        className="bg-white hover:bg-gray-50 text-gray-700 font-bold px-3 py-2 rounded-lg text-sm transition border border-gray-300 flex items-center justify-center gap-1.5 shadow-xs h-9"
+                    >
+                        <svg className="w-4 h-4 fill-current text-gray-500" viewBox="0 0 24 24">
+                            <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
+                        </svg>
                         Print
                     </button>
                 </div>
@@ -285,14 +395,22 @@ export default function MagneticPlug({ auth, data, filters = {}, kpi = {} }) {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Code Unit</label>
                             <select value={codeUnitFilter} onChange={e => setCodeUnitFilter(e.target.value)} className="w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#0a4d3c]">
-                                <option value="">Pilih / Ketik Code Unit</option>
-                                <option value="ME052">ME052</option>
-                                <option value="ME067">ME067</option>
-                                <option value="OHT070">OHT070</option>
-                                <option value="OHT072">OHT072</option>
-                                <option value="MDT030">MDT030</option>
-                                <option value="MD037">MD037</option>
-                                <option value="MD048">MD048</option>
+                                <option value="">Semua Code Unit</option>
+                                {units && units.length > 0 ? (
+                                    units.map(u => (
+                                        <option key={u} value={u}>{u}</option>
+                                    ))
+                                ) : (
+                                    <>
+                                        <option value="ME052">ME052</option>
+                                        <option value="ME067">ME067</option>
+                                        <option value="OHT070">OHT070</option>
+                                        <option value="OHT072">OHT072</option>
+                                        <option value="MDT030">MDT030</option>
+                                        <option value="MD037">MD037</option>
+                                        <option value="MD048">MD048</option>
+                                    </>
+                                )}
                             </select>
                         </div>
                         <div>
@@ -438,9 +556,27 @@ export default function MagneticPlug({ auth, data, filters = {}, kpi = {} }) {
                                         <td className="px-3 py-2 text-left">{row.component}</td>
                                         <td className="px-3 py-2">
                                             {row.photo_path ? (
-                                                <a href={`/storage/${row.photo_path}`} target="_blank" rel="noreferrer" className="text-blue-600 underline">Lihat Foto</a>
+                                                <div className="flex items-center justify-center">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setSelectedPhoto(row)}
+                                                        className="relative group rounded-lg overflow-hidden border border-gray-200 shadow-2xs hover:border-[#0b5c3e] focus:outline-hidden transition"
+                                                        title="Klik untuk memperbesar foto inspeksi"
+                                                    >
+                                                        <img 
+                                                            src={`/storage/${row.photo_path}`} 
+                                                            alt="Foto" 
+                                                            className="w-10 h-10 object-cover group-hover:scale-110 transition duration-150"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white">
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                                                            </svg>
+                                                        </div>
+                                                    </button>
+                                                </div>
                                             ) : (
-                                                <span className="text-gray-400">-</span>
+                                                <span className="text-gray-400 text-xs italic">Tanpa Foto</span>
                                             )}
                                         </td>
                                         <td className="px-3 py-2">{renderRatingBadge(row.rating)}</td>
@@ -549,6 +685,263 @@ export default function MagneticPlug({ auth, data, filters = {}, kpi = {} }) {
                 </div>
 
             </div>
+
+            {/* Modal Import Excel */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-[#0b5c3e] to-[#08422c] px-6 py-4 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 bg-white/10 rounded-lg">
+                                    <svg className="w-5 h-5 fill-current" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="font-extrabold text-base">Import Data Magnetic Plug (Excel)</h3>
+                                    <p className="text-xs text-white/80">Kirim data inspeksi massal dan foto terkompresi otomatis</p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setIsImportModalOpen(false);
+                                    setImportFile(null);
+                                    setLoosePhotos([]);
+                                    setImportErrors(null);
+                                }}
+                                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <form onSubmit={handleImportSubmit} className="p-6 space-y-5">
+                            {/* Template Structure Badge */}
+                            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                    <span className="text-xs font-bold text-emerald-900 uppercase tracking-wide flex items-center gap-1.5">
+                                        <svg className="w-4 h-4 text-emerald-700" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                                        </svg>
+                                        Format Kolom Template Excel
+                                    </span>
+                                    <a 
+                                        href={route('repair.magnetic-plug.download-template')}
+                                        download
+                                        className="text-xs font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-md border border-emerald-300 shadow-2xs"
+                                    >
+                                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                                        Unduh Template Excel
+                                    </a>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 text-xs font-mono">
+                                    {['Code Unit', 'HM', 'Date', 'Metode', 'Component', 'Picture', 'RATING', 'Remarks'].map((col, i) => (
+                                        <span key={i} className={`px-2 py-0.5 rounded font-semibold ${col === 'Picture' ? 'bg-[#92D050]/40 text-green-950 border border-green-600/40' : col === 'RATING' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-white text-gray-700 border border-gray-200'}`}>
+                                            {col}
+                                        </span>
+                                    ))}
+                                </div>
+                                <div className="mt-2 text-xs text-emerald-800 leading-relaxed">
+                                    💡 <strong>Fitur Kompresi Gambar:</strong> Foto yang disisipkan / ditempel langsung di kolom <strong>Picture</strong> (kolom F) pada file Excel akan otomatis <strong>diekstrak dan dikompresi ke format WebP</strong> pada server untuk menghemat kapasitas data server.
+                                </div>
+                            </div>
+
+                            {/* File Upload Excel */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-800 mb-1.5">
+                                    Pilih File Excel (.xlsx, .xls) <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative border-2 border-dashed border-gray-300 hover:border-[#0b5c3e] rounded-xl p-4 text-center cursor-pointer transition bg-gray-50/50 hover:bg-green-50/20 group">
+                                    <input 
+                                        type="file"
+                                        accept=".xlsx, .xls, .csv"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        onChange={(e) => setImportFile(e.target.files[0] || null)}
+                                        required
+                                    />
+                                    <div className="flex flex-col items-center">
+                                        <svg className="w-8 h-8 text-gray-400 group-hover:text-[#0b5c3e] transition mb-1" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm1.8 14.8l-1.4 1.4-2.4-2.4-2.4 2.4-1.4-1.4 2.4-2.4-2.4-2.4 1.4-1.4 2.4 2.4 2.4-2.4 1.4 1.4-2.4 2.4 2.4 2.4zM13 9V3.5L18.5 9H13z"/>
+                                        </svg>
+                                        {importFile ? (
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-800">{importFile.name}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5">{formatBytes(importFile.size)}</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p className="text-sm font-semibold text-gray-700">Klik atau seret file Excel ke sini</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">Format didukung: .xlsx, .xls</p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Optional: Loose Photos Upload with client-side compression */}
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="text-sm font-bold text-gray-800">
+                                        Foto Tambahan / Lepas (Opsional)
+                                    </label>
+                                    <span className="text-xs text-gray-500">
+                                        Nama file foto e.g. <code>OHT120.jpg</code>
+                                    </span>
+                                </div>
+                                <div className="relative border border-gray-200 rounded-xl p-3 bg-gray-50">
+                                    <input 
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0b5c3e] file:text-white hover:file:bg-[#08422c] cursor-pointer"
+                                        onChange={handleLoosePhotosChange}
+                                        disabled={isCompressingPhotos}
+                                    />
+                                    {isCompressingPhotos && (
+                                        <p className="text-xs text-emerald-700 mt-2 font-semibold flex items-center gap-1.5 animate-pulse">
+                                            <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                            Mengompresi foto otomatis sebelum unggah...
+                                        </p>
+                                    )}
+
+                                    {loosePhotos.length > 0 && (
+                                        <div className="mt-3 max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                                            {loosePhotos.map((item, idx) => (
+                                                <div key={idx} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs">
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        <img src={item.previewUrl} alt="" className="w-6 h-6 object-cover rounded shrink-0 border" />
+                                                        <span className="font-medium text-gray-700 truncate">{item.file.name}</span>
+                                                        <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[11px] font-bold shrink-0">
+                                                            {item.formattedCompressedSize} ({item.ratio}% hemat)
+                                                        </span>
+                                                    </div>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => handleRemoveLoosePhoto(idx)}
+                                                        className="text-red-500 hover:text-red-700 p-0.5 shrink-0"
+                                                    >
+                                                        &times;
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Error display */}
+                            {importErrors && (
+                                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+                                    <p className="font-bold">Terjadi kesalahan:</p>
+                                    <ul className="list-disc list-inside mt-1">
+                                        {Object.values(importErrors).map((err, i) => (
+                                            <li key={i}>{err}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="pt-2 flex items-center justify-end gap-3 border-t border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsImportModalOpen(false);
+                                        setImportFile(null);
+                                        setLoosePhotos([]);
+                                    }}
+                                    disabled={isUploading}
+                                    className="px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={!importFile || isUploading || isCompressingPhotos}
+                                    className="bg-[#0b5c3e] hover:bg-[#08422c] text-white font-bold px-5 py-2 rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-2 shadow-sm"
+                                >
+                                    {isUploading ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                            </svg>
+                                            Memproses Import & Kompresi...
+                                        </>
+                                    ) : (
+                                        'Import Data Sekarang'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Lightbox Foto */}
+            {selectedPhoto && (
+                <div 
+                    className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setSelectedPhoto(null)}
+                >
+                    <div 
+                        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-gray-200"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="p-4 bg-gray-900 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="font-black text-sm uppercase tracking-wider text-emerald-400">
+                                    {selectedPhoto.unit?.code_unit || selectedPhoto.code_unit || 'UNIT'}
+                                </span>
+                                <span className="text-gray-400 text-xs">&bull;</span>
+                                <span className="text-xs text-gray-300 font-semibold">{selectedPhoto.component}</span>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => setSelectedPhoto(null)}
+                                className="text-gray-400 hover:text-white p-1 rounded-md transition"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="bg-black flex items-center justify-center p-2 max-h-[70vh] overflow-hidden">
+                            <img 
+                                src={`/storage/${selectedPhoto.photo_path}`} 
+                                alt="Foto Partikel" 
+                                className="max-h-[65vh] w-auto object-contain rounded-lg"
+                            />
+                        </div>
+
+                        <div className="p-4 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-3">
+                                <div><span className="text-gray-500">HM:</span> <strong className="text-gray-800">{selectedPhoto.hm}</strong></div>
+                                <div><span className="text-gray-500">Tanggal:</span> <strong className="text-gray-800">{selectedPhoto.date}</strong></div>
+                                <div><span className="text-gray-500">Metode:</span> <strong className="text-gray-800">{selectedPhoto.metode_filter}</strong></div>
+                                <div><span className="text-gray-500">Rating:</span> {renderRatingBadge(selectedPhoto.rating)}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <a 
+                                    href={`/storage/${selectedPhoto.photo_path}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-700 font-bold hover:bg-gray-100 transition inline-flex items-center gap-1"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                    Buka Foto Penuh
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AuthenticatedLayout>
     );
 }

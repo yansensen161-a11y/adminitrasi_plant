@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MaintenanceOrder;
 use App\Models\MaintenanceOrderPart;
+use App\Models\PartOrderLifetime;
 use App\Models\Unit;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -11,11 +12,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -108,7 +111,7 @@ class MonitoringOrderanController extends Controller
         ]);
     }
 
-    public function exportPdf(MaintenanceOrder $monitoring_orderan)
+    public function exportPdf(Request $request, MaintenanceOrder $monitoring_orderan)
     {
         $monitoring_orderan->load(['unit', 'parts.swapToUnit']);
 
@@ -119,8 +122,402 @@ class MonitoringOrderanController extends Controller
         $pdf->setPaper('a4', 'portrait');
 
         $cleanNo = str_replace(['/', '\\', ' '], '_', $monitoring_orderan->no_order);
+        $fileName = "MOL_{$cleanNo}.pdf";
 
-        return $pdf->stream("MOL_{$cleanNo}.pdf");
+        if ($request->query('download') == '1') {
+            return $pdf->download($fileName);
+        }
+
+        return $pdf->stream($fileName);
+    }
+
+    public function exportPdfByQuery(Request $request)
+    {
+        $order = null;
+        if ($request->filled('no_order')) {
+            $order = MaintenanceOrder::where('no_order', $request->no_order)->first();
+        } elseif ($request->filled('id')) {
+            $order = MaintenanceOrder::find($request->id);
+        }
+
+        if (! $order) {
+            abort(404, 'Nomor order tidak ditemukan.');
+        }
+
+        return $this->exportPdf($request, $order);
+    }
+
+    public function exportExcelOrder(MaintenanceOrder $monitoring_orderan)
+    {
+        $monitoring_orderan->load(['unit', 'parts.swapToUnit']);
+        $order = $monitoring_orderan;
+
+        $spreadsheet = new Spreadsheet;
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(10);
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('MOL - '.substr($order->no_order, 0, 20));
+
+        // Company Header
+        $sheet->mergeCells('A1:I1');
+        $sheet->setCellValue('A1', 'PT MITRA ABADI MAHAKAM - PLANT DEPARTMENT');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setARGB('FF064E3B');
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+        $sheet->mergeCells('A2:I2');
+        $sheet->setCellValue('A2', 'MAINTENANCE ORDER LOG (MOL) / PERMINTAAN PART');
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB('FF1F2937');
+
+        // Order Info Cards (Row 4 to 8)
+        $sheet->setCellValue('A4', 'Nomor Order');
+        $sheet->setCellValue('B4', ': '.$order->no_order);
+        $sheet->getStyle('B4')->getFont()->setBold(true);
+
+        $sheet->setCellValue('D4', 'Status Order');
+        $sheet->setCellValue('E4', ': '.($order->status ?: '-'));
+        $sheet->getStyle('E4')->getFont()->setBold(true);
+
+        $sheet->setCellValue('G4', 'Prioritas');
+        $sheet->setCellValue('H4', ': '.($order->priority ?: '-'));
+
+        $sheet->setCellValue('A5', 'Tanggal Order');
+        $sheet->setCellValue('B5', ': '.($order->tanggal ?: '-'));
+
+        $sheet->setCellValue('D5', 'Unit Code');
+        $unitLabel = $order->unit ? $order->unit->code_unit : ($order->lokasi ?: '-');
+        $sheet->setCellValue('E5', ': '.$unitLabel);
+        $sheet->getStyle('E5')->getFont()->setBold(true);
+
+        $sheet->setCellValue('G5', 'Model Unit');
+        $sheet->setCellValue('H5', ': '.($order->unit?->model ?: '-'));
+
+        $sheet->setCellValue('A6', 'Current HM');
+        $sheet->setCellValue('B6', ': '.($order->hm ?? '-'));
+
+        $sheet->setCellValue('D6', 'Lokasi Unit');
+        $sheet->setCellValue('E6', ': '.($order->lokasi ?: '-'));
+
+        $sheet->setCellValue('G6', 'PIC / Pemohon');
+        $sheet->setCellValue('H6', ': '.($order->pic ?: '-'));
+
+        $sheet->setCellValue('A7', 'Komponen');
+        $compName = $order->component_name ?: ($order->component ?: '-');
+        $sheet->setCellValue('B7', ': '.$compName);
+
+        $sheet->setCellValue('D7', 'Problem / Root Cause');
+        $sheet->setCellValue('E7', ': '.($order->root_cause ?: '-'));
+
+        $sheet->setCellValue('A8', 'Tindakan / Action Taken');
+        $sheet->mergeCells('B8:I8');
+        $sheet->setCellValue('B8', ': '.($order->action_taken ?: '-'));
+
+        $sheet->getStyle('A4:A8')->getFont()->setBold(true)->getColor()->setARGB('FF4B5563');
+        $sheet->getStyle('D4:D7')->getFont()->setBold(true)->getColor()->setARGB('FF4B5563');
+        $sheet->getStyle('G4:G6')->getFont()->setBold(true)->getColor()->setARGB('FF4B5563');
+
+        $infoBoxStyle = [
+            'borders' => [
+                'outline' => [
+                    'borderStyle' => Border::BORDER_MEDIUM,
+                    'color' => ['argb' => 'FF064E3B'],
+                ],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFF9FAFB'],
+            ],
+        ];
+        $sheet->getStyle('A4:I8')->applyFromArray($infoBoxStyle);
+
+        // Parts Table Section (Starts at Row 10)
+        $startRow = 10;
+        $headers = [
+            'A' => 'No',
+            'B' => 'Part Number',
+            'C' => 'Nama / Deskripsi Part',
+            'D' => 'Qty',
+            'E' => 'PR Number',
+            'F' => 'PO Number',
+            'G' => 'ETA Part (Due Date)',
+            'H' => 'Swap Unit',
+            'I' => 'Komponen',
+        ];
+
+        foreach ($headers as $col => $title) {
+            $sheet->setCellValue("{$col}{$startRow}", $title);
+        }
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF'], 'size' => 10],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF064E3B'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+            ],
+        ];
+        $sheet->getStyle("A{$startRow}:I{$startRow}")->applyFromArray($headerStyle);
+        $sheet->getRowDimension($startRow)->setRowHeight(24);
+
+        $rowIdx = $startRow + 1;
+        $parts = $order->parts ?: [];
+        $no = 1;
+
+        if (count($parts) > 0) {
+            foreach ($parts as $part) {
+                $sheet->setCellValue("A{$rowIdx}", $no);
+                $sheet->setCellValue("B{$rowIdx}", $part->part_number ?: '-');
+                $sheet->setCellValue("C{$rowIdx}", $part->department ?: '-');
+                $sheet->setCellValue("D{$rowIdx}", $part->qty ?: 1);
+                $sheet->setCellValue("E{$rowIdx}", $part->pr ?: '-');
+                $sheet->setCellValue("F{$rowIdx}", $part->po ?: '-');
+                $sheet->setCellValue("G{$rowIdx}", $part->due_date_part ?: '-');
+                $sheet->setCellValue("H{$rowIdx}", $part->swapToUnit?->code_unit ?: '-');
+                $sheet->setCellValue("I{$rowIdx}", $part->component ?: ($order->component ?: '-'));
+
+                $sheet->getStyle("A{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("B{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("D{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("E{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("F{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("G{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("H{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                if ($no % 2 === 0) {
+                    $sheet->getStyle("A{$rowIdx}:I{$rowIdx}")->getFill()
+                        ->setFillType(Fill::FILL_SOLID)
+                        ->getStartColor()->setARGB('FFF9FAFB');
+                }
+
+                $sheet->getStyle("A{$rowIdx}:I{$rowIdx}")->applyFromArray([
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE5E7EB']],
+                    ],
+                ]);
+
+                $sheet->getRowDimension($rowIdx)->setRowHeight(20);
+                $rowIdx++;
+                $no++;
+            }
+        } else {
+            $sheet->mergeCells("A{$rowIdx}:I{$rowIdx}");
+            $sheet->setCellValue("A{$rowIdx}", 'Belum ada item part yang terdaftar pada order ini.');
+            $sheet->getStyle("A{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("A{$rowIdx}:I{$rowIdx}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE5E7EB']],
+                ],
+            ]);
+            $rowIdx++;
+        }
+
+        foreach (range('A', 'I') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $cleanNo = str_replace(['/', '\\', ' '], '_', $order->no_order);
+        $fileName = "MOL_{$cleanNo}_".date('Ymd_His').'.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        if ($request->filled('no_order')) {
+            $order = MaintenanceOrder::where('no_order', $request->no_order)->first();
+            if ($order) {
+                return $this->exportExcelOrder($order);
+            }
+        }
+
+        if ($request->filled('id')) {
+            $order = MaintenanceOrder::find($request->id);
+            if ($order) {
+                return $this->exportExcelOrder($order);
+            }
+        }
+
+        return $this->exportExcelList($request);
+    }
+
+    public function exportExcelList(Request $request)
+    {
+        $sortBy = $request->get('sortBy', 'terbaru');
+
+        $query = MaintenanceOrder::with(['unit', 'parts.swapToUnit'])
+            ->where(function ($q) {
+                $q->whereNull('wo_type')
+                    ->orWhere('wo_type', '!=', 'PCR');
+            })
+            ->where('no_order', 'not like', 'PCR-%');
+
+        match ($sortBy) {
+            'terlama' => $query->oldest('tanggal')->orderBy('no_order', 'asc'),
+            'no_asc' => $query->orderBy('no_order', 'asc'),
+            'no_desc' => $query->orderBy('no_order', 'desc'),
+            default => $query->orderBy('no_order', 'desc'),
+        };
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('no_order', 'like', "%{$search}%")
+                    ->orWhereHas('unit', function ($qu) use ($search) {
+                        $qu->where('code_unit', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('dateFrom')) {
+            $query->whereDate('tanggal', '>=', $request->dateFrom);
+        }
+        if ($request->filled('dateTo')) {
+            $query->whereDate('tanggal', '<=', $request->dateTo);
+        }
+
+        $orders = $query->get();
+
+        $spreadsheet = new Spreadsheet;
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(9);
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Monitoring Orderan');
+
+        // Title
+        $sheet->mergeCells('A1:R1');
+        $sheet->setCellValue('A1', 'LAPORAN MONITORING ORDERAN (MOL) - PT MITRA ABADI MAHAKAM');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setARGB('FF064E3B');
+
+        $sheet->mergeCells('A2:R2');
+        $sheet->setCellValue('A2', 'Tanggal Export: '.Carbon::now()->translatedFormat('d F Y H:i:s'));
+        $sheet->getStyle('A2')->getFont()->setSize(9)->getColor()->setARGB('FF6B7280');
+
+        $startRow = 4;
+        $headers = [
+            'A' => 'No',
+            'B' => 'No Order',
+            'C' => 'Tanggal',
+            'D' => 'Unit',
+            'E' => 'Model Unit',
+            'F' => 'Current HM',
+            'G' => 'Lokasi',
+            'H' => 'Komponen',
+            'I' => 'Part Number',
+            'J' => 'Deskripsi Part',
+            'K' => 'Qty',
+            'L' => 'PR',
+            'M' => 'PO',
+            'N' => 'ETA Part',
+            'O' => 'Swap Unit',
+            'P' => 'Status',
+            'Q' => 'Prioritas',
+            'R' => 'PIC / Keterangan',
+        ];
+
+        foreach ($headers as $col => $title) {
+            $sheet->setCellValue("{$col}{$startRow}", $title);
+        }
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF'], 'size' => 9.5],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF064E3B'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+            ],
+        ];
+        $sheet->getStyle("A{$startRow}:R{$startRow}")->applyFromArray($headerStyle);
+        $sheet->getRowDimension($startRow)->setRowHeight(24);
+
+        $rowIdx = $startRow + 1;
+        $no = 1;
+
+        foreach ($orders as $order) {
+            $parts = $order->parts->isNotEmpty() ? $order->parts : [null];
+            foreach ($parts as $pIdx => $part) {
+                $sheet->setCellValue("A{$rowIdx}", $no);
+                $sheet->setCellValue("B{$rowIdx}", $order->no_order);
+                $sheet->setCellValue("C{$rowIdx}", $order->tanggal);
+                $sheet->setCellValue("D{$rowIdx}", $order->unit?->code_unit ?: ($order->lokasi ?: '-'));
+                $sheet->setCellValue("E{$rowIdx}", $order->unit?->model ?: '-');
+                $sheet->setCellValue("F{$rowIdx}", $order->hm ?: '-');
+                $sheet->setCellValue("G{$rowIdx}", $order->lokasi ?: '-');
+                $sheet->setCellValue("H{$rowIdx}", $order->component_name ?: ($order->component ?: '-'));
+                $sheet->setCellValue("I{$rowIdx}", $part?->part_number ?: '-');
+                $sheet->setCellValue("J{$rowIdx}", $part?->department ?: '-');
+                $sheet->setCellValue("K{$rowIdx}", $part?->qty ?: 1);
+                $sheet->setCellValue("L{$rowIdx}", $part?->pr ?: '-');
+                $sheet->setCellValue("M{$rowIdx}", $part?->po ?: '-');
+                $sheet->setCellValue("N{$rowIdx}", $part?->due_date_part ?: '-');
+                $sheet->setCellValue("O{$rowIdx}", $part?->swapToUnit?->code_unit ?: '-');
+                $sheet->setCellValue("P{$rowIdx}", $order->status ?: '-');
+                $sheet->setCellValue("Q{$rowIdx}", $order->priority ?: '-');
+                $sheet->setCellValue("R{$rowIdx}", $order->pic ? ($order->pic.($order->action_taken ? ' - '.$order->action_taken : '')) : ($order->action_taken ?: '-'));
+
+                $sheet->getStyle("A{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("B{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("C{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("D{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("F{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("I{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("K{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("L{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("M{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("N{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("O{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("P{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("Q{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                if ($no % 2 === 0) {
+                    $sheet->getStyle("A{$rowIdx}:R{$rowIdx}")->getFill()
+                        ->setFillType(Fill::FILL_SOLID)
+                        ->getStartColor()->setARGB('FFF9FAFB');
+                }
+
+                $sheet->getStyle("A{$rowIdx}:R{$rowIdx}")->applyFromArray([
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE5E7EB']],
+                    ],
+                ]);
+
+                $sheet->getRowDimension($rowIdx)->setRowHeight(19);
+                $rowIdx++;
+            }
+            $no++;
+        }
+
+        foreach (range('A', 'R') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $fileName = 'Monitoring_Orderan_'.date('Ymd_His').'.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function getPartLifetime(Request $request)
@@ -177,6 +574,22 @@ class MonitoringOrderanController extends Controller
             'return_to' => 'nullable|string',
         ]);
 
+        // Validasi: Cegah duplikat part number dalam 1 order
+        if ($request->has('parts') && is_array($request->parts)) {
+            $seenPartNumbers = [];
+            foreach ($request->parts as $p) {
+                $pn = strtoupper(trim((string) ($p['part_number'] ?? '')));
+                if (! empty($pn) && $pn !== '-') {
+                    if (in_array($pn, $seenPartNumbers, true)) {
+                        throw ValidationException::withMessages([
+                            'parts' => "Part Number '{$pn}' terdeteksi duplikat! Tidak boleh menginput Part Number yang sama dalam 1 order.",
+                        ]);
+                    }
+                    $seenPartNumbers[] = $pn;
+                }
+            }
+        }
+
         $attachmentData = [];
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
@@ -212,14 +625,18 @@ class MonitoringOrderanController extends Controller
                 $prio = 'P3';
             }
 
+            $firstPart = ! empty($request->parts) && is_array($request->parts) ? $request->parts[0] : null;
+            $orderComponent = ! empty($firstPart['component']) ? $firstPart['component'] : ($request->component ?? null);
+            $orderComponentName = ! empty($firstPart['component_name']) ? $firstPart['component_name'] : ($request->component_name ?? null);
+
             $order = MaintenanceOrder::create([
                 'no_order' => $noOrder,
                 'tanggal' => $request->tanggal,
                 'unit_id' => $isNonUnit ? null : $request->unit_id,
                 'hm' => $request->hm,
                 'lokasi' => $isNonUnit ? $request->unit_id.($request->lokasi ? ' - '.$request->lokasi : '') : $request->lokasi,
-                'component' => $request->component,
-                'component_name' => $request->component_name,
+                'component' => $orderComponent,
+                'component_name' => $orderComponentName,
                 'priority' => $prio,
                 'status' => $request->status,
                 'pic' => $request->pic,
@@ -229,8 +646,13 @@ class MonitoringOrderanController extends Controller
             ]);
 
             if ($request->has('parts') && is_array($request->parts)) {
+                $unitModel = $order->unit_id ? Unit::find($order->unit_id) : null;
+                $unitCode = $unitModel?->code_unit ?? ($isNonUnit ? $request->unit_id : 'NON-UNIT');
+
                 foreach ($request->parts as $part) {
-                    $order->parts()->create([
+                    $createdPart = $order->parts()->create([
+                        'component' => $part['component'] ?? null,
+                        'component_name' => $part['component_name'] ?? null,
                         'part_number' => $part['part_number'] ?? '-',
                         'department' => $part['description'] ?? '-',
                         'life_time' => $part['life_time'] ?? null,
@@ -240,10 +662,46 @@ class MonitoringOrderanController extends Controller
                         'po' => $part['po'] ?? null,
                         'swap_to_unit_id' => $part['swap_to_unit_id'] ?? null,
                     ]);
+
+                    $pn = strtoupper(trim((string) ($part['part_number'] ?? '')));
+                    if (! empty($pn) && $pn !== '-') {
+                        $orderStatusUpper = strtoupper(trim((string) $order->status));
+                        $partStatus = 'REQUEST';
+                        if ($orderStatusUpper === 'CLOSED') {
+                            $partStatus = 'INSTALLED';
+                        } elseif (in_array($orderStatusUpper, ['IN PROGRESS', 'PROGRES', 'OPEN'])) {
+                            $partStatus = ! empty($part['po']) ? 'ORDERED' : (! empty($part['pr']) ? 'PR CREATED' : 'REQUEST');
+                        } elseif ($orderStatusUpper === 'CANCEL' || $orderStatusUpper === 'CANCELLED') {
+                            $partStatus = 'CANCELLED';
+                        }
+
+                        $installedHm = ($partStatus === 'INSTALLED' && $order->hm) ? (float) $order->hm : null;
+                        $installedDate = ($partStatus === 'INSTALLED') ? $order->tanggal : null;
+
+                        PartOrderLifetime::create([
+                            'unit_id' => $order->unit_id,
+                            'unit_code' => $unitCode,
+                            'part_number' => $pn,
+                            'part_name' => $part['description'] ?? ($part['component_name'] ?? $part['component'] ?? null),
+                            'no_order' => $order->no_order,
+                            'maintenance_order_id' => $order->id,
+                            'maintenance_order_part_id' => $createdPart->id,
+                            'qty' => $part['qty'] ?? 1,
+                            'order_date' => $order->tanggal,
+                            'eta' => ! empty($part['due_date_part']) && $part['due_date_part'] !== '-' ? $part['due_date_part'] : null,
+                            'installed_date' => $installedDate,
+                            'installed_hm' => $installedHm,
+                            'expected_lifetime' => ! empty($part['life_time']) ? (float) $part['life_time'] : 5000.0,
+                            'status' => $partStatus,
+                            'remarks' => ! empty($part['pr']) ? 'PR: '.$part['pr'].(! empty($part['po']) ? ' | PO: '.$part['po'] : '') : null,
+                        ]);
+                    }
                 }
             } else {
                 // Create minimal 1 empty part
                 $order->parts()->create([
+                    'component' => $orderComponent,
+                    'component_name' => $orderComponentName,
                     'part_number' => '-',
                     'department' => '-',
                     'qty' => 1,
@@ -285,6 +743,22 @@ class MonitoringOrderanController extends Controller
             'existing_attachments' => 'nullable',
         ]);
 
+        // Validasi: Cegah duplikat part number dalam 1 order
+        if ($request->has('parts') && is_array($request->parts)) {
+            $seenPartNumbers = [];
+            foreach ($request->parts as $p) {
+                $pn = strtoupper(trim((string) ($p['part_number'] ?? '')));
+                if (! empty($pn) && $pn !== '-') {
+                    if (in_array($pn, $seenPartNumbers, true)) {
+                        throw ValidationException::withMessages([
+                            'parts' => "Part Number '{$pn}' terdeteksi duplikat! Tidak boleh menginput Part Number yang sama dalam 1 order.",
+                        ]);
+                    }
+                    $seenPartNumbers[] = $pn;
+                }
+            }
+        }
+
         $existing = $request->input('existing_attachments');
         if (is_string($existing)) {
             $existing = json_decode($existing, true) ?: [];
@@ -321,13 +795,17 @@ class MonitoringOrderanController extends Controller
             $prio = 'P3';
         }
 
+        $firstPart = ! empty($request->parts) && is_array($request->parts) ? $request->parts[0] : null;
+        $orderComponent = ! empty($firstPart['component']) ? $firstPart['component'] : ($request->component ?? null);
+        $orderComponentName = ! empty($firstPart['component_name']) ? $firstPart['component_name'] : ($request->component_name ?? null);
+
         $monitoring_orderan->update([
             'tanggal' => $request->tanggal,
             'unit_id' => $isNonUnit ? null : $request->unit_id,
             'hm' => $request->hm,
             'lokasi' => $isNonUnit ? $request->unit_id.($request->lokasi ? ' - '.$request->lokasi : '') : $request->lokasi,
-            'component' => $request->component,
-            'component_name' => $request->component_name,
+            'component' => $orderComponent,
+            'component_name' => $orderComponentName,
             'priority' => $prio,
             'status' => $request->status,
             'pic' => $request->pic,
@@ -337,10 +815,16 @@ class MonitoringOrderanController extends Controller
         ]);
 
         $monitoring_orderan->parts()->delete();
+        PartOrderLifetime::where('maintenance_order_id', $monitoring_orderan->id)->delete();
 
         if ($request->has('parts') && is_array($request->parts)) {
+            $unitModel = $monitoring_orderan->unit_id ? Unit::find($monitoring_orderan->unit_id) : null;
+            $unitCode = $unitModel?->code_unit ?? ($isNonUnit ? $request->unit_id : 'NON-UNIT');
+
             foreach ($request->parts as $part) {
-                $monitoring_orderan->parts()->create([
+                $createdPart = $monitoring_orderan->parts()->create([
+                    'component' => $part['component'] ?? null,
+                    'component_name' => $part['component_name'] ?? null,
                     'part_number' => $part['part_number'] ?? '-',
                     'department' => $part['description'] ?? '-',
                     'life_time' => $part['life_time'] ?? null,
@@ -350,10 +834,46 @@ class MonitoringOrderanController extends Controller
                     'po' => $part['po'] ?? null,
                     'swap_to_unit_id' => $part['swap_to_unit_id'] ?? null,
                 ]);
+
+                $pn = strtoupper(trim((string) ($part['part_number'] ?? '')));
+                if (! empty($pn) && $pn !== '-') {
+                    $orderStatusUpper = strtoupper(trim((string) $monitoring_orderan->status));
+                    $partStatus = 'REQUEST';
+                    if ($orderStatusUpper === 'CLOSED') {
+                        $partStatus = 'INSTALLED';
+                    } elseif (in_array($orderStatusUpper, ['IN PROGRESS', 'PROGRES', 'OPEN'])) {
+                        $partStatus = ! empty($part['po']) ? 'ORDERED' : (! empty($part['pr']) ? 'PR CREATED' : 'REQUEST');
+                    } elseif ($orderStatusUpper === 'CANCEL' || $orderStatusUpper === 'CANCELLED') {
+                        $partStatus = 'CANCELLED';
+                    }
+
+                    $installedHm = ($partStatus === 'INSTALLED' && $monitoring_orderan->hm) ? (float) $monitoring_orderan->hm : null;
+                    $installedDate = ($partStatus === 'INSTALLED') ? $monitoring_orderan->tanggal : null;
+
+                    PartOrderLifetime::create([
+                        'unit_id' => $monitoring_orderan->unit_id,
+                        'unit_code' => $unitCode,
+                        'part_number' => $pn,
+                        'part_name' => $part['description'] ?? ($part['component_name'] ?? $part['component'] ?? null),
+                        'no_order' => $monitoring_orderan->no_order,
+                        'maintenance_order_id' => $monitoring_orderan->id,
+                        'maintenance_order_part_id' => $createdPart->id,
+                        'qty' => $part['qty'] ?? 1,
+                        'order_date' => $monitoring_orderan->tanggal,
+                        'eta' => ! empty($part['due_date_part']) && $part['due_date_part'] !== '-' ? $part['due_date_part'] : null,
+                        'installed_date' => $installedDate,
+                        'installed_hm' => $installedHm,
+                        'expected_lifetime' => ! empty($part['life_time']) ? (float) $part['life_time'] : 5000.0,
+                        'status' => $partStatus,
+                        'remarks' => ! empty($part['pr']) ? 'PR: '.$part['pr'].(! empty($part['po']) ? ' | PO: '.$part['po'] : '') : null,
+                    ]);
+                }
             }
         } else {
             // Create minimal 1 empty part
             $monitoring_orderan->parts()->create([
+                'component' => $orderComponent,
+                'component_name' => $orderComponentName,
                 'part_number' => '-',
                 'department' => '-',
                 'qty' => 1,

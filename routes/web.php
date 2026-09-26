@@ -3,7 +3,6 @@
 use App\Http\Controllers\AbrController;
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\ActivityLogController;
-use App\Http\Controllers\BacklogController;
 use App\Http\Controllers\BatteryMonitoringController;
 use App\Http\Controllers\BreakdownController;
 use App\Http\Controllers\BucketInspectionController;
@@ -12,7 +11,6 @@ use App\Http\Controllers\CheckSheetMotorgraderController;
 use App\Http\Controllers\CheckSheetServiceController;
 use App\Http\Controllers\ClaimWarrantyController;
 use App\Http\Controllers\ConditionComponentReportController;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DatabaseSchemaController;
 use App\Http\Controllers\DumpTruckServiceController;
 use App\Http\Controllers\FailureAnalysisController;
@@ -32,14 +30,17 @@ use App\Http\Controllers\ManpowerBudgetController;
 use App\Http\Controllers\ManpowerController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\MonitoringOrderanController;
+use App\Http\Controllers\NavigationMenuController;
 use App\Http\Controllers\OilConsumptionController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\P2hController;
 use App\Http\Controllers\PartCanibalController;
+use App\Http\Controllers\PartOrderLifetimeController;
 use App\Http\Controllers\PcrController;
 use App\Http\Controllers\PdfForecastController;
 use App\Http\Controllers\PengajuanCutiController;
 use App\Http\Controllers\PenundaanServiceController;
+use App\Http\Controllers\PerformanceUnitController;
 use App\Http\Controllers\PerhitunganManpowerController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PlanInspectionController;
@@ -51,6 +52,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RequestAssetDisposedController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\RosterController;
 use App\Http\Controllers\ServiceOrderController;
 use App\Http\Controllers\SettingController;
@@ -64,17 +66,27 @@ use App\Http\Controllers\UnitController;
 use App\Http\Controllers\UnitGatePassController;
 use App\Http\Controllers\UnitGetController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VideoPanduanController;
 use App\Http\Controllers\WashingFormController;
 use App\Http\Controllers\WorkOrderController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+
     return redirect()->route('login');
 });
 
-Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/portal', function () {
+    return redirect()->route('dashboard');
+})->middleware(['auth'])->name('portal.index');
+
+Route::get('/dashboard', function () {
+    return redirect()->route('work-orders.index');
+})->middleware(['auth'])->name('dashboard');
 
 Route::post('/api/concurrent-test', function (Request $request) {
     // TEMPORARY TEST RUNNER
@@ -110,13 +122,58 @@ Route::middleware('auth')->group(function () {
         ]);
     })->name('session.keepalive');
 
+    // Video Panduan & Tur Sistem Terpadu (Beserta Surat Penjelasan & Download Center)
+    Route::get('/video-panduan', [VideoPanduanController::class, 'index'])->name('video-panduan.index');
+    Route::post('/video-panduan/settings', [VideoPanduanController::class, 'updateSettings'])->name('video-panduan.settings');
+    Route::get('/video-panduan/download/surat-pdf', [VideoPanduanController::class, 'downloadSuratPdf'])->name('video-panduan.download.surat-pdf');
+    Route::get('/video-panduan/download/surat-doc', [VideoPanduanController::class, 'downloadSuratDoc'])->name('video-panduan.download.surat-doc');
+    Route::get('/video-panduan/download/panduan-pdf', [VideoPanduanController::class, 'downloadPanduanPdf'])->name('video-panduan.download.panduan-pdf');
+    Route::get('/video-panduan/download/katalog-csv', [VideoPanduanController::class, 'downloadKatalogCsv'])->name('video-panduan.download.katalog-csv');
+    Route::get('/video-panduan/download/transkrip-txt', [VideoPanduanController::class, 'downloadTranskripTxt'])->name('video-panduan.download.transkrip-txt');
+    Route::get('/video-panduan/download/audio-20s', [VideoPanduanController::class, 'downloadAudio20s'])->name('video-panduan.download.audio-20s');
+
     // Master Data Hub
     Route::get('/master-data', [MasterDataController::class, 'index'])->name('master-data.index');
 
-    // Profile
+    // Profile (My Profil)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update.post');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Web Settings: Navigation Menu Builder (Drag & Drop, Hierarchy, Permissions)
+    Route::get('/settings/menus', [NavigationMenuController::class, 'index'])->name('settings.menus.index');
+    Route::post('/settings/menus', [NavigationMenuController::class, 'store'])->name('settings.menus.store');
+    Route::put('/settings/menus/{menu}', [NavigationMenuController::class, 'update'])->name('settings.menus.update');
+    Route::patch('/settings/menus/{menu}/icon', [NavigationMenuController::class, 'updateIcon'])->name('settings.menus.icon');
+    Route::delete('/settings/menus/{menu}', [NavigationMenuController::class, 'destroy'])->name('settings.menus.destroy');
+    Route::post('/settings/menus/reorder', [NavigationMenuController::class, 'reorder'])->name('settings.menus.reorder');
+    Route::post('/settings/menus/reset', [NavigationMenuController::class, 'resetDefault'])->name('settings.menus.reset');
+    Route::post('/settings/branding', [NavigationMenuController::class, 'updateBranding'])->name('settings.branding.update');
+
+    // Role & Permission Management
+    Route::get('/settings/roles-permissions', [RolePermissionController::class, 'index'])->name('settings.roles-permissions.index');
+    Route::post('/settings/roles', [RolePermissionController::class, 'storeRole'])->name('settings.roles.store');
+    Route::put('/settings/roles/{role}', [RolePermissionController::class, 'updateRole'])->name('settings.roles.update');
+    Route::delete('/settings/roles/{role}', [RolePermissionController::class, 'destroyRole'])->name('settings.roles.destroy');
+    Route::post('/settings/roles/{role}/permissions', [RolePermissionController::class, 'syncRolePermissions'])->name('settings.roles.sync-permissions');
+    Route::post('/settings/permissions', [RolePermissionController::class, 'storePermission'])->name('settings.permissions.store');
+    Route::delete('/settings/permissions/{permission}', [RolePermissionController::class, 'destroyPermission'])->name('settings.permissions.destroy');
+    Route::post('/settings/users/{user}/roles', [RolePermissionController::class, 'syncUserRoles'])->name('settings.users.sync-roles');
+    Route::post('/settings/permissions/seed', [RolePermissionController::class, 'seedRecommendedPermissions'])->name('settings.permissions.seed');
+
+    // Navigation and setting redirects
+    Route::redirect('/roles', '/settings/roles-permissions')->name('roles.index');
+    Route::redirect('/permissions', '/settings/roles-permissions')->name('permissions.index');
+    Route::redirect('/users', '/settings/roles-permissions?tab=users')->name('users.index');
+    Route::redirect('/part-canibal', '/part-canibals');
+    Route::redirect('/hour-meter', '/hour-meters');
+    Route::redirect('/pengajuan-cuti', '/cuti/pengajuan');
+
+    // Email & SMTP Settings
+    Route::get('/settings/mail', [SettingController::class, 'index'])->name('settings.mail.index');
+    Route::post('/settings/mail', [SettingController::class, 'update'])->name('settings.mail.update');
+    Route::post('/settings/mail/test', [SettingController::class, 'sendTestMail'])->name('settings.mail.test');
 
     // Populasi Unit (Plant Operations)
     Route::get('/units/export/excel', [UnitController::class, 'exportExcel'])->name('units.export.excel');
@@ -149,7 +206,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/list-populasi', [ListPopulasiController::class, 'index'])->name('list-populasi.index');
     Route::get('/kpi', [KpiController::class, 'index'])->name('kpi.index');
 
+    // Performance Unit
+    Route::get('/performance-unit/export/excel', [PerformanceUnitController::class, 'exportExcel'])->name('performance-unit.export.excel');
+    Route::get('/performance-unit/export/pdf', [PerformanceUnitController::class, 'exportPdf'])->name('performance-unit.export.pdf');
+    Route::get('/performance-unit', [PerformanceUnitController::class, 'index'])->name('performance-unit.index');
+
     Route::get('/api/get-hm', [HourMeterController::class, 'getHm'])->name('hour-meters.get-hm');
+    Route::get('/hour-meters/export/excel', [HourMeterController::class, 'exportExcel'])->name('hour-meters.export.excel');
     Route::get('/hour-meters/export/pdf', [HourMeterController::class, 'exportPdf'])->name('hour-meters.export.pdf');
     Route::get('/hour-meters/download/template', [HourMeterController::class, 'downloadTemplate'])->name('hour-meters.download.template');
     Route::post('/hour-meters/import', [HourMeterController::class, 'import'])->name('hour-meters.import');
@@ -220,6 +283,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/work-orders/{id}', [WorkOrderController::class, 'update'])->name('work-orders.update');
     Route::patch('/work-orders/{id}/status', [WorkOrderController::class, 'updateStatus'])->name('work-orders.update-status');
     Route::delete('/work-orders/{id}', [WorkOrderController::class, 'destroy'])->name('work-orders.destroy');
+    Route::post('/work-orders/{id}/attach-order-parts', [WorkOrderController::class, 'attachOrderParts'])->name('work-orders.attach-order-parts');
+    Route::post('/work-orders/{id}/parts', [WorkOrderController::class, 'storePart'])->name('work-orders.parts.store');
+    Route::put('/work-orders/{id}/parts/{partId}', [WorkOrderController::class, 'updatePart'])->name('work-orders.parts.update');
+    Route::delete('/work-orders/{id}/parts/{partId}', [WorkOrderController::class, 'destroyPart'])->name('work-orders.parts.destroy');
+    Route::get('/work-orders/{id}/search-monitoring-orders', [WorkOrderController::class, 'searchMonitoringOrders'])->name('work-orders.search-monitoring-orders');
 
     // Form OHT 773 (PM Service Sheet Off Highway Truck 773E)
     Route::get('/form-oht773/download-pdf', [PlantFormController::class, 'downloadPdf'])->name('form-oht773.download-pdf');
@@ -376,7 +444,7 @@ Route::middleware('auth')->group(function () {
     ]);
 
     // Surat Permintaan Komponen (Internal Memorandum)
-    Route::get('/form-surat-permintaan-komponen/download-pdf', [SuratPermintaanKomponenController::class, 'downloadPdf'])->name('form-surat-permintaan-komponen.download-pdf');
+    Route::match(['get', 'post'], '/form-surat-permintaan-komponen/download-pdf', [SuratPermintaanKomponenController::class, 'downloadPdf'])->name('form-surat-permintaan-komponen.download-pdf');
     Route::get('/form-surat-permintaan-komponen/blank-print', [SuratPermintaanKomponenController::class, 'blankPrint'])->name('form-surat-permintaan-komponen.blank-print');
     Route::get('/form-surat-permintaan-komponen/{id}/print', [SuratPermintaanKomponenController::class, 'print'])->name('form-surat-permintaan-komponen.print');
     Route::resource('form-surat-permintaan-komponen', SuratPermintaanKomponenController::class)->names([
@@ -390,6 +458,7 @@ Route::middleware('auth')->group(function () {
     ]);
 
     // Form JSA (Job Safety Environmental Analysis - MAM-HSE-FORM-028)
+    Route::get('/form-jsa/portal', [FormJsaController::class, 'portal'])->name('form-jsa.portal');
     Route::get('/form-jsa/download-pdf', [FormJsaController::class, 'downloadPdf'])->name('form-jsa.download-pdf');
     Route::get('/form-jsa/blank-print/{taskType?}', [FormJsaController::class, 'blankPrint'])->name('form-jsa.blank-print');
     Route::get('/form-jsa/{id}/print', [FormJsaController::class, 'print'])->name('form-jsa.print');
@@ -431,8 +500,11 @@ Route::middleware('auth')->group(function () {
     // Monitoring Orderan (Standard Table View)
     Route::get('/monitoring-orderan', [MonitoringOrderanController::class, 'index'])->name('monitoring-orderan.index');
     Route::get('/monitoring-orderan/create', [MonitoringOrderanController::class, 'create'])->name('monitoring-orderan.create');
+    Route::get('/monitoring-orderan/export-excel', [MonitoringOrderanController::class, 'exportExcel'])->name('monitoring-orderan.export-excel');
+    Route::get('/monitoring-orderan/export-pdf', [MonitoringOrderanController::class, 'exportPdfByQuery'])->name('monitoring-orderan.export-pdf');
     Route::get('/monitoring-orderan/{monitoring_orderan}/print', [MonitoringOrderanController::class, 'print'])->name('monitoring-orderan.print');
     Route::get('/monitoring-orderan/{monitoring_orderan}/pdf', [MonitoringOrderanController::class, 'exportPdf'])->name('monitoring-orderan.pdf');
+    Route::get('/monitoring-orderan/{monitoring_orderan}/excel', [MonitoringOrderanController::class, 'exportExcelOrder'])->name('monitoring-orderan.excel');
     Route::get('/monitoring-orderan/{monitoring_orderan}/edit', [MonitoringOrderanController::class, 'edit'])->name('monitoring-orderan.edit');
     Route::get('/monitoring-orderan/part-lifetime', [MonitoringOrderanController::class, 'getPartLifetime'])->name('monitoring-orderan.part-lifetime');
     Route::post('/monitoring-orderan', [MonitoringOrderanController::class, 'store'])->name('monitoring-orderan.store');
@@ -440,6 +512,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/monitoring-orderan/import', [MonitoringOrderanController::class, 'import'])->name('monitoring-orderan.import');
     Route::get('/monitoring-orderan/download-template', [MonitoringOrderanController::class, 'downloadTemplate'])->name('monitoring-orderan.download-template');
     Route::delete('/monitoring-orderan/{monitoring_orderan}', [MonitoringOrderanController::class, 'destroy'])->name('monitoring-orderan.destroy');
+
+    // Smart Part Order & Part Lifetime Management
+    Route::get('/part-order-lifetime', [PartOrderLifetimeController::class, 'index'])->name('part-order-lifetime.index');
+    Route::post('/part-order-lifetime', [PartOrderLifetimeController::class, 'store'])->name('part-order-lifetime.store');
+    Route::put('/part-order-lifetime/{partOrderLifetime}', [PartOrderLifetimeController::class, 'update'])->name('part-order-lifetime.update');
+    Route::delete('/part-order-lifetime/{partOrderLifetime}', [PartOrderLifetimeController::class, 'destroy'])->name('part-order-lifetime.destroy');
+    Route::put('/part-order-lifetime/{partOrderLifetime}/status', [PartOrderLifetimeController::class, 'updateStatus'])->name('part-order-lifetime.update-status');
+    Route::post('/part-order-lifetime/{partOrderLifetime}/install', [PartOrderLifetimeController::class, 'install'])->name('part-order-lifetime.install');
+    Route::post('/part-order-lifetime/{partOrderLifetime}/replace', [PartOrderLifetimeController::class, 'replace'])->name('part-order-lifetime.replace');
+    Route::get('/api/part-order-lifetime/check-active', [PartOrderLifetimeController::class, 'checkActiveOrder'])->name('part-order-lifetime.check-active');
+    Route::get('/api/part-order-lifetime/timeline', [PartOrderLifetimeController::class, 'timeline'])->name('part-order-lifetime.timeline');
 
     Route::put('/part-canibals/{part_canibal}/status', [PartCanibalController::class, 'updateStatus'])->name('part-canibals.updateStatus');
     Route::resource('part-canibals', PartCanibalController::class)->only(['index', 'store', 'update', 'destroy']);
@@ -464,13 +547,19 @@ Route::middleware('auth')->group(function () {
 
     // PM Monitoring (Jatuh Tempo Service Unit)
     Route::get('/pm-monitoring', [PmMonitoringController::class, 'index'])->name('pm-monitoring.index');
+    Route::post('/pm-monitoring/sync-hm', [PmMonitoringController::class, 'syncHm'])->name('pm-monitoring.sync-hm');
 
     // Plan Service & Master PM
     Route::get('/plan-service', [PlanServiceController::class, 'index'])->name('plan-service.index');
     Route::post('/plan-service/{unit}/complete', [PlanServiceController::class, 'complete'])->name('plan-service.complete');
 
-    // Backlog
-    Route::resource('backlogs', BacklogController::class);
+    // Backlog (Dinonaktifkan / Dialihkan ke Work Orders)
+    Route::get('/backlogs', function () {
+        return redirect()->route('work-orders.index');
+    })->name('backlogs.index');
+    Route::any('/backlogs/{any}', function () {
+        return redirect()->route('work-orders.index');
+    })->where('any', '.*');
 
     // Failure Analysis (FAR)
     Route::get('/failure-analysis/{failure_analysis}/export-pdf', [FailureAnalysisController::class, 'exportPdf'])->name('failure-analysis.export-pdf');
@@ -550,8 +639,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/repair/job-outside/{wo}', [JobOutsideRepairController::class, 'update'])->name('repair.job-outside.update'); // using POST for file upload support
     Route::delete('/repair/job-outside/{wo}', [JobOutsideRepairController::class, 'destroy'])->name('repair.job-outside.destroy');
     Route::get('/repair/job-outside/{wo}/pdf', [JobOutsideRepairController::class, 'printPdf'])->name('repair.job-outside.pdf');
+    Route::get('/repair/magnetic-plug/download-template', [MagneticPlugController::class, 'downloadTemplate'])->name('repair.magnetic-plug.download-template');
+    Route::get('/repair/magnetic-plug/export', [MagneticPlugController::class, 'exportExcel'])->name('repair.magnetic-plug.export');
+    Route::post('/repair/magnetic-plug/import', [MagneticPlugController::class, 'import'])->name('repair.magnetic-plug.import');
     Route::get('/repair/magnetic-plug', [MagneticPlugController::class, 'index'])->name('repair.magnetic-plug');
     Route::get('/repair/magnetic-plug/create', [MagneticPlugController::class, 'create'])->name('repair.magnetic-plug.create');
+    Route::post('/repair/magnetic-plug', [MagneticPlugController::class, 'store'])->name('repair.magnetic-plug.store');
 
     // Tyre Management
     Route::post('tyres/bulk-store', [TyreController::class, 'bulkStore'])->name('tyres.bulk-store');
@@ -560,7 +653,6 @@ Route::middleware('auth')->group(function () {
     Route::post('tyres/{tyre}/install', [TyreController::class, 'install'])->name('tyres.install');
     Route::post('tyres/{tyre}/remove', [TyreController::class, 'remove'])->name('tyres.remove');
     Route::get('tyres/{tyre}/history', [TyreController::class, 'history'])->name('tyres.history');
-    Route::post('/repair/magnetic-plug', [MagneticPlugController::class, 'store'])->name('repair.magnetic-plug.store');
     Route::get('/oil-consumption', [OilConsumptionController::class, 'index'])->name('oil-consumption.index');
     Route::post('/oil-consumption', [OilConsumptionController::class, 'store'])->name('oil-consumption.store');
     Route::put('/oil-consumption/{oilConsumption}', [OilConsumptionController::class, 'update'])->name('oil-consumption.update');

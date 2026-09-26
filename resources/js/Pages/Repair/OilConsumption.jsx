@@ -47,6 +47,7 @@ export default function OilConsumption({
     allUnitTypes = [],
     standardOilGrades = [],
     perGradeAnalytics = [],
+    allGradeStats = [],
     units = [], 
     oilTypes = [], 
     components = [], 
@@ -56,8 +57,18 @@ export default function OilConsumption({
 }) {
     const { manpowerList = [] } = usePage().props;
 
-    // Active Top Tab: 'analytics' (Dark Comparison Dashboard) | 'data' (Data Table & CRUD)
-    const [activeTab, setActiveTab] = useState('analytics');
+    // Active Top Tab: 'analytics' (Dark Comparison Dashboard) | 'grade_analytics' | 'data' (Data Table & CRUD)
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const [activeTab, setActiveTab] = useState(urlParams?.get('tab') || 'analytics');
+
+    const handleTabChange = (tabName) => {
+        setActiveTab(tabName);
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tabName);
+            window.history.replaceState({}, '', url);
+        }
+    };
 
     // Selected Unit Type for Dark Dashboard
     const defaultUnitType = (allUnitTypes && allUnitTypes.length > 0) ? allUnitTypes[0] : 'EXCAVATOR';
@@ -65,6 +76,11 @@ export default function OilConsumption({
 
     // Selected Oil Grade Filter for Dark Dashboard
     const [selectedOilGrade, setSelectedOilGrade] = useState('Semua');
+
+    // Filter states for Date Range (Interactive on Charts and Table)
+    const [chartDateFrom, setChartDateFrom] = useState(filters.dateFrom || filters.minDate || '');
+    const [chartDateTo, setChartDateTo] = useState(filters.dateTo || filters.maxDate || '');
+    const [isPullingData, setIsPullingData] = useState(false);
 
     // Filter states for Table Tab
     const [search, setSearch] = useState(filters.search || '');
@@ -78,6 +94,49 @@ export default function OilConsumption({
     const [statusFilter, setStatusFilter] = useState(filters.statusFilter || '');
     const [hmFromFilter, setHmFromFilter] = useState(filters.hmFromFilter || '');
     const [hmToFilter, setHmToFilter] = useState(filters.hmToFilter || '');
+
+    // Sync dates when filters change from backend
+    useEffect(() => {
+        if (filters.dateFrom) setChartDateFrom(filters.dateFrom);
+        if (filters.dateTo) setChartDateTo(filters.dateTo);
+        setDateFrom(filters.dateFrom || '');
+        setDateTo(filters.dateTo || '');
+    }, [filters.dateFrom, filters.dateTo]);
+
+    // Handle Tarik Data (Apply Date Filter to Dashboard & Charts)
+    const handleTarikData = (e) => {
+        if (e) e.preventDefault();
+        setIsPullingData(true);
+        router.get(route('oil-consumption.index'), {
+            ...filters,
+            dateFrom: chartDateFrom,
+            dateTo: chartDateTo,
+            tab: activeTab,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onFinish: () => setIsPullingData(false),
+        });
+    };
+
+    // Handle Reset Date Filter (Show all dates)
+    const handleResetDateFilter = () => {
+        setChartDateFrom(filters.minDate || '');
+        setChartDateTo(filters.maxDate || '');
+        setDateFrom('');
+        setDateTo('');
+        setIsPullingData(true);
+        router.get(route('oil-consumption.index'), {
+            ...filters,
+            dateFrom: '',
+            dateTo: '',
+            tab: activeTab,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onFinish: () => setIsPullingData(false),
+        });
+    };
 
     // Modal States
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -115,6 +174,7 @@ export default function OilConsumption({
 
     // Chart Refs
     const darkComparisonChartRef = useRef(null);
+    const allGradeChartRef = useRef(null);
     const gradeDonutRef = useRef(null);
     const chartInstances = useRef({});
 
@@ -371,12 +431,45 @@ export default function OilConsumption({
         return <Activity className="w-4 h-4 text-teal-400" />;
     };
 
+    // Helper function for Component by Grade
+    const getComponentForGrade = (gradeName) => {
+        const g = (gradeName || '').toUpperCase();
+        if (g.includes('15W-40') || g.includes('15W40') || g.includes('50') || g.includes('60')) return 'Engine System';
+        if (g.includes('46') || g.includes('V68') || g.includes('68')) return 'Hydraulic System';
+        if (g.includes('COOLANT')) return 'Cooling Radiator';
+        if (g.includes('GREASE')) return 'Chassis & Greasing';
+        if (g.includes('80W-90') || g.includes('85W-140') || g.includes('90')) return 'Differential & Final Drive';
+        if (g.includes('ATF') || g.includes('10W') || g.includes('30')) return 'Transmission & Torque Converter';
+        return 'General Lubricant';
+    };
+
+    // Memoized Totals for All Grade Oil Tab
+    const totalAllGradeSchedule = useMemo(() => {
+        return Math.round((allGradeStats || []).reduce((acc, g) => acc + (g.schedule_liter || 0), 0) * 10) / 10;
+    }, [allGradeStats]);
+
+    const totalAllGradeUnschedule = useMemo(() => {
+        return Math.round((allGradeStats || []).reduce((acc, g) => acc + (g.unschedule_liter || 0), 0) * 10) / 10;
+    }, [allGradeStats]);
+
+    const totalAllGradeConsumption = useMemo(() => {
+        return Math.round((totalAllGradeSchedule + totalAllGradeUnschedule) * 10) / 10;
+    }, [totalAllGradeSchedule, totalAllGradeUnschedule]);
+
+    const topConsumedGrade = useMemo(() => {
+        const sorted = [...(allGradeStats || [])].sort((a, b) => (b.total_liter || 0) - (a.total_liter || 0));
+        return sorted[0] || { grade: '-', total_liter: 0, schedule_liter: 0, unschedule_liter: 0 };
+    }, [allGradeStats]);
+
+    const topUnscheduledGrade = useMemo(() => {
+        const sorted = [...(allGradeStats || [])].sort((a, b) => (b.unschedule_liter || 0) - (a.unschedule_liter || 0));
+        return sorted[0] || { grade: '-', unschedule_liter: 0 };
+    }, [allGradeStats]);
+
     // =========================================================================
-    // CHART.JS INITIALIZATION FOR THE DARK DASHBOARD & DONUT
+    // CHART.JS INITIALIZATION FOR THE DARK DASHBOARD, ALL GRADE CHART & DONUT
     // =========================================================================
     useEffect(() => {
-        if (activeTab !== 'analytics') return;
-
         // Destroy previous chart instances
         Object.keys(chartInstances.current).forEach(key => {
             if (chartInstances.current[key]) {
@@ -384,8 +477,8 @@ export default function OilConsumption({
             }
         });
 
-        // 1. Dark Comparison Bar Chart: Schedule vs Unschedule per Unit
-        if (darkComparisonChartRef.current) {
+        // 1. Dark Comparison Bar Chart: Schedule vs Unschedule per Unit (Tab 1: Dashboard Grafik)
+        if (activeTab === 'analytics' && darkComparisonChartRef.current) {
             const chartUnits = activeDashboard.units || [];
             const labels = chartUnits.map(u => u.code_unit);
             const scheduleData = chartUnits.map(u => u.schedule_liters || 0);
@@ -406,7 +499,6 @@ export default function OilConsumption({
                                 ctx.font = 'bold 11px Inter, system-ui, -apple-system, sans-serif';
                                 ctx.textAlign = 'center';
                                 ctx.textBaseline = 'bottom';
-                                // Draw above bar if val > 0, or right on baseline if 0
                                 const yPos = val > 0 ? bar.y - 4 : bar.y - 2;
                                 ctx.fillText(val > 0 ? val.toString() : '0', bar.x, yPos);
                                 ctx.restore();
@@ -483,7 +575,7 @@ export default function OilConsumption({
                     },
                     plugins: {
                         legend: {
-                            display: false, // HTML custom legend matching screenshot
+                            display: false,
                         },
                         tooltip: {
                             backgroundColor: '#0f172a',
@@ -502,7 +594,125 @@ export default function OilConsumption({
             });
         }
 
-        // 2. Donut Chart: Proporsi Grade Oli Seluruh Armada
+        // 2. All Grade Oil Comparison Bar Chart (Tab 2: Grafik all Grade oil)
+        if (activeTab === 'grade_analytics' && allGradeChartRef.current) {
+            const gradesList = (allGradeStats && allGradeStats.length > 0) ? allGradeStats : perGradeAnalytics;
+            const labels = gradesList.map(g => g.grade);
+            const scheduleData = gradesList.map(g => g.schedule_liter ?? 0);
+            const unscheduleData = gradesList.map(g => g.unschedule_liter ?? 0);
+
+            const allGradeValueLabelsPlugin = {
+                id: 'allGradeValueLabelsPlugin',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    chart.data.datasets.forEach((dataset, datasetIndex) => {
+                        const meta = chart.getDatasetMeta(datasetIndex);
+                        meta.data.forEach((bar, index) => {
+                            const val = dataset.data[index];
+                            if (val !== undefined && val !== null) {
+                                ctx.save();
+                                ctx.fillStyle = '#f8fafc';
+                                ctx.font = 'bold 10px Inter, system-ui, -apple-system, sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'bottom';
+                                const yPos = val > 0 ? bar.y - 4 : bar.y - 2;
+                                ctx.fillText(val > 0 ? val.toLocaleString('id-ID') : '0', bar.x, yPos);
+                                ctx.restore();
+                            }
+                        });
+                    });
+                }
+            };
+
+            chartInstances.current.allGradeChart = new Chart(allGradeChartRef.current, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Schedule',
+                            data: scheduleData,
+                            backgroundColor: '#10b981',
+                            hoverBackgroundColor: '#059669',
+                            borderRadius: { topLeft: 6, topRight: 6 },
+                            barPercentage: 0.85,
+                            categoryPercentage: 0.70,
+                        },
+                        {
+                            label: 'Unschedule',
+                            data: unscheduleData,
+                            backgroundColor: '#ef4444',
+                            hoverBackgroundColor: '#dc2626',
+                            borderRadius: { topLeft: 6, topRight: 6 },
+                            barPercentage: 0.85,
+                            categoryPercentage: 0.70,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 28, bottom: 8, left: 6, right: 6 }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.04)',
+                                drawBorder: false,
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { size: 10, weight: 'bold' },
+                                maxRotation: 35,
+                                minRotation: 0,
+                                padding: 6,
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.07)',
+                                drawBorder: false,
+                            },
+                            title: {
+                                display: true,
+                                text: 'LITER (L)',
+                                color: '#94a3b8',
+                                font: { size: 11, weight: 'bold' }
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { size: 10 }
+                            },
+                            beginAtZero: true,
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#e2e8f0',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            padding: 10,
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('id-ID')} L`
+                            }
+                        }
+                    }
+                },
+                plugins: [allGradeValueLabelsPlugin]
+            });
+        }
+
+        // 3. Donut Chart: Proporsi Grade Oli Seluruh Armada
         if (gradeDonutRef.current) {
             const labels = (perGradeAnalytics || []).map(g => g.grade);
             const values = (perGradeAnalytics || []).map(g => g.total_liter);
@@ -537,7 +747,7 @@ export default function OilConsumption({
                 }
             });
         };
-    }, [activeTab, selectedUnitType, selectedOilGrade, activeDashboard, perGradeAnalytics]);
+    }, [activeTab, selectedUnitType, selectedOilGrade, activeDashboard, perGradeAnalytics, allGradeStats]);
 
     return (
         <AuthenticatedLayout
@@ -582,7 +792,10 @@ export default function OilConsumption({
 
                         {/* Tombol Export Excel */}
                         <a 
-                            href={route('oil-consumption.export')}
+                            href={route('oil-consumption.export', { 
+                                dateFrom: chartDateFrom || filters.dateFrom || '', 
+                                dateTo: chartDateTo || filters.dateTo || '' 
+                            })}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-sm font-bold rounded-xl shadow-sm transition-all"
@@ -614,7 +827,7 @@ export default function OilConsumption({
                     <div className="flex items-center gap-1.5 w-full sm:w-auto">
                         <button
                             type="button"
-                            onClick={() => setActiveTab('analytics')}
+                            onClick={() => handleTabChange('analytics')}
                             className={`flex items-center gap-2.5 px-6 py-3 rounded-xl font-black text-sm transition-all ${
                                 activeTab === 'analytics'
                                     ? 'bg-slate-900 text-white shadow-md shadow-slate-900/30'
@@ -622,16 +835,37 @@ export default function OilConsumption({
                             }`}
                         >
                             <BarChart3 size={18} className={activeTab === 'analytics' ? 'text-amber-400' : ''} />
-                            <span>Dashboard Grafik: Schedule vs Unscheduled (Per Tipe Unit)</span>
-                            <span className="flex h-2 w-2 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                            </span>
+                            <span>Dashboard Grafik</span>
+                            {activeTab === 'analytics' && (
+                                <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
+                            )}
                         </button>
 
                         <button
                             type="button"
-                            onClick={() => setActiveTab('data')}
+                            onClick={() => handleTabChange('grade_analytics')}
+                            className={`flex items-center gap-2.5 px-6 py-3 rounded-xl font-black text-sm transition-all ${
+                                activeTab === 'grade_analytics'
+                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                        >
+                            <Droplet size={18} className={activeTab === 'grade_analytics' ? 'text-cyan-300' : ''} />
+                            <span>Grafik all Grade oil</span>
+                            {activeTab === 'grade_analytics' && (
+                                <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-300 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+                                </span>
+                            )}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => handleTabChange('data')}
                             className={`flex items-center gap-2.5 px-6 py-3 rounded-xl font-black text-sm transition-all ${
                                 activeTab === 'data'
                                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
@@ -788,11 +1022,54 @@ export default function OilConsumption({
                                                 OIL CONSUMPTION - <span className="text-amber-400">{selectedUnitType}</span>
                                             </h2>
                                             
-                                            {/* Date Range Badge */}
-                                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-xs font-bold text-slate-300">
-                                                <Calendar size={13} className="text-slate-400" />
-                                                <span>01 Sep 2026 - 18 Sep 2026</span>
-                                            </div>
+                                            {/* Interactive Date Range Filter ("Tarik Data") */}
+                                            <form onSubmit={handleTarikData} className="inline-flex flex-wrap items-center gap-1.5 bg-slate-900/95 border border-slate-700/90 p-1.5 rounded-xl shadow-lg">
+                                                <div className="flex items-center gap-1 pl-1 text-xs font-bold text-amber-400">
+                                                    <Calendar size={14} className="flex-shrink-0" />
+                                                    <span className="hidden sm:inline text-slate-300 text-[11px] font-bold">Periode:</span>
+                                                </div>
+                                                <input 
+                                                    type="date"
+                                                    value={chartDateFrom}
+                                                    onChange={(e) => setChartDateFrom(e.target.value)}
+                                                    className="bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none [color-scheme:dark] transition-all cursor-pointer"
+                                                    title="Pilih tanggal awal tarik data"
+                                                />
+                                                <span className="text-slate-400 text-xs font-bold">s/d</span>
+                                                <input 
+                                                    type="date"
+                                                    value={chartDateTo}
+                                                    onChange={(e) => setChartDateTo(e.target.value)}
+                                                    className="bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none [color-scheme:dark] transition-all cursor-pointer"
+                                                    title="Pilih tanggal akhir tarik data"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    disabled={isPullingData}
+                                                    className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-95 text-slate-950 font-black text-xs rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                                                >
+                                                    <RefreshCw size={12} className={isPullingData ? 'animate-spin' : ''} />
+                                                    <span>Tarik Data</span>
+                                                </button>
+                                                {(filters.dateFrom || filters.dateTo) && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleResetDateFilter}
+                                                        title="Reset Filter Tanggal (Tampilkan Semua)"
+                                                        className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                )}
+                                            </form>
+
+                                            {/* Badge Display of Active Period */}
+                                            {filters.formattedRange && (
+                                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-xs font-bold text-slate-300">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                                    <span>{filters.formattedRange}</span>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <p className="text-sm font-semibold text-slate-400">
@@ -1008,7 +1285,404 @@ export default function OilConsumption({
                 )}
 
                 {/* ========================================================================= */}
-                {/* TAB 2: DATA TABEL & MONITORING PENGISIAN                                  */}
+                {/* TAB 2: GRAFIK ALL GRADE OIL (KONSUMSI SELURUH GRADE PELUMAS)             */}
+                {/* ========================================================================= */}
+                {activeTab === 'grade_analytics' && (
+                    <div className="space-y-6">
+
+                        {/* 1. THE HIGH-TECH DARK COMPARISON DASHBOARD FOR ALL GRADE OIL */}
+                        <div className="relative rounded-3xl bg-gradient-to-br from-[#0B132B] via-[#090F22] to-[#050914] border border-cyan-900/40 shadow-2xl p-6 sm:p-8 text-white overflow-hidden">
+                            
+                            {/* Subtle Radial Glows */}
+                            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                            {/* TOP HEADER SECTION */}
+                            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-800/80">
+                                
+                                {/* Left Title & Legend */}
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 shadow-md shadow-blue-500/10 flex-shrink-0">
+                                        <Droplet size={32} strokeWidth={2.2} />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase">
+                                                OIL CONSUMPTION - <span className="text-blue-400">ALL GRADE OIL</span>
+                                            </h2>
+                                            
+                                            {/* Interactive Date Range Filter ("Tarik Data") */}
+                                            <form onSubmit={handleTarikData} className="inline-flex flex-wrap items-center gap-1.5 bg-slate-900/95 border border-slate-700/90 p-1.5 rounded-xl shadow-lg">
+                                                <div className="flex items-center gap-1 pl-1 text-xs font-bold text-cyan-400">
+                                                    <Calendar size={14} className="flex-shrink-0" />
+                                                    <span className="hidden sm:inline text-slate-300 text-[11px] font-bold">Periode:</span>
+                                                </div>
+                                                <input 
+                                                    type="date"
+                                                    value={chartDateFrom}
+                                                    onChange={(e) => setChartDateFrom(e.target.value)}
+                                                    className="bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none [color-scheme:dark] transition-all cursor-pointer"
+                                                    title="Pilih tanggal awal tarik data"
+                                                />
+                                                <span className="text-slate-400 text-xs font-bold">s/d</span>
+                                                <input 
+                                                    type="date"
+                                                    value={chartDateTo}
+                                                    onChange={(e) => setChartDateTo(e.target.value)}
+                                                    className="bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none [color-scheme:dark] transition-all cursor-pointer"
+                                                    title="Pilih tanggal akhir tarik data"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    disabled={isPullingData}
+                                                    className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 active:scale-95 text-white font-black text-xs rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                                                >
+                                                    <RefreshCw size={12} className={isPullingData ? 'animate-spin' : ''} />
+                                                    <span>Tarik Data</span>
+                                                </button>
+                                                {(filters.dateFrom || filters.dateTo) && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleResetDateFilter}
+                                                        title="Reset Filter Tanggal (Tampilkan Semua)"
+                                                        className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                )}
+                                            </form>
+
+                                            {/* Badge Display of Active Period */}
+                                            {filters.formattedRange && (
+                                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-xs font-bold text-slate-300">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                                                    <span>{filters.formattedRange}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <p className="text-sm font-semibold text-slate-400">
+                                            Comparison Schedule vs Unscheduled | Seluruh 13 Grade Pelumas &amp; Cairan Standar Matriks
+                                        </p>
+
+                                        {/* Legend */}
+                                        <div className="flex items-center gap-5 pt-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
+                                                <span className="text-xs font-bold text-slate-200">Schedule</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50"></span>
+                                                <span className="text-xs font-bold text-slate-200">Unschedule</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right: 3 KPI Cards */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    
+                                    {/* 1. TOTAL SCHEDULE */}
+                                    <div className="bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 shadow-lg flex items-center gap-3 min-w-[170px]">
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                                            <Droplet size={20} strokeWidth={2.5} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">TOTAL SCHEDULE</div>
+                                            <div className="text-2xl font-black text-white font-mono mt-0.5">
+                                                {totalAllGradeSchedule.toLocaleString('id-ID')} <span className="text-sm font-bold text-slate-400">L</span>
+                                            </div>
+                                            <div className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 mt-0.5">
+                                                <span>Terjadwal</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. TOTAL UNSCHEDULE */}
+                                    <div className="bg-gradient-to-br from-rose-950/40 to-slate-900 border border-rose-500/30 rounded-2xl p-4 shadow-lg flex items-center gap-3 min-w-[170px]">
+                                        <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0">
+                                            <Droplet size={20} strokeWidth={2.5} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">TOTAL UNSCHEDULE</div>
+                                            <div className="text-2xl font-black text-white font-mono mt-0.5">
+                                                {totalAllGradeUnschedule.toLocaleString('id-ID')} <span className="text-sm font-bold text-slate-400">L</span>
+                                            </div>
+                                            <div className="text-[11px] font-bold text-rose-400 flex items-center gap-1 mt-0.5">
+                                                <span>Tak Terjadwal</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. TOTAL ALL CONSUMPTION */}
+                                    <div className="bg-gradient-to-br from-blue-950/40 to-slate-900 border border-blue-500/30 rounded-2xl p-4 shadow-lg flex items-center gap-3 min-w-[170px]">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center flex-shrink-0 font-black text-lg">
+                                            &Sigma;
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">TOTAL KONSUMSI</div>
+                                            <div className="text-2xl font-black text-white font-mono mt-0.5">
+                                                {totalAllGradeConsumption.toLocaleString('id-ID')} <span className="text-sm font-bold text-slate-400">L</span>
+                                            </div>
+                                            <div className="text-[11px] font-bold text-blue-400 flex items-center gap-1 mt-0.5">
+                                                <span>Seluruh Pelumas</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* MAIN CANVAS: COMPARISON SCHEDULE VS UNSCHEDULE ACROSS ALL GRADES */}
+                            <div className="relative z-10 my-6">
+                                <div className="h-[380px] sm:h-[420px] w-full">
+                                    <canvas ref={allGradeChartRef}></canvas>
+                                </div>
+                                <div className="text-center text-[11px] font-black tracking-widest text-slate-500 uppercase mt-2">
+                                    GRADE PELUMAS &amp; CAIRAN (STANDAR MATRIKS MINING)
+                                </div>
+                            </div>
+
+                            {/* BOTTOM METRIC STRIP */}
+                            <div className="relative z-10 pt-4 border-t border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex flex-wrap items-center gap-4">
+                                    
+                                    {/* Highest Consumed Grade */}
+                                    <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                                            <BarChart3 size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase">GRADE KONSUMSI TERTINGGI</div>
+                                            <div className="text-sm font-black text-white flex items-center gap-2">
+                                                <span className="text-blue-400 font-mono text-base">{topConsumedGrade.grade || '-'}</span>
+                                                <span>{(topConsumedGrade.total_liter || 0).toLocaleString('id-ID')} L</span>
+                                                <span className="text-xs font-normal text-slate-400">
+                                                    (Schedule {(topConsumedGrade.schedule_liter || 0).toLocaleString('id-ID')} L | Unschedule {(topConsumedGrade.unschedule_liter || 0).toLocaleString('id-ID')} L)
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Highest Unscheduled Grade */}
+                                    <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                                            <Droplet size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase">HIGHEST UNSCHEDULED GRADE</div>
+                                            <div className="text-sm font-black text-white flex items-center gap-2">
+                                                <span className="text-rose-400 font-mono text-base">{topUnscheduledGrade.grade || '-'}</span>
+                                                <span>{(topUnscheduledGrade.unschedule_liter || 0).toLocaleString('id-ID')} L</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Active Grades Count */}
+                                    <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                                            <Gauge size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase">GRADE DIGUNAKAN</div>
+                                            <div className="text-base font-black text-emerald-400">
+                                                {(allGradeStats || []).filter(g => (g.total_liter || 0) > 0).length} / {(allGradeStats || []).length} Grade Aktif
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                {/* Tagline */}
+                                <div className="text-right text-xs font-medium italic text-slate-500 tracking-wider">
+                                    Keep The Plant Running
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* 2. GRID CARDS: RINCIAN PER GRADE PELUMAS */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                                        <Layers size={18} className="text-blue-600" />
+                                        <span>Rincian Seluruh Grade Pelumas (13 Kategori Standar)</span>
+                                    </h3>
+                                    <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                                        Profil pemakaian per pelumas mencakup pembagian volume Schedule vs Unscheduled serta sasaran komponen alat berat
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {(allGradeStats || []).map((gradeItem, idx) => {
+                                    const totalL = gradeItem.total_liter || 0;
+                                    const schL = gradeItem.schedule_liter || 0;
+                                    const unsL = gradeItem.unschedule_liter || 0;
+                                    const pctOfAll = totalAllGradeConsumption > 0 ? ((totalL / totalAllGradeConsumption) * 100).toFixed(1) : 0;
+                                    const schPct = totalL > 0 ? Math.round((schL / totalL) * 100) : 0;
+                                    const unsPct = totalL > 0 ? Math.round((unsL / totalL) * 100) : 0;
+
+                                    return (
+                                        <div key={gradeItem.grade || idx} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-start justify-between gap-2 mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                                            #{idx + 1}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-black text-gray-900 leading-tight">
+                                                                {gradeItem.grade}
+                                                            </h4>
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">
+                                                                {getComponentForGrade(gradeItem.grade)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                                        totalL > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                        {totalL > 0 ? `${pctOfAll}% Share` : '0 L'}
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-1 mb-4">
+                                                    <div className="text-2xl font-black text-gray-900 font-mono">
+                                                        {totalL.toLocaleString('id-ID')} <span className="text-xs font-bold text-gray-500">Liter</span>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 font-semibold">
+                                                        {gradeItem.record_count || 0}x Pengisian &bull; Rata-rata: {gradeItem.avg_ratio || 0} L/100 HM
+                                                    </div>
+                                                </div>
+
+                                                {/* Progress bar Schedule vs Unschedule */}
+                                                <div className="space-y-1.5 mb-3">
+                                                    <div className="w-full h-2 rounded-full bg-gray-100 flex overflow-hidden">
+                                                        <div style={{ width: `${schPct}%` }} className="bg-emerald-500 h-full" title={`Schedule: ${schL} L`}></div>
+                                                        <div style={{ width: `${unsPct}%` }} className="bg-rose-500 h-full" title={`Unschedule: ${unsL} L`}></div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-[11px] font-bold">
+                                                        <span className="text-emerald-700">SCH: {schL} L ({schPct}%)</span>
+                                                        <span className="text-rose-700">UNS: {unsL} L ({unsPct}%)</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Unit Types Breakdown (Tags) */}
+                                            {gradeItem.unit_types && Object.keys(gradeItem.unit_types).length > 0 && (
+                                                <div className="pt-3 border-t border-gray-100">
+                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                                                        Penggunaan Armada:
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {Object.entries(gradeItem.unit_types).slice(0, 3).map(([uType, vol]) => (
+                                                            <span key={uType} className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                                                {uType}: {vol} L
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* 3. TABEL RINGKASAN MATRIKS SELURUH GRADE PELUMAS */}
+                        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                                        <FileSpreadsheet size={20} className="text-blue-600" />
+                                        <span>Tabel Rekapitulasi Seluruh Grade Pelumas &amp; Cairan</span>
+                                    </h3>
+                                    <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                                        Ringkasan total liter, pemisahan Schedule vs Unscheduled, serta porsi konsumsi setiap grade
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                                <table className="w-full text-left text-sm border-collapse">
+                                    <thead className="bg-gray-50 border-b border-gray-200 text-xs font-black text-gray-600 uppercase tracking-wider">
+                                        <tr>
+                                            <th className="py-3.5 px-4">No</th>
+                                            <th className="py-3.5 px-4">Grade Pelumas / Cairan</th>
+                                            <th className="py-3.5 px-4">Komponen Sasaran</th>
+                                            <th className="py-3.5 px-4 text-center">Frekuensi Refill</th>
+                                            <th className="py-3.5 px-4 text-right">Schedule (L)</th>
+                                            <th className="py-3.5 px-4 text-right">Unschedule (L)</th>
+                                            <th className="py-3.5 px-4 text-right font-black">Total Liter</th>
+                                            <th className="py-3.5 px-4 text-center">Porsi (%)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {(allGradeStats || []).map((gItem, idx) => {
+                                            const totL = gItem.total_liter || 0;
+                                            const schL = gItem.schedule_liter || 0;
+                                            const unsL = gItem.unschedule_liter || 0;
+                                            const pctShare = totalAllGradeConsumption > 0 ? ((totL / totalAllGradeConsumption) * 100).toFixed(1) : 0;
+
+                                            return (
+                                                <tr key={gItem.grade || idx} className="hover:bg-slate-50/80 transition-colors">
+                                                    <td className="py-3 px-4 text-gray-500 font-semibold text-xs">{idx + 1}</td>
+                                                    <td className="py-3 px-4 font-black text-gray-900">
+                                                        <div className="flex items-center gap-2">
+                                                            <Droplet size={14} className="text-blue-500" />
+                                                            <span>{gItem.grade}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-gray-600 font-medium text-xs">
+                                                        {getComponentForGrade(gItem.grade)}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-center font-bold text-gray-700">
+                                                        {gItem.record_count || 0}x
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right font-bold text-emerald-700 font-mono">
+                                                        {schL.toLocaleString('id-ID')} L
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right font-bold text-rose-700 font-mono">
+                                                        {unsL.toLocaleString('id-ID')} L
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right font-black text-gray-900 font-mono text-base">
+                                                        {totL.toLocaleString('id-ID')} L
+                                                    </td>
+                                                    <td className="py-3 px-4 text-center">
+                                                        {totL > 0 ? (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                                                {pctShare}%
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-400 text-xs">-</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot className="bg-slate-100 font-black text-gray-900 border-t-2 border-gray-300">
+                                        <tr>
+                                            <td colSpan={3} className="py-3.5 px-4 uppercase text-xs">TOTAL KONSUMSI SELURUH GRADE</td>
+                                            <td className="py-3.5 px-4 text-center text-xs">{(allGradeStats || []).reduce((acc, g) => acc + (g.record_count || 0), 0)}x Refill</td>
+                                            <td className="py-3.5 px-4 text-right font-mono text-emerald-800 text-base">{totalAllGradeSchedule.toLocaleString('id-ID')} L</td>
+                                            <td className="py-3.5 px-4 text-right font-mono text-rose-800 text-base">{totalAllGradeUnschedule.toLocaleString('id-ID')} L</td>
+                                            <td className="py-3.5 px-4 text-right font-mono text-blue-900 text-lg">{totalAllGradeConsumption.toLocaleString('id-ID')} L</td>
+                                            <td className="py-3.5 px-4 text-center font-bold text-xs">100%</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                )}
+
+                {/* ========================================================================= */}
+                {/* TAB 3: DATA TABEL & MONITORING PENGISIAN                                  */}
                 {/* ========================================================================= */}
                 {activeTab === 'data' && (
                     <div className="space-y-6">
@@ -1194,8 +1868,7 @@ export default function OilConsumption({
                                             <th className="py-4 px-4">Komponen</th>
                                             <th className="py-4 px-4">Tipe Service</th>
                                             <th className="py-4 px-4">Tipe Pelumas</th>
-                                            <th className="py-4 px-4 text-right">HM Awal</th>
-                                            <th className="py-4 px-4 text-right">HM Akhir</th>
+                                            <th className="py-4 px-4 text-right">HM Saat Refill</th>
                                             <th className="py-4 px-4 text-right">HM Jalan</th>
                                             <th className="py-4 px-4 text-right">Refill (L)</th>
                                             <th className="py-4 px-4 text-right">L / 100 HM</th>
@@ -1227,7 +1900,6 @@ export default function OilConsumption({
                                                         </span>
                                                     </td>
                                                     <td className="py-3.5 px-4 font-bold text-gray-800 text-xs">{row.type_oli}</td>
-                                                    <td className="py-3.5 px-4 text-right font-mono text-gray-600 text-xs">{row.hm_prev}</td>
                                                     <td className="py-3.5 px-4 text-right font-mono text-gray-900 font-bold text-xs">{row.hm}</td>
                                                     <td className="py-3.5 px-4 text-right font-mono text-emerald-700 font-bold text-xs">{row.hm_diff}</td>
                                                     <td className="py-3.5 px-4 text-right font-mono text-base font-black text-gray-900">{row.pengisian}</td>
@@ -1276,7 +1948,7 @@ export default function OilConsumption({
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={15} className="py-12 text-center text-gray-400 font-semibold">
+                                                <td colSpan={14} className="py-12 text-center text-gray-400 font-semibold">
                                                     Tidak ada data pengisian oli ditemukan.
                                                 </td>
                                             </tr>
@@ -1414,22 +2086,7 @@ export default function OilConsumption({
                                     />
                                 </div>
 
-                                {/* HM Awal */}
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                        HM Awal (Sebelumnya)
-                                    </label>
-                                    <input 
-                                        type="number"
-                                        step="0.1"
-                                        value={formData.hm_prev}
-                                        onChange={e => setFormData(prev => ({ ...prev, hm_prev: e.target.value }))}
-                                        placeholder="0.0"
-                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono"
-                                    />
-                                </div>
-
-                                {/* HM Pengisian */}
+                                {/* HM Saat Refill */}
                                 <div>
                                     <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         HM Saat Refill <span className="text-red-500">*</span>
@@ -1445,21 +2102,6 @@ export default function OilConsumption({
                                     />
                                 </div>
 
-                                {/* Komponen */}
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                        Komponen Alat
-                                    </label>
-                                    <select
-                                        value={formData.component}
-                                        onChange={e => setFormData(prev => ({ ...prev, component: e.target.value }))}
-                                        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
-                                    >
-                                        {components.map(c => (
-                                            <option key={c} value={c}>{c}</option>
-                                        ))}
-                                    </select>
-                                </div>
 
                                 {/* Tipe Oli */}
                                 <div>
@@ -1645,13 +2287,9 @@ export default function OilConsumption({
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-2xl font-mono text-center">
+                            <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-2xl font-mono text-center">
                                 <div>
-                                    <div className="text-[10px] text-gray-400 font-bold uppercase">HM Awal</div>
-                                    <div className="text-sm font-bold text-gray-700">{viewData.hm_prev}</div>
-                                </div>
-                                <div>
-                                    <div className="text-[10px] text-gray-400 font-bold uppercase">HM Refill</div>
+                                    <div className="text-[10px] text-gray-400 font-bold uppercase">HM Saat Refill</div>
                                     <div className="text-sm font-black text-gray-900">{viewData.hm}</div>
                                 </div>
                                 <div>
@@ -1745,14 +2383,17 @@ export default function OilConsumption({
                                 )}
                             </div>
 
-                            <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-200">
-                                <strong>Unduh Format Template:</strong> Gunakan format resmi agar data dapat diproses otomatis tanpa kendala.
-                                <div className="mt-2">
+                            <div className="text-xs text-gray-600 bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-200">
+                                <div className="font-bold text-gray-800">Format Template Excel Resmi:</div>
+                                <p className="text-gray-500 mt-0.5">
+                                    Mendukung format <strong>Daily Fuel & Lube Dispensing Sheet</strong> (Kode Unit, Shift, Tanggal, HM, Dispenser, dan 26 Kolom Grade Pelumas SCH / UNS).
+                                </p>
+                                <div className="mt-2.5">
                                     <a 
                                         href={route('oil-consumption.template')}
-                                        className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-700 hover:text-emerald-800 underline"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black text-white bg-emerald-700 hover:bg-emerald-800 shadow-sm transition"
                                     >
-                                        <Download size={14} /> Download Template Excel
+                                        <Download size={14} /> Download Template Excel (Format Matriks)
                                     </a>
                                 </div>
                             </div>

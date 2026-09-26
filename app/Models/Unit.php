@@ -94,4 +94,14 @@ class Unit extends Model
             ->where('no_order', 'not like', 'PCR-%')
             ->whereNotIn('status', ['COMPLETED', 'CLOSED', 'CANCEL ORDER']);
     }
+
+    public function hourMeterLogs()
+    {
+        return $this->hasMany(HourMeterLog::class);
+    }
+
+    public function workOrders()
+    {
+        return $this->hasMany(WorkOrder::class);
+    }
 }

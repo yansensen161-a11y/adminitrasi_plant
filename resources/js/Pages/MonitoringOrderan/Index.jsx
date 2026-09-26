@@ -997,6 +997,10 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                             Import
                         </button>
 
+                        <Link href="/part-order-lifetime" className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-lg text-sm font-bold shadow flex items-center gap-2 transition" title="Smart Part Order & Lifetime Management">
+                            <svg className="w-4 h-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                            Smart Lifetime
+                        </Link>
                         <Link href={route('monitoring-orderan.create')} className="bg-[#0f5132] hover:bg-[#146c43] text-white px-4 py-2 rounded-lg text-sm font-bold shadow flex items-center gap-2 transition">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
                             Create Order
@@ -1011,7 +1015,20 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                             </svg>
                             Copy WA
                         </button>
-                        <button className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition">
+                        <button 
+                            type="button"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (colFilter.no_order) params.set('no_order', colFilter.no_order);
+                                if (search) params.set('search', search);
+                                if (statusFilter) params.set('status', statusFilter);
+                                if (dateFrom) params.set('dateFrom', dateFrom);
+                                if (dateTo) params.set('dateTo', dateTo);
+                                window.location.href = route('monitoring-orderan.export-excel') + (params.toString() ? `?${params.toString()}` : '');
+                            }}
+                            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition cursor-pointer"
+                            title="Export Data ke Excel"
+                        >
                             <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             Export Excel
                         </button>
@@ -1019,10 +1036,10 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                             type="button"
                             onClick={() => setShowPrintMolModal(true)}
                             className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition cursor-pointer"
-                            title="Cetak Dokumen per Nomor MOL"
+                            title="Download PDF, Excel, atau Print Dokumen per Nomor Order"
                         >
                             <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                            Print MOL
+                            Download &amp; Print MOL
                         </button>
                     </div>
                 </div>
@@ -1071,7 +1088,7 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                 <th className="px-2 py-2 text-[11px] font-bold text-gray-700">PO</th>
                                 <th className="px-2 py-2 text-[11px] font-bold text-gray-700">ETA Part</th>
                                 <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-700">Progress Order</th>
-                                <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-700 w-24">Action</th>
+                                <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-700 min-w-[155px]">Action</th>
                             </tr>
                             {/* Filter Row */}
                             <tr className="bg-white border-b border-gray-200">
@@ -1254,7 +1271,7 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                 </th>
 
                                 {/* RESET BUTTON */}
-                                <th className="px-1 py-1 text-center w-24">
+                                <th className="px-1 py-1 text-center min-w-[155px]">
                                     <button onClick={resetColFilters} title="Reset filter kolom" className="text-red-500 hover:text-red-700 text-[10px] font-bold border border-red-200 hover:bg-red-50 rounded px-1.5 py-0.5 transition">✕ Reset</button>
                                 </th>
                             </tr>
@@ -1346,6 +1363,31 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                                 >
                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                                 </button>
+                                                {/* PDF */}
+                                                <button 
+                                                    type="button" 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        window.open(route('monitoring-orderan.pdf', order.id) + '?download=1', '_blank'); 
+                                                    }} 
+                                                    className="text-rose-600 hover:bg-rose-50 p-1 rounded border border-rose-200 transition block cursor-pointer" 
+                                                    title={`Download PDF MOL (${order.no_order})`}
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                                </button>
+                                                {/* Excel */}
+                                                <button 
+                                                    type="button" 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        window.location.href = route('monitoring-orderan.excel', order.id); 
+                                                    }} 
+                                                    className="text-emerald-600 hover:bg-emerald-50 p-1 rounded border border-emerald-200 transition block cursor-pointer" 
+                                                    title={`Download Excel MOL (${order.no_order})`}
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                </button>
+                                                {/* Print */}
                                                 <button 
                                                     type="button" 
                                                     onClick={(e) => { 
@@ -1359,14 +1401,16 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                                                     </svg>
                                                 </button>
+                                                {/* Edit */}
                                                 <Link 
                                                     href={route('monitoring-orderan.edit', order.id) + (typeof window !== 'undefined' ? '?return_to=' + encodeURIComponent(window.location.pathname + window.location.search) : '')} 
-                                                    className="text-green-600 hover:bg-green-50 p-1 rounded border border-green-200 transition block" 
+                                                    className="text-green-600 hover:bg-green-50 p-1 rounded border border-green-200 transition block cursor-pointer" 
                                                     title="Edit"
                                                 >
                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                                 </Link>
-                                                <button onClick={(e) => { e.stopPropagation(); deleteOrder(order.id); }} className="text-red-600 hover:bg-red-50 p-1 rounded border border-red-200 transition" title="Delete">
+                                                {/* Delete */}
+                                                <button onClick={(e) => { e.stopPropagation(); deleteOrder(order.id); }} className="text-red-600 hover:bg-red-50 p-1 rounded border border-red-200 transition cursor-pointer" title="Delete">
                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                                 </button>
                                             </div>
@@ -1461,6 +1505,7 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                     <table className="w-full text-left text-xs">
                                         <thead className="bg-gray-100/70 text-gray-700 font-bold border-b border-gray-200 text-[11px] uppercase">
                                             <tr>
+                                                <th className="px-3 py-2">Component</th>
                                                 <th className="px-3 py-2">Part Number</th>
                                                 <th className="px-3 py-2">Description</th>
                                                 <th className="px-2 py-2 text-center">Qty</th>
@@ -1473,6 +1518,12 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                         <tbody className="divide-y divide-gray-100 text-gray-700">
                                             {(selectedViewOrder.parts || []).map((part, pIdx) => (
                                                 <tr key={pIdx} className="hover:bg-gray-50/80">
+                                                    <td className="px-3 py-2 font-medium text-gray-900">
+                                                        <span className="font-bold">{part.component || selectedViewOrder.component || '-'}</span>
+                                                        {part.component_name && part.component_name !== '-' && part.component_name !== part.component && (
+                                                            <div className="text-[11px] text-gray-500">{part.component_name}</div>
+                                                        )}
+                                                    </td>
                                                     <td className="px-3 py-2 font-mono font-bold text-gray-900">{part.part_number || '-'}</td>
                                                     <td className="px-3 py-2 font-medium">{part.department || '-'}</td>
                                                     <td className="px-2 py-2 text-center font-bold">{part.qty || 1} {part.satuan || 'Pcs'}</td>
@@ -1517,11 +1568,29 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                             >
                                 Keluar / Tutup
                             </button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => window.open(route('monitoring-orderan.pdf', selectedViewOrder.id) + '?download=1', '_blank')}
+                                    className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                    title={`Unduh PDF Dokumen MOL (${selectedViewOrder.no_order})`}
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    <span>Unduh PDF</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { window.location.href = route('monitoring-orderan.excel', selectedViewOrder.id); }}
+                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                    title={`Unduh Excel Dokumen MOL (${selectedViewOrder.no_order})`}
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                    <span>Unduh Excel</span>
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => window.open(route('monitoring-orderan.print', selectedViewOrder.id) + '?autoprint=1', '_blank')}
-                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
                                     title={`Cetak Dokumen MOL (${selectedViewOrder.no_order})`}
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1531,9 +1600,9 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                 </button>
                                 <Link
                                     href={route('monitoring-orderan.edit', selectedViewOrder.id) + (typeof window !== 'undefined' ? '?return_to=' + encodeURIComponent(window.location.pathname + window.location.search) : '')}
-                                    className="px-5 py-2 bg-[#0f5132] hover:bg-[#146c43] text-white font-bold rounded-lg text-xs transition shadow-sm flex items-center gap-1.5"
+                                    className="px-4 py-2 bg-[#0f5132] hover:bg-[#146c43] text-white font-bold rounded-lg text-xs transition shadow-sm flex items-center gap-1.5"
                                 >
-                                    <span>Edit Order Lengkap</span>
+                                    <span>Edit</span>
                                     <span>&rarr;</span>
                                 </Link>
                             </div>
@@ -1831,8 +1900,8 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                     🖨️
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-black tracking-tight text-white">Cetak Dokumen MOL</h3>
-                                    <p className="text-xs text-green-100 font-medium">Pilih nomor order / MOL yang ingin dicetak</p>
+                                    <h3 className="text-base font-black tracking-tight text-white">Download &amp; Cetak Dokumen MOL</h3>
+                                    <p className="text-xs text-green-100 font-medium">Pilih nomor order untuk unduh PDF, Excel, atau cetak dokumen</p>
                                 </div>
                             </div>
                             <button 
@@ -1893,19 +1962,34 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                             >
                                 Batal
                             </button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         const targetId = selectedPrintMolId || (orders.length > 0 ? orders[0].id : '');
                                         if (targetId) {
-                                            window.open(route('monitoring-orderan.pdf', targetId), '_blank');
+                                            window.open(route('monitoring-orderan.pdf', targetId) + '?download=1', '_blank');
                                         }
                                     }}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                    title="Unduh file PDF"
                                 >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                                     <span>Unduh PDF</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const targetId = selectedPrintMolId || (orders.length > 0 ? orders[0].id : '');
+                                        if (targetId) {
+                                            window.location.href = route('monitoring-orderan.excel', targetId);
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                    title="Unduh file Excel"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    <span>Unduh Excel</span>
                                 </button>
                                 <button
                                     type="button"
@@ -1916,7 +2000,8 @@ export default function Index({ orders, units, filters, nextNoOrder }) {
                                             setShowPrintMolModal(false);
                                         }
                                     }}
-                                    className="px-5 py-2 bg-[#064e3b] hover:bg-[#043327] text-white font-bold rounded-lg text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                                    className="px-4 py-2 bg-[#064e3b] hover:bg-[#043327] text-white font-bold rounded-lg text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                                    title="Cetak langsung ke printer"
                                 >
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                                     <span>Print Sekarang</span>

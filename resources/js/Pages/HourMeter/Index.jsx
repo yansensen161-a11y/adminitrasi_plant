@@ -77,6 +77,41 @@ export default function Index({ units, groupedLogs, dates, dropdowns, filters, f
     const [isImporting, setIsImporting] = useState(false);
     const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
+    const [isExportingExcel, setIsExportingExcel] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const exportDropdownRef = useRef(null);
+
+    // Close dropdown when clicked outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
+                setShowExportMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const getExportUrl = (scope = 'all') => {
+        const params = new URLSearchParams();
+        params.append('scope', scope);
+        if (scope === 'filtered') {
+            if (dateFrom) params.append('date_from', dateFrom);
+            if (dateTo) params.append('date_to', dateTo);
+            if (codeUnitFilter) params.append('code_unit', codeUnitFilter);
+            if (hmErrorFilter) params.append('hm_error', hmErrorFilter);
+            if (filters?.type_unit) params.append('type_unit', filters.type_unit);
+            if (filters?.location) params.append('location', filters.location);
+            if (filters?.status) params.append('status', filters.status);
+        }
+        return route('hour-meters.export.excel') + '?' + params.toString();
+    };
+
+    const handleExportExcelClick = () => {
+        setIsExportingExcel(true);
+        setTimeout(() => setIsExportingExcel(false), 3000);
+        setShowExportMenu(false);
+    };
 
     const handleDownloadTemplateClick = () => {
         setIsDownloadingTemplate(true);
@@ -414,6 +449,75 @@ export default function Index({ units, groupedLogs, dates, dropdowns, filters, f
                         )}
                         {isImporting ? 'Mengimpor...' : 'Import Excel'}
                     </button>
+
+                    {/* Download Excel Dropdown Button */}
+                    <div className="relative" ref={exportDropdownRef}>
+                        <div className="inline-flex rounded-lg shadow-xs">
+                            <a 
+                                href={getExportUrl('all')} 
+                                onClick={handleExportExcelClick} 
+                                className={`bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-l-lg text-sm font-semibold flex items-center gap-1.5 transition shadow-xs ${isExportingExcel ? 'opacity-75 pointer-events-none' : ''}`}
+                                title="Download Semua Data Hour Meter (Excel)"
+                            >
+                                {isExportingExcel ? (
+                                    <svg className="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg className="w-4 h-4 text-emerald-100" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+                                        <path d="M8.5 12l2 3.5-2 3.5h1.7l1.1-2.2 1.1 2.2h1.7l-2-3.5 2-3.5h-1.7l-1.1 2.2-1.1-2.2H8.5z"/>
+                                    </svg>
+                                )}
+                                {isExportingExcel ? 'Mengunduh...' : 'Download Excel'}
+                            </a>
+                            <button
+                                type="button"
+                                onClick={() => setShowExportMenu(!showExportMenu)}
+                                className="bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-2 rounded-r-lg border-l border-emerald-500 transition flex items-center justify-center"
+                                title="Pilihan Opsi Download"
+                            >
+                                <svg className={`w-4 h-4 transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {showExportMenu && (
+                            <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                                <div className="px-3 py-1.5 border-b border-gray-100">
+                                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Pilihan Download Excel</p>
+                                </div>
+                                <a
+                                    href={getExportUrl('all')}
+                                    onClick={handleExportExcelClick}
+                                    className="flex items-start gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+                                >
+                                    <svg className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                    </svg>
+                                    <div>
+                                        <div className="font-bold text-gray-900">Download Semua Data</div>
+                                        <div className="text-gray-500 text-[10px] mt-0.5">Semua rekaman log historis &amp; seluruh armada (3 Sheet Lengkap)</div>
+                                    </div>
+                                </a>
+                                <a
+                                    href={getExportUrl('filtered')}
+                                    onClick={handleExportExcelClick}
+                                    className="flex items-start gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+                                >
+                                    <svg className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                                    </svg>
+                                    <div>
+                                        <div className="font-bold text-gray-900">Download Sesuai Filter</div>
+                                        <div className="text-gray-500 text-[10px] mt-0.5">Sesuai rentang tanggal dan pencarian aktif</div>
+                                    </div>
+                                </a>
+                            </div>
+                        )}
+                    </div>
 
                     <a 
                         href={route('hour-meters.download.template')} 

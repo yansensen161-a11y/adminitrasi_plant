@@ -13,7 +13,7 @@ export default function Index({
     // Form Metadata State
     const [formNumber, setFormNumber] = useState(selectedForm?.form_number || suggestedFormNumber);
     const [projectId, setProjectId] = useState(selectedForm?.project_id || 'PT Mitra Abadi Mahakam');
-    const [unitId, setUnitId] = useState(selectedForm?.unit_id || prefill?.unit_id || (units[0]?.id || ''));
+    const [unitId, setUnitId] = useState(selectedForm?.unit_id || prefill?.unit_id || '');
     const [date, setDate] = useState(selectedForm?.date ? selectedForm.date.substring(0, 10) : new Date().toISOString().substring(0, 10));
 
     // Specialized Results Data (Letter Text, Recipients, Purpose, Signatures)
@@ -74,8 +74,8 @@ export default function Index({
         const found = units.find(u => String(u.id) === String(id));
         if (found) {
             const unitLabel = `${found.model || ''} – ${found.code_unit || ''}`.trim();
-            // Update unit_request on the first item
-            setItemsState(prev => prev.map((item, idx) => idx === 0 ? { ...item, unit_request: unitLabel } : item));
+            // Update unit_request on the first item if not set
+            setItemsState(prev => prev.map((item, idx) => (idx === 0 && !item.unit_request) ? { ...item, unit_request: unitLabel } : item));
             setResultsData(prev => ({
                 ...prev,
                 purpose_reason: `Part bekas tersebut akan digunakan untuk mendukung operasional unit ${found.code_unit} yang saat ini mengalami kerusakan pada ${prev.kerusakan_komponen || 'Cyl Arm'}`,
@@ -157,6 +157,41 @@ export default function Index({
         }
     };
 
+    // Download PDF with current form data
+    const handleDownloadPdf = () => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/form-surat-permintaan-komponen/download-pdf';
+        form.target = '_blank';
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        const fields = {
+            _token: csrfToken || '',
+            id: selectedForm?.id || '',
+            unit_id: unitId || '',
+            form_number: formNumber || '',
+            date: date || '',
+            smu: 0,
+            mechanic_name: resultsData.sig_maker_name || '',
+            supervisor_name: resultsData.sig_supt_mam_name || '',
+            items: JSON.stringify(itemsState),
+            results_data: JSON.stringify(resultsData),
+        };
+
+        for (const [key, value] of Object.entries(fields)) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    };
+
     return (
         <AuthenticatedLayout>
             <Head title="Surat Permintaan Komponen" />
@@ -209,23 +244,23 @@ export default function Index({
                         </a>
 
                         {selectedForm && (
-                            <>
-                                <a
-                                    href={`/form-surat-permintaan-komponen/${selectedForm.id}/print`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-sky-600/20"
-                                >
-                                    <span>🖨️</span> Cetak Memo
-                                </a>
-                                <a
-                                    href={`/form-surat-permintaan-komponen/download-pdf?id=${selectedForm.id}`}
-                                    className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-rose-600/20"
-                                >
-                                    <span>📥</span> Unduh PDF
-                                </a>
-                            </>
+                            <a
+                                href={`/form-surat-permintaan-komponen/${selectedForm.id}/print`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-sky-600/20"
+                            >
+                                <span>🖨️</span> Cetak Memo
+                            </a>
                         )}
+
+                        <button
+                            type="button"
+                            onClick={handleDownloadPdf}
+                            className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-rose-600/20"
+                        >
+                            <span>📥</span> Unduh PDF
+                        </button>
 
                         <button
                             type="button"
@@ -388,13 +423,21 @@ export default function Index({
                                     </div>
                                     <div>
                                         <label className="block text-slate-400 text-[11px] mb-1">Unit Request</label>
-                                        <input
-                                            type="text"
+                                        <select
                                             value={item.unit_request || ''}
                                             onChange={e => handleItemChange(idx, 'unit_request', e.target.value)}
-                                            placeholder="CAT 374 – ME056"
                                             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
-                                        />
+                                        >
+                                            <option value="">-- Pilih Unit --</option>
+                                            {item.unit_request && !units.some(u => `${u.model || ''} – ${u.code_unit || ''}`.trim() === item.unit_request || u.code_unit === item.unit_request) && (
+                                                <option value={item.unit_request}>{item.unit_request}</option>
+                                            )}
+                                            {units.map(u => (
+                                                <option key={u.id} value={`${u.model || ''} – ${u.code_unit || ''}`.trim()}>
+                                                    {u.code_unit} - {u.model}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-slate-400 text-[11px] mb-1">Unit Sumber</label>
@@ -607,6 +650,12 @@ export default function Index({
                                                     className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
                                                 >
                                                     Cetak
+                                                </a>
+                                                <a
+                                                    href={`/form-surat-permintaan-komponen/download-pdf?id=${rf.id}`}
+                                                    className="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-[11px] font-semibold flex items-center gap-1"
+                                                >
+                                                    <span>📥</span> PDF
                                                 </a>
                                             </div>
                                         </div>

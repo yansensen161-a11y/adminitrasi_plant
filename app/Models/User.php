@@ -14,12 +14,23 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'avatar', 'phone', 'nrp', 'department', 'position'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, HasUuids, LogsActivity, Notifiable;
+
+    protected $appends = ['avatar_url'];
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if ($this->avatar) {
+            return asset('storage/'.$this->avatar);
+        }
+
+        return null;
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -37,7 +48,7 @@ class User extends Authenticatable
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'email'])
+            ->logOnly(['name', 'email', 'phone', 'nrp', 'department', 'position'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

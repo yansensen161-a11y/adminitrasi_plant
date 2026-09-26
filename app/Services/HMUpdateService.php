@@ -133,51 +133,60 @@ class HMUpdateService
     }
 
     /**
-     * Synchronize unit HM with its latest HourMeterLog and update connected components (PcrUc, Tyres).
+     * Synchronize unit HM with its latest HourMeterLog or completed ServiceLog and update connected components (PcrUc, Tyres).
      */
     public static function syncUnitFromLatestLog(Unit $unit, bool $force = true): void
     {
-        $latestLog = HourMeterLog::where('unit_id', $unit->id)
-            ->orWhere('code_unit', $unit->code_unit)
-            ->whereDate('log_date', '<=', Carbon::now()->toDateString())
+        $latestLog = HourMeterLog::where(function ($q) use ($unit) {
+            $q->where('unit_id', $unit->id)
+                ->orWhere('code_unit', $unit->code_unit);
+        })
+            ->where('log_date', '<=', Carbon::now())
             ->orderByDesc('log_date')
             ->orderByDesc('id')
             ->first();
 
-        if ($latestLog && $latestLog->hm_end !== null) {
-            $newHm = (float) $latestLog->hm_end;
+        $logHm = $latestLog && $latestLog->hm_end !== null ? (float) $latestLog->hm_end : 0.0;
+        $svcHm = (float) ($unit->lastService?->actual_hm ?? $unit->lastService?->target_hm ?? 0.0);
+
+        $newHm = max($logHm, $svcHm);
+
+        if ($newHm > 0) {
+            $logDate = $latestLog ? $latestLog->log_date : ($unit->lastService?->actual_date ?? Carbon::now());
             if ($force || $newHm > (float) $unit->hm) {
-                self::processHmUpdate($unit, $newHm, $latestLog->log_date, $force);
+                self::processHmUpdate($unit, $newHm, $logDate, $force);
             }
         }
     }
 
     /**
-     * Synchronize all units with their latest HourMeterLog up to today.
+     * Synchronize all units with their latest operational HM (HourMeterLog or completed ServiceLog).
      */
     public static function syncAllUnits(): int
     {
-        $latestLogs = HourMeterLog::select('unit_id', 'code_unit', 'hm_end', 'log_date')
-            ->whereDate('log_date', '<=', Carbon::now()->toDateString())
-            ->orderBy('log_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->get()
-            ->unique(function ($item) {
-                return $item->unit_id ?: strtoupper(trim((string) $item->code_unit));
-            });
-
+        $units = Unit::with('lastService')->get();
         $count = 0;
-        foreach ($latestLogs as $log) {
-            if ($log->hm_end !== null) {
+        $now = Carbon::now();
+
+        foreach ($units as $unit) {
+            $latestLog = HourMeterLog::where(function ($q) use ($unit) {
+                $q->where('unit_id', $unit->id)
+                    ->orWhere('code_unit', $unit->code_unit);
+            })
+                ->where('log_date', '<=', $now)
+                ->orderByDesc('log_date')
+                ->orderByDesc('id')
+                ->first();
+
+            $logHm = $latestLog && $latestLog->hm_end !== null ? (float) $latestLog->hm_end : 0.0;
+            $svcHm = (float) ($unit->lastService?->actual_hm ?? $unit->lastService?->target_hm ?? 0.0);
+
+            $authoritativeHm = max($logHm, $svcHm);
+
+            if ($authoritativeHm > 0 && abs((float) ($unit->hm ?? 0) - $authoritativeHm) > 0.01) {
                 $affected = DB::table('units')
-                    ->where(function ($q) use ($log) {
-                        if ($log->unit_id) {
-                            $q->where('id', $log->unit_id);
-                        } else {
-                            $q->where('code_unit', $log->code_unit);
-                        }
-                    })
-                    ->update(['hm' => (float) $log->hm_end]);
+                    ->where('id', $unit->id)
+                    ->update(['hm' => $authoritativeHm]);
 
                 if ($affected) {
                     $count++;

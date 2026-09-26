@@ -175,22 +175,36 @@ class SuratPermintaanKomponenController extends Controller
             $unit = Unit::find($request->unit_id);
         }
 
-        $items = $selectedForm?->items ?? PlantForm::getDefaultSuratPermintaanKomponenItems();
-        $results = $selectedForm?->results_data ?? [];
+        if ($request->filled('items')) {
+            $rawItems = $request->input('items');
+            $items = is_array($rawItems) ? $rawItems : (json_decode($rawItems, true) ?: []);
+        } else {
+            $items = $selectedForm?->items ?? PlantForm::getDefaultSuratPermintaanKomponenItems();
+        }
+
+        if ($request->filled('results_data')) {
+            $rawResults = $request->input('results_data');
+            $results = is_array($rawResults) ? $rawResults : (json_decode($rawResults, true) ?: []);
+        } else {
+            $results = $selectedForm?->results_data ?? [];
+        }
+
+        $formNumber = $request->form_number ?? ($selectedForm?->form_number ?? 'MEMO/PLT/'.date('Y').'/001');
 
         $pdf = Pdf::loadView('pdf.surat-permintaan-komponen', [
             'form' => $selectedForm,
             'unit' => $unit,
             'items' => $items,
             'results' => $results,
-            'formNumber' => $selectedForm?->form_number ?? ($request->form_number ?? 'MEMO/PLT/'.date('Y').'/001'),
-            'date' => $selectedForm?->date ?? ($request->date ?? date('Y-m-d')),
-            'smu' => $selectedForm?->smu ?? ($request->smu ?? ($unit?->current_hm ?? '')),
-            'mechanicName' => $selectedForm?->mechanic_name ?? ($request->mechanic_name ?? ''),
-            'supervisorName' => $selectedForm?->supervisor_name ?? ($request->supervisor_name ?? ''),
+            'formNumber' => $formNumber,
+            'date' => $request->date ?? ($selectedForm?->date ?? date('Y-m-d')),
+            'smu' => $request->smu ?? ($selectedForm?->smu ?? ($unit?->current_hm ?? '')),
+            'mechanicName' => $request->mechanic_name ?? ($selectedForm?->mechanic_name ?? ''),
+            'supervisorName' => $request->supervisor_name ?? ($selectedForm?->supervisor_name ?? ''),
         ])->setPaper('a4', 'portrait');
 
-        $filename = 'Surat_Permintaan_Komponen_'.str_replace('/', '_', $selectedForm?->form_number ?? 'BLANK').'_'.date('Ymd_His').'.pdf';
+        $cleanFormNumber = str_replace(['/', '\\', ' '], '_', $formNumber);
+        $filename = 'Surat_Permintaan_Komponen_'.$cleanFormNumber.'_'.date('Ymd_His').'.pdf';
 
         return $pdf->download($filename);
     }

@@ -100,9 +100,23 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
     }
 
     // Parse order data for edit / create
-    let initialParts = [{ part_number: '', description: '', life_time: '', qty: 1, satuan: 'Pcs', pr: paramPr || '', po: paramPo || '', due_date_part: paramEtaPart || '', swap_to_unit_id: '' }];
+    let initialParts = [{
+        component: paramComponent || '',
+        component_name: paramComponentName || '',
+        part_number: '',
+        description: '',
+        life_time: '',
+        qty: 1,
+        satuan: 'Pcs',
+        pr: paramPr || '',
+        po: paramPo || '',
+        due_date_part: paramEtaPart || '',
+        swap_to_unit_id: ''
+    }];
     if (isEdit && order.parts && order.parts.length > 0) {
         initialParts = order.parts.map(p => ({
+            component: p.component || order.component || '',
+            component_name: p.component_name || order.component_name || '',
             part_number: p.part_number || '',
             description: p.department || '',
             life_time: p.life_time || '',
@@ -144,6 +158,9 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
     const [isDragging, setIsDragging] = useState(false);
     const [previewModalItem, setPreviewModalItem] = useState(null);
     const [newAttachmentPreviews, setNewAttachmentPreviews] = useState([]);
+    const [duplicateWarning, setDuplicateWarning] = useState(null);
+    const [activeOrderWarnings, setActiveOrderWarnings] = useState({});
+    const [historyModalData, setHistoryModalData] = useState(null);
 
     useEffect(() => {
         return () => {
@@ -289,23 +306,59 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
     }, [data.unit_id, data.tanggal]);
 
     const handlePartNumberBlur = async (index) => {
-        const partNumber = data.parts[index].part_number;
-        if (partNumber && data.unit_id && !['ATK', 'CONSUMABLE', 'TOOL'].includes(data.unit_id)) {
+        const rawPn = data.parts[index]?.part_number || '';
+        const partNumber = rawPn.trim().toUpperCase();
+
+        if (!partNumber || partNumber === '-') return;
+
+        // 1. Cek duplikat Part Number di dalam order yang sama
+        const duplicateIdx = data.parts.findIndex((p, i) => i !== index && (p.part_number || '').trim().toUpperCase() === partNumber);
+        if (duplicateIdx !== -1) {
+            setDuplicateWarning(`Part Number "${partNumber}" sudah ada di baris ke-${duplicateIdx + 1} dalam order ini! Part Number tidak boleh sama dalam 1 order.`);
+            setData(currentData => {
+                const newParts = [...currentData.parts];
+                newParts[index].part_number = '';
+                return { ...currentData, parts: newParts };
+            });
+            return;
+        } else {
+            setDuplicateWarning(null);
+        }
+
+        // 2. Cek Part Lifetime & Smart Active Order Warning
+        if (data.unit_id && !['ATK', 'CONSUMABLE', 'TOOL'].includes(data.unit_id)) {
             try {
-                const response = await axios.get(route('monitoring-orderan.part-lifetime'), {
-                    params: { unit_id: data.unit_id, part_number: partNumber, current_hm: data.hm, order_id: isEdit ? order.id : null }
-                });
-                
-                if (response.data.life_time !== null) {
-                    // Gunakan callback form setData agar tidak ada masalah closure ketika dipanggil berurutan
+                const [lifetimeRes, activeRes] = await Promise.all([
+                    axios.get(route('monitoring-orderan.part-lifetime'), {
+                        params: { unit_id: data.unit_id, part_number: partNumber, current_hm: data.hm, order_id: isEdit ? order.id : null }
+                    }).catch(() => ({ data: { life_time: null } })),
+                    axios.get(route('part-order-lifetime.check-active'), {
+                        params: { unit_id: data.unit_id, part_number: partNumber, current_order_id: isEdit ? order.id : null }
+                    }).catch(() => ({ data: { has_active_order: false } }))
+                ]);
+
+                if (lifetimeRes.data?.life_time !== null && lifetimeRes.data?.life_time !== undefined) {
                     setData(currentData => {
                         const newParts = [...currentData.parts];
-                        newParts[index].life_time = response.data.life_time;
+                        if (newParts[index]) newParts[index].life_time = lifetimeRes.data.life_time;
                         return { ...currentData, parts: newParts };
                     });
                 }
+
+                if (activeRes.data?.has_active_order) {
+                    setActiveOrderWarnings(prev => ({
+                        ...prev,
+                        [index]: activeRes.data
+                    }));
+                } else {
+                    setActiveOrderWarnings(prev => {
+                        const next = { ...prev };
+                        delete next[index];
+                        return next;
+                    });
+                }
             } catch (error) {
-                console.error("Failed to fetch part lifetime", error);
+                console.error("Failed to fetch part lifetime or active check", error);
             }
         }
     };
@@ -318,15 +371,53 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
         });
     };
 
-    const addPart = () => setData('parts', [...data.parts, { part_number: '', description: '', life_time: '', qty: 1, satuan: 'Pcs', pr: '', po: '', due_date_part: '', swap_to_unit_id: '' }]);
+    const addPart = () => setData('parts', [
+        ...data.parts,
+        {
+            component: '',
+            component_name: '',
+            part_number: '',
+            description: '',
+            life_time: '',
+            qty: 1,
+            satuan: 'Pcs',
+            pr: '',
+            po: '',
+            due_date_part: '',
+            swap_to_unit_id: ''
+        }
+    ]);
+
     const removePart = (index) => {
         const newParts = [...data.parts];
         newParts.splice(index, 1);
         setData('parts', newParts);
+
+        // Bersihkan warning baris ini
+        setActiveOrderWarnings(prev => {
+            const next = { ...prev };
+            delete next[index];
+            return next;
+        });
     };
 
     const submit = (e) => {
         e.preventDefault();
+
+        // Validasi ketat duplikat Part Number sebelum submit
+        const seenPns = new Set();
+        for (let i = 0; i < data.parts.length; i++) {
+            const pn = (data.parts[i].part_number || '').trim().toUpperCase();
+            if (pn && pn !== '-') {
+                if (seenPns.has(pn)) {
+                    setDuplicateWarning(`Part Number "${pn}" terdeteksi duplikat! Tidak boleh menginput Part Number yang sama dalam 1 order.`);
+                    alert(`Part Number "${pn}" terdeteksi duplikat dalam order ini! Harap periksa dan hapus duplikat sebelum menyimpan.`);
+                    return;
+                }
+                seenPns.add(pn);
+            }
+        }
+
         if (isEdit) {
             post(route('monitoring-orderan.update', order.id) + (returnTo ? '?return_to=' + encodeURIComponent(returnTo) : ''), {
                 forceFormData: true,
@@ -603,50 +694,25 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
                                         placeholder="Describe the issue reported..."
                                     ></textarea>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div>
-                                        <label className={labelClass}>Component</label>
-                                        <select 
-                                            className={inputClass} 
-                                            value={data.component} 
-                                            onChange={e => setData('component', e.target.value)}
-                                        >
-                                            <option value="">-- Pilih Component --</option>
-                                            {COMPONENTS.map(comp => (
-                                                <option key={comp} value={comp}>{comp}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Component Name</label>
-                                        <input 
-                                            type="text" 
-                                            className={inputClass} 
-                                            value={data.component_name} 
-                                            onChange={e => setData('component_name', e.target.value)}
-                                            placeholder="Contoh: Engine, Hydraulic..."
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Request By</label>
-                                        <select 
-                                            className={inputClass} 
-                                            value={data.pic} 
-                                            onChange={e => setData('pic', e.target.value)}
-                                        >
-                                            <option value="">-- Pilih Request By (Manpower) --</option>
-                                            {manpowerList && manpowerList.length > 0 ? (
-                                                manpowerList.map(mp => (
-                                                    <option key={mp.id} value={mp.nama}>
-                                                        {mp.nama} {mp.bagian ? `(${mp.bagian})` : ''}
-                                                    </option>
-                                                ))
-                                            ) : null}
-                                            {data.pic && !manpowerList?.some(mp => mp.nama === data.pic) && (
-                                                <option value={data.pic}>{data.pic}</option>
-                                            )}
-                                        </select>
-                                    </div>
+                                <div>
+                                    <label className={labelClass}>Request By</label>
+                                    <select 
+                                        className={inputClass} 
+                                        value={data.pic} 
+                                        onChange={e => setData('pic', e.target.value)}
+                                    >
+                                        <option value="">-- Pilih Request By (Manpower) --</option>
+                                        {manpowerList && manpowerList.length > 0 ? (
+                                            manpowerList.map(mp => (
+                                                <option key={mp.id} value={mp.nama}>
+                                                    {mp.nama} {mp.bagian ? `(${mp.bagian})` : ''}
+                                                </option>
+                                            ))
+                                        ) : null}
+                                        {data.pic && !manpowerList?.some(mp => mp.nama === data.pic) && (
+                                            <option value={data.pic}>{data.pic}</option>
+                                        )}
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -736,39 +802,125 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
                                 <PlusIcon /> Add Part
                             </button>
                         </div>
+
+                        {duplicateWarning && (
+                            <div className="m-4 p-3.5 rounded-lg bg-red-50 border border-red-300 flex items-start justify-between gap-3 text-red-800 shadow-sm animate-pulse">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">🚫</span>
+                                    <div>
+                                        <strong className="block text-xs uppercase tracking-wide font-bold">Input Part Number Duplikat Ditolak!</strong>
+                                        <p className="text-xs text-red-700">{duplicateWarning}</p>
+                                    </div>
+                                </div>
+                                <button type="button" onClick={() => setDuplicateWarning(null)} className="text-red-500 hover:text-red-700 font-bold text-sm">✕</button>
+                            </div>
+                        )}
+
                         <div className="p-0 overflow-x-auto">
                             <table className="w-full text-left whitespace-nowrap">
                                 <thead className="bg-gray-50 border-b border-gray-200">
                                     <tr>
-                                        <th className="py-3 px-6 text-sm font-bold text-gray-500 uppercase tracking-wider">Part Number</th>
-                                        <th className="py-3 px-6 text-sm font-bold text-gray-500 uppercase tracking-wider w-1/3">Description</th>
-                                        <th className="py-3 px-6 text-sm font-bold text-gray-500 uppercase tracking-wider text-center">Qty</th>
-                                        <th className="py-3 px-6 text-sm font-bold text-gray-500 uppercase tracking-wider">Life / Interval</th>
-                                        <th className="py-3 px-6 text-sm font-bold text-gray-500 uppercase tracking-wider">PO / PR</th>
-                                        <th className="py-3 px-6 text-sm font-bold text-gray-500 uppercase tracking-wider text-center w-16">Action</th>
+                                        <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Component</th>
+                                        <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Component Name</th>
+                                        <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Part Number</th>
+                                        <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider min-w-[200px]">Description</th>
+                                        <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Qty</th>
+                                        <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Life / Interval</th>
+                                        <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">PO / PR</th>
+                                        <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center w-16">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {data.parts.map((part, index) => (
                                         <tr key={index} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="py-2.5 px-6">
-                                                <input 
-                                                    type="text" 
-                                                    className="w-full bg-white border border-gray-300 rounded text-sm px-3 py-2 h-9 focus:border-[#0b6e4f] focus:ring focus:ring-[#0b6e4f]/20"
-                                                    value={part.part_number} 
+                                            {/* COMPONENT */}
+                                            <td className="py-2.5 px-4 align-top">
+                                                <select 
+                                                    className="w-44 bg-white border border-gray-300 rounded text-sm px-2.5 py-1.5 h-9 focus:border-[#0b6e4f] focus:ring focus:ring-[#0b6e4f]/20 font-medium"
+                                                    value={part.component || ''} 
                                                     onChange={e => {
                                                         const newParts = [...data.parts];
-                                                        newParts[index].part_number = e.target.value;
+                                                        newParts[index].component = e.target.value;
                                                         setData('parts', newParts);
                                                     }}
-                                                    onBlur={() => handlePartNumberBlur(index)}
-                                                    placeholder="P/N..."
-                                                />
+                                                >
+                                                    <option value="">-- Pilih Component --</option>
+                                                    {COMPONENTS.map(comp => (
+                                                        <option key={comp} value={comp}>{comp}</option>
+                                                    ))}
+                                                </select>
                                             </td>
-                                            <td className="py-2.5 px-6">
+
+                                            {/* COMPONENT NAME */}
+                                            <td className="py-2.5 px-4 align-top">
                                                 <input 
                                                     type="text" 
-                                                    className="w-full bg-white border border-gray-300 rounded text-sm px-3 py-2 h-9 focus:border-[#0b6e4f] focus:ring focus:ring-[#0b6e4f]/20"
+                                                    className="w-44 bg-white border border-gray-300 rounded text-sm px-3 py-1.5 h-9 focus:border-[#0b6e4f] focus:ring focus:ring-[#0b6e4f]/20"
+                                                    value={part.component_name || ''} 
+                                                    onChange={e => {
+                                                        const newParts = [...data.parts];
+                                                        newParts[index].component_name = e.target.value;
+                                                        setData('parts', newParts);
+                                                    }}
+                                                    placeholder="Contoh: Engine, Hydraulic..."
+                                                />
+                                            </td>
+
+                                            {/* PART NUMBER */}
+                                            <td className="py-2.5 px-4 align-top">
+                                                <div className="relative">
+                                                    <input 
+                                                        type="text" 
+                                                        className={`w-40 bg-white border ${activeOrderWarnings[index] ? 'border-amber-400 ring-1 ring-amber-300' : 'border-gray-300'} rounded text-sm px-3 py-2 h-9 focus:border-[#0b6e4f] focus:ring focus:ring-[#0b6e4f]/20 font-mono`}
+                                                        value={part.part_number} 
+                                                        onChange={e => {
+                                                            const val = e.target.value;
+                                                            const newParts = [...data.parts];
+                                                            newParts[index].part_number = val;
+                                                            setData('parts', newParts);
+
+                                                            // Cek duplikat saat mengetik / menempel (paste)
+                                                            const upperVal = val.trim().toUpperCase();
+                                                            if (upperVal && upperVal !== '-') {
+                                                                const isDup = data.parts.some((p, i) => i !== index && (p.part_number || '').trim().toUpperCase() === upperVal);
+                                                                if (isDup) {
+                                                                    setDuplicateWarning(`Part Number "${upperVal}" sudah ada dalam daftar order ini! Tidak boleh menginput Part Number yang sama dalam 1 order.`);
+                                                                    newParts[index].part_number = '';
+                                                                    setData('parts', newParts);
+                                                                } else if (duplicateWarning && duplicateWarning.includes(upperVal)) {
+                                                                    setDuplicateWarning(null);
+                                                                }
+                                                            }
+                                                        }}
+                                                        onBlur={() => handlePartNumberBlur(index)}
+                                                        placeholder="P/N..."
+                                                    />
+                                                    {activeOrderWarnings[index] && (
+                                                        <div className="mt-1 max-w-[220px] bg-amber-50 border border-amber-300 rounded p-1.5 text-[11px] text-amber-900 shadow-sm leading-tight">
+                                                            <div className="flex items-center gap-1 font-bold text-amber-800">
+                                                                <span>⚠️ Ada Order Aktif!</span>
+                                                            </div>
+                                                            <div className="mt-0.5 text-[10px] text-amber-700">
+                                                                No Order: <span className="font-mono font-bold">{activeOrderWarnings[index].active_orders[0]?.no_order}</span>
+                                                                <span className="ml-1 px-1 bg-amber-200/80 rounded font-bold text-[9px]">{activeOrderWarnings[index].active_orders[0]?.status}</span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setHistoryModalData(activeOrderWarnings[index])}
+                                                                className="mt-1 text-[10px] text-blue-700 hover:text-blue-900 font-bold underline flex items-center gap-0.5 cursor-pointer"
+                                                            >
+                                                                Lihat Histori ({activeOrderWarnings[index].recent_history?.length || 0})
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* DESCRIPTION */}
+                                            <td className="py-2.5 px-4">
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full min-w-[180px] bg-white border border-gray-300 rounded text-sm px-3 py-2 h-9 focus:border-[#0b6e4f] focus:ring focus:ring-[#0b6e4f]/20"
                                                     value={part.description} 
                                                     onChange={e => {
                                                         const newParts = [...data.parts];
@@ -778,11 +930,13 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
                                                     placeholder="Part Name..."
                                                 />
                                             </td>
-                                            <td className="py-2.5 px-6">
+
+                                            {/* QTY */}
+                                            <td className="py-2.5 px-4">
                                                 <input 
                                                     type="number" 
                                                     min="1"
-                                                    className="w-20 mx-auto block bg-white border border-gray-300 rounded text-sm px-3 py-2 h-9 text-center focus:border-[#0b6e4f] focus:ring focus:ring-[#0b6e4f]/20"
+                                                    className="w-16 mx-auto block bg-white border border-gray-300 rounded text-sm px-2 py-1.5 h-9 text-center focus:border-[#0b6e4f] focus:ring focus:ring-[#0b6e4f]/20"
                                                     value={part.qty} 
                                                     onChange={e => {
                                                         const newParts = [...data.parts];
@@ -791,16 +945,20 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
                                                     }}
                                                 />
                                             </td>
-                                            <td className="py-2.5 px-6">
+
+                                            {/* LIFE / INTERVAL */}
+                                            <td className="py-2.5 px-4">
                                                 <input 
                                                     type="text" 
-                                                    className="w-32 bg-gray-100 border border-gray-200 rounded text-sm px-3 py-2 h-9 text-gray-500 cursor-not-allowed"
+                                                    className="w-28 bg-gray-100 border border-gray-200 rounded text-sm px-3 py-2 h-9 text-gray-500 cursor-not-allowed text-center"
                                                     value={part.life_time} 
                                                     readOnly
                                                     placeholder="Auto..."
                                                 />
                                             </td>
-                                            <td className="py-2.5 px-6">
+
+                                            {/* PO / PR */}
+                                            <td className="py-2.5 px-4">
                                                 <div className="flex gap-2">
                                                     <input 
                                                         type="text" 
@@ -826,7 +984,9 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
                                                     />
                                                 </div>
                                             </td>
-                                            <td className="py-2.5 px-6 text-center">
+
+                                            {/* ACTION */}
+                                            <td className="py-2.5 px-4 text-center">
                                                 <button type="button" onClick={() => removePart(index)} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-red-50">
                                                     <TrashIcon />
                                                 </button>
@@ -1225,6 +1385,101 @@ export default function Form({ units, order, mode, suggestedNoOrder = '' }) {
                                     </a>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Smart Part Order History Modal */}
+            {historyModalData && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+                        <div className="px-6 py-4 bg-amber-500/10 border-b border-amber-200 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl">📋</span>
+                                <div>
+                                    <h3 className="text-base font-bold text-gray-900">Histori Order & Lifetime Part</h3>
+                                    <p className="text-xs text-gray-600">
+                                        Unit: <span className="font-bold text-emerald-700">{historyModalData.unit_code || 'NON-UNIT'}</span> | Part: <span className="font-mono font-bold text-gray-900">{historyModalData.part_number}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => setHistoryModalData(null)}
+                                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto space-y-4">
+                            {historyModalData.average_actual_lifetime && (
+                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center justify-between">
+                                    <span>Rata-rata Actual Lifetime Part ini:</span>
+                                    <strong className="text-sm font-bold font-mono">{historyModalData.average_actual_lifetime.toLocaleString()} Jam / HM</strong>
+                                </div>
+                            )}
+
+                            {historyModalData.active_orders && historyModalData.active_orders.length > 0 && (
+                                <div>
+                                    <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+                                        <span>⚠️ Order Aktif Berjalan (Cegah Double Order)</span>
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {historyModalData.active_orders.map((ao, idx) => (
+                                            <div key={idx} className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-gray-800 shadow-xs">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-mono font-bold text-amber-900 text-sm">{ao.no_order}</span>
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">{ao.status}</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 mt-2 text-[11px] text-gray-600">
+                                                    <div>Tgl Order: <span className="font-semibold text-gray-800">{ao.order_date || '-'}</span></div>
+                                                    <div>ETA: <span className="font-semibold text-gray-800">{ao.eta || '-'}</span></div>
+                                                    <div>Qty: <span className="font-semibold text-gray-800">{ao.qty || 1}</span></div>
+                                                    <div>Deskripsi: <span className="font-semibold text-gray-800">{ao.part_name || '-'}</span></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Riwayat Order Sebelumnya</h4>
+                                {historyModalData.recent_history && historyModalData.recent_history.length > 0 ? (
+                                    <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+                                        {historyModalData.recent_history.map((h, i) => (
+                                            <div key={i} className="p-3 bg-white hover:bg-gray-50 text-xs flex items-center justify-between gap-4">
+                                                <div>
+                                                    <div className="font-mono font-bold text-gray-800">{h.no_order}</div>
+                                                    <div className="text-[11px] text-gray-500 mt-0.5">Tgl: {h.order_date || '-'} | Qty: {h.qty}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${h.status === 'INSTALLED' ? 'bg-emerald-100 text-emerald-800' : (h.status === 'CLOSED' ? 'bg-gray-100 text-gray-700' : 'bg-blue-100 text-blue-800')}`}>
+                                                        {h.status}
+                                                    </span>
+                                                    {h.installed_hm && (
+                                                        <div className="text-[10px] text-gray-500 mt-0.5 font-mono">Installed HM: {h.installed_hm}</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-400 italic">Belum ada riwayat order sebelumnya untuk part ini.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setHistoryModalData(null)}
+                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            >
+                                Tutup
+                            </button>
                         </div>
                     </div>
                 </div>

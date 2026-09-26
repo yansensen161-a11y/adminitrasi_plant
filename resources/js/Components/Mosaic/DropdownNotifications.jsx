@@ -95,11 +95,11 @@ function DropdownNotifications({
             <li className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
               <Link
                 className="block py-2 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/20"
-                href="/backlogs"
+                href="/monitoring-orderan"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
-                <span className="block text-sm mb-1">📋 <span className="font-semibold text-gray-800 dark:text-gray-100">Monitoring Backlog</span> Temuan inspeksi dan antrean part perbaikan.</span>
-                <span className="block text-xs font-medium text-amber-500 dark:text-amber-400">Kelola Backlog &rarr;</span>
+                <span className="block text-sm mb-1">📦 <span className="font-semibold text-gray-800 dark:text-gray-100">Monitoring Order List</span> Pelacakan status pemesanan sparepart & logistik.</span>
+                <span className="block text-xs font-medium text-amber-500 dark:text-amber-400">Lihat Order List &rarr;</span>
               </Link>
             </li>
           </ul>

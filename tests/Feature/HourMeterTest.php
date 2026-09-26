@@ -131,4 +131,79 @@ class HourMeterTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    public function test_user_can_export_all_hour_meter_data_to_excel(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'admin']);
+        $user = User::factory()->create();
+        $user->assignRole($role);
+
+        $unit = Unit::create([
+            'code_unit' => 'ME023',
+            'type_unit' => 'EXCAVATOR',
+            'model' => 'SANY 365',
+            'location' => 'Pit 1',
+            'status' => 'Running',
+            'hm' => 1050.0,
+        ]);
+
+        HourMeterLog::create([
+            'unit_id' => $unit->id,
+            'code_unit' => 'ME023',
+            'log_date' => '2026-08-10',
+            'shift' => 'DS',
+            'hm_start' => 1000.0,
+            'hm_end' => 1008.0,
+            'hm_total' => 8.0,
+            'operator_name' => 'John Doe',
+            'location' => 'Pit 1',
+        ]);
+
+        $response = $this->actingAs($user)->get(route('hour-meters.export.excel', [
+            'scope' => 'all',
+        ]));
+
+        $response->assertOk();
+        $this->assertTrue(str_contains(
+            $response->headers->get('content-disposition', ''),
+            'Data_Hour_Meter_Semua_'
+        ));
+    }
+
+    public function test_user_can_export_filtered_hour_meter_data_to_excel(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'admin']);
+        $user = User::factory()->create();
+        $user->assignRole($role);
+
+        $unit = Unit::create([
+            'code_unit' => 'ME023',
+            'type_unit' => 'EXCAVATOR',
+            'model' => 'SANY 365',
+            'hm' => 1050.0,
+        ]);
+
+        HourMeterLog::create([
+            'unit_id' => $unit->id,
+            'code_unit' => 'ME023',
+            'log_date' => '2026-08-10',
+            'shift' => 'DS',
+            'hm_start' => 1000.0,
+            'hm_end' => 1008.0,
+            'hm_total' => 8.0,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('hour-meters.export.excel', [
+            'scope' => 'filtered',
+            'date_from' => '2026-08-01',
+            'date_to' => '2026-08-10',
+            'code_unit' => 'ME023',
+        ]));
+
+        $response->assertOk();
+        $this->assertTrue(str_contains(
+            $response->headers->get('content-disposition', ''),
+            'Data_Hour_Meter_2026-08-01_sd_2026-08-10_'
+        ));
+    }
 }

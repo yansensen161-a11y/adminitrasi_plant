@@ -3,11 +3,24 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="0">
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
-        <!-- Favicon -->
-        <link rel="icon" type="image/jpeg" href="/images/planner_logo.jpg">
+        <!-- Dynamic Favicon -->
+        @php
+            $favPath = \Illuminate\Support\Facades\Schema::hasTable('settings')
+                ? \App\Models\Setting::where('key', 'app_favicon')->value('value')
+                : null;
+            $favUrl = $favPath 
+                ? (str_starts_with($favPath, '/') || str_starts_with($favPath, 'http') ? $favPath : asset('storage/' . $favPath))
+                : '/images/favicon.png';
+        @endphp
+        <link rel="icon" href="{{ $favUrl }}" id="app-favicon">
+        <link rel="apple-touch-icon" href="{{ $favUrl }}" id="app-touch-icon">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

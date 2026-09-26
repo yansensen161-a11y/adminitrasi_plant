@@ -140,6 +140,14 @@ class BreakdownWorkOrderExport
                     ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()->setARGB($yellowColor);
                 $sheet->getStyle("A{$currentRow}")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle("A{$currentRow}:S{$currentRow}")->applyFromArray([
+                    'borders' => [
+                        'top' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                        'bottom' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                        'left' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                        'right' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                    ],
+                ]);
                 $sheet->getRowDimension($currentRow)->setRowHeight(19);
                 $currentRow++;
             }
@@ -244,21 +252,31 @@ class BreakdownWorkOrderExport
                 // If tasks shared the same problem description and have multiple consecutive subtasks, merge task & problem description
                 $this->mergeConsecutiveProblemDescriptions($sheet, $startUnitRow, $taskRows);
 
+                // Apply unit borders: Top, Bottom, Left, Right and vertical column lines, NO horizontal lines between tasks
+                $sheet->getStyle("A{$startUnitRow}:S{$endUnitRow}")->applyFromArray([
+                    'borders' => [
+                        'top' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                        'bottom' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                        'left' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                        'right' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                        'vertical' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']],
+                        'horizontal' => ['borderStyle' => Border::BORDER_NONE],
+                    ],
+                ]);
+
                 $currentRow = $endUnitRow + 1;
             }
         }
 
-        // Apply Borders to entire table
-        $lastRow = max(2, $currentRow - 1);
-        $borderStyle = [
+        // Header Borders (Rows 1 & 2)
+        $sheet->getStyle('A1:S2')->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => Border::BORDER_THIN,
                     'color' => ['argb' => 'FF000000'],
                 ],
             ],
-        ];
-        $sheet->getStyle("A1:S{$lastRow}")->applyFromArray($borderStyle);
+        ]);
 
         // Column widths
         $minWidths = [
@@ -293,7 +311,7 @@ class BreakdownWorkOrderExport
         $sheet->getPageSetup()->setFitToPage(true);
         $sheet->getPageSetup()->setFitToWidth(1);
         $sheet->getPageSetup()->setFitToHeight(1);
-        $sheet->setShowGridlines(true);
+        $sheet->setShowGridlines(false);
 
         return $spreadsheet;
     }
@@ -348,15 +366,10 @@ class BreakdownWorkOrderExport
      */
     protected function collectOpenBreakdownData(): array
     {
-        // 1. Fetch strictly OPEN Work Orders of type BREAKDOWN
+        // 1. Fetch all active (non-completed) Work Orders — semua tipe (BREAKDOWN + SCHEDULE)
         $openWorkOrders = WorkOrder::with(['unit', 'tasks'])
-            ->where('tipe_wo', 'BREAKDOWN')
-            ->where(function ($q) {
-                $q->where('status_wo', 'OPEN')
-                    ->orWhere('status_pengerjaan', 'OPEN');
-            })
-            ->whereNotIn('status_wo', ['COMPLETED', 'CLOSED'])
-            ->where('status_pengerjaan', '!=', 'CLOSED')
+            ->where('status_pengerjaan', 'not like', '%COMPLETED%')
+            ->where('status_pengerjaan', 'not like', '%CLOSED%')
             ->orderBy('id', 'asc')
             ->get();
 
@@ -404,11 +417,12 @@ class BreakdownWorkOrderExport
             // Model
             $model = $pdfModelMap[$code] ?? ($unit?->model ?: '-');
 
-            // Service Type
+            // Service Type — SCHEDULE WOs = Sch, downtime_code overrides
             $dtCode = strtoupper(trim($wo->downtime_code ?? ''));
+            $tipeWo = strtoupper(trim($wo->tipe_wo ?? ''));
             if ($dtCode === 'ACCIDENT' || $dtCode === 'ANC' || $dtCode === 'ACD') {
                 $serviceType = 'ANC';
-            } elseif ($dtCode === 'SCHEDULE' || $dtCode === 'SCH') {
+            } elseif ($tipeWo === 'SCHEDULE' || $dtCode === 'SCHEDULE' || $dtCode === 'SCH') {
                 $serviceType = 'Sch';
             } else {
                 $serviceType = 'Unsch';
@@ -418,13 +432,19 @@ class BreakdownWorkOrderExport
             $loc = $wo->location ?: ($wo->site === 'Harindo Wahana' ? 'HW' : ($wo->site ?: ($unit?->location ?: 'HW')));
 
             // Load linked MaintenanceOrder for parts status fallback
+            // Prioritize MO with actual parts data (WAITING PART first, then most recent)
             $mo = null;
             if ($unit) {
-                $mo = MaintenanceOrder::where('unit_id', $unit->id)
+                $allMos = MaintenanceOrder::where('unit_id', $unit->id)
                     ->whereNotIn('status', ['COMPLETED', 'CLOSED'])
                     ->with('parts')
                     ->latest()
-                    ->first();
+                    ->get();
+
+                // Prefer an MO whose parts have PR or PO filled
+                $mo = $allMos->first(function ($m) {
+                    return $m->parts->contains(fn ($p) => ! empty($p->pr) || ! empty($p->po));
+                }) ?? $allMos->first();
             }
 
             // Tasks
@@ -663,7 +683,8 @@ class BreakdownWorkOrderExport
         $po = $task?->po ?? '';
         $eta = $task?->eta ? Carbon::parse($task->eta)->format('d-M-y') : '';
 
-        if ($task === null && ! $mol && ! $pr && ! $po && ! $eta && $mo) {
+        // Fall back to MaintenanceOrder if task has no parts data (or task is null)
+        if (! $mol && ! $pr && ! $po && ! $eta && $mo) {
             $mol = $mo->no_order ?: '';
             $part = $mo->parts->first();
             if ($part) {

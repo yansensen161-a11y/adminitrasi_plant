@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/react';
 import Transition from '@/utils/Transition';
 
 const SYSTEM_NAV_ITEMS = [
-  { name: 'Dashboard', category: 'Core', href: '/dashboard', desc: 'Ringkasan performa dan metrik plant' },
+  { name: 'Central Command Deck Portal', category: 'Core', href: '/portal', desc: 'Enterprise Mining & Fleet Engineering Hub (V3.0 COMMAND DECK)' },
   { name: 'Key Performance Index (KPI)', category: 'Core', href: '/kpi', desc: 'Analisa performa operasional plant' },
   { name: 'Hour Meter Unit', category: 'Core', href: '/hour-meters', desc: 'Pencatatan HM harian unit plant' },
   { name: 'Populasi Unit', category: 'Asset Management', href: '/units', desc: 'Daftar master seluruh unit alat berat' },
@@ -23,6 +23,7 @@ const SYSTEM_NAV_ITEMS = [
   { name: 'Pre Release Check List Track Unit', category: 'Master Data', href: '/form-pre-release-track-unit', desc: 'Digitalisasi Pre Release Check List Report Track Unit (DZR & HEX)' },
   { name: 'Request Asset Disposed Form', category: 'Master Data', href: '/form-request-asset-disposed', desc: 'Formulir Pengajuan Penghapusan / Disposed Aset Komponen Alat Berat' },
   { name: 'Surat Permintaan Komponen', category: 'Master Data', href: '/form-surat-permintaan-komponen', desc: 'Internal Memorandum / Surat Permintaan & Transfer Part Bekas Antar Site' },
+  { name: 'Portal Form JSA (Card Hub)', category: 'Master Data', href: '/form-jsa/portal', desc: 'Portal Card Sentralisasi SOP & Analisis Keselamatan Kerja (MAM-HSE-FORM-028)' },
   { name: 'Form JSA (Job Safety Analysis)', category: 'Master Data', href: '/form-jsa', desc: 'Sistem Analisis Keselamatan Kerja & Lingkungan (MAM-HSE-FORM-028)' },
   { name: 'JSA Overhaul Starting Motor', category: 'Master Data', href: '/form-jsa/overhaul-starting-motor', desc: 'Job Safety Analysis Overhaul Starting Motor MAM-HSE-FORM-028' },
   { name: 'JSA Maintenance AC System DT', category: 'Master Data', href: '/form-jsa/maintenance-ac-dump-truck', desc: 'Job Safety Analysis Maintenance AC System Dump Truck MAM-HSE-FORM-028' },
@@ -37,7 +38,7 @@ const SYSTEM_NAV_ITEMS = [
   { name: 'Work Order Management', category: 'Maintenance Control', href: '/work-orders', desc: 'Pembuatan dan penelusuran Work Order' },
   { name: 'Monitoring Breakdown', category: 'Maintenance Control', href: '/work-orders?tab=breakdown', desc: 'Monitoring unit yang sedang breakdown' },
   { name: 'Monitoring Order List', category: 'Maintenance Control', href: '/monitoring-orderan', desc: 'Pelacakan status pemesanan sparepart' },
-  { name: 'Monitoring Backlog', category: 'Maintenance Control', href: '/backlogs', desc: 'Monitoring temuan backlog & perbaikan terencana' },
+  { name: 'Part Order & Lifetime Monitoring', category: 'Maintenance Control', href: '/part-order-lifetime', desc: 'Smart order tracking & lifetime management komponen sparepart' },
   { name: 'Failure Analysis (FAR)', category: 'Maintenance Control', href: '/failure-analysis', desc: 'Analisa investigasi kerusakan unit' },
   { name: 'Forecast Budget Monthly', category: 'Maintenance Control', href: '/forecast-budget-monthly', desc: 'Perkiraan anggaran bulanan plant' },
   { name: 'Conditions Component Report (CCR)', category: 'Condition Monitoring', href: '/ccr', desc: 'Laporan kondisi fisik komponen' },

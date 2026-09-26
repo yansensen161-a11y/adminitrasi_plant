@@ -383,8 +383,7 @@
             <table class="header-table">
                 <tr>
                     <td width="60%">
-                        <div class="company-name">PT. MANDIRI ABADI MINERAL</div>
-                        <div class="company-sub">PLANT & MAINTENANCE DEPARTMENT</div>
+                        <div class="company-name">PLANT & MAINTENANCE DEPARTMENT</div>
                     </td>
                     <td width="40%" class="text-right">
                         <div class="doc-title-main">MAINTENANCE ORDER LIST</div>
@@ -511,21 +510,28 @@
             <thead>
                 <tr>
                     <th width="4%">NO</th>
-                    <th width="18%">PART NUMBER</th>
-                    <th width="30%">DESCRIPTION / NAMA PART</th>
-                    <th width="8%">QTY</th>
-                    <th width="13%">NO PR</th>
-                    <th width="13%">NO PO</th>
-                    <th width="14%">ETA PART</th>
+                    <th width="15%">COMPONENT</th>
+                    <th width="16%">PART NUMBER</th>
+                    <th width="25%">DESCRIPTION / NAMA PART</th>
+                    <th width="7%">QTY</th>
+                    <th width="11%">NO PR</th>
+                    <th width="11%">NO PO</th>
+                    <th width="11%">ETA PART</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($order->parts as $idx => $part)
                 <tr>
                     <td class="text-center">{{ $idx + 1 }}</td>
+                    <td>
+                        <div style="font-weight: bold; color: #111827;">{{ $part->component ?: ($order->component ?: '-') }}</div>
+                        @if($part->component_name && $part->component_name !== '-' && $part->component_name !== $part->component)
+                            <div style="font-size: 7pt; color: #4b5563; margin-top: 1px;">{{ $part->component_name }}</div>
+                        @endif
+                    </td>
                     <td class="font-mono">{{ $part->part_number ?: '-' }}</td>
                     <td>
-                        {{ $part->department ?: ($part->component ?: '-') }}
+                        {{ $part->department ?: '-' }}
                         @if($part->swapToUnit)
                             <div style="color: #2563eb; font-size: 7pt; font-weight: bold; margin-top: 2px;">
                                 ⇄ Kanibal ke: {{ $part->swapToUnit->code_unit }}
@@ -541,7 +547,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="text-center" style="padding: 10px; color: #6b7280;">
+                    <td colspan="8" class="text-center" style="padding: 10px; color: #6b7280;">
                         Tidak ada data part yang terdaftar.
                     </td>
                 </tr>

@@ -15,6 +15,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -759,6 +760,515 @@ class HourMeterController extends Controller
 
         $writer = new Xlsx($spreadsheet);
         $fileName = 'Template_Hour_Meter_Vertical.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function exportExcel(Request $request): StreamedResponse
+    {
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
+        $scope = $request->input('scope', 'all');
+        $codeUnitFilter = $request->input('code_unit', '');
+        $typeUnitFilter = $request->input('type_unit', '');
+        $locationFilter = $request->input('location', '');
+        $statusFilter = $request->input('status', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
+        $hmErrorFilter = $request->input('hm_error', '');
+
+        // Menentukan apakah ekspor semua atau berdasarkan filter
+        $isAll = ($scope === 'all') || (! $dateFrom && ! $dateTo && ! $codeUnitFilter && ! $typeUnitFilter && ! $locationFilter && ! $statusFilter && ! $hmErrorFilter);
+
+        $hmUnits = $this->getHmUnits();
+
+        // 1. Ambil data armada Unit
+        $unitsQuery = Unit::query();
+        if ($isAll) {
+            $unitsQuery->where(function ($q) use ($hmUnits) {
+                $q->whereIn('code_unit', $hmUnits)
+                    ->orWhereHas('hourMeterLogs');
+            });
+        } else {
+            $unitsQuery->whereIn('code_unit', $hmUnits);
+            if ($codeUnitFilter) {
+                $unitsQuery->where('code_unit', 'like', "%{$codeUnitFilter}%");
+            }
+            if ($typeUnitFilter) {
+                $unitsQuery->where('type_unit', $typeUnitFilter);
+            }
+            if ($locationFilter) {
+                $unitsQuery->where('location', $locationFilter);
+            }
+            if ($statusFilter) {
+                $unitsQuery->where('status', $statusFilter);
+            }
+        }
+        $units = $unitsQuery->orderBy('code_unit', 'asc')->get();
+        $unitIds = $units->pluck('id');
+
+        // 2. Ambil data HourMeterLog
+        $logsQuery = HourMeterLog::query()
+            ->with('unit')
+            ->orderBy('log_date', 'asc')
+            ->orderBy('code_unit', 'asc')
+            ->orderBy('shift', 'asc');
+
+        if ($isAll) {
+            if ($unitIds->isNotEmpty()) {
+                $logsQuery->whereIn('unit_id', $unitIds);
+            }
+        } else {
+            $logsQuery->whereIn('unit_id', $unitIds);
+            if ($dateFrom) {
+                $logsQuery->where('log_date', '>=', $dateFrom);
+            }
+            if ($dateTo) {
+                $logsQuery->where('log_date', '<=', $dateTo);
+            }
+        }
+        $logs = $logsQuery->get();
+
+        // Mapping log per unit dan tanggal
+        $groupedLogs = [];
+        $logsByUnit = [];
+        foreach ($logs as $log) {
+            $dateStr = substr((string) $log->log_date, 0, 10);
+            $groupedLogs[$log->unit_id][$dateStr] = $log;
+            $logsByUnit[$log->unit_id][] = $log;
+        }
+
+        // Tentukan rentang tanggal untuk Sheet 1 (Matrix)
+        if ($isAll) {
+            $distinctDates = $logs->pluck('log_date')
+                ->map(fn ($d) => substr((string) $d, 0, 10))
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+            $dates = ! empty($distinctDates) ? $distinctDates : [Carbon::now()->format('Y-m-d')];
+        } else {
+            if (! $dateFrom) {
+                $dateFrom = Carbon::now()->subDays(9)->format('Y-m-d');
+            }
+            if (! $dateTo) {
+                $dateTo = Carbon::now()->format('Y-m-d');
+            }
+            $period = new \DatePeriod(
+                new \DateTime($dateFrom),
+                new \DateInterval('P1D'),
+                (new \DateTime($dateTo))->modify('+1 day')
+            );
+            $dates = [];
+            foreach ($period as $dt) {
+                $dates[] = $dt->format('Y-m-d');
+            }
+        }
+
+        // Terapkan filter hm_error jika dalam mode filter
+        if (! $isAll && $hmErrorFilter) {
+            $filteredUnits = [];
+            foreach ($units as $unit) {
+                $hasMatch = false;
+                $isLv = in_array(strtoupper(trim((string) $unit->type_unit)), ['LIGHT VEHICLE', 'LV']);
+
+                if ($isLv && in_array($hmErrorFilter, ['over_24', 'minus', 'all_errors'])) {
+                    continue;
+                }
+
+                if ($hmErrorFilter === 'belum_terisi') {
+                    foreach ($dates as $date) {
+                        if (! isset($groupedLogs[$unit->id][$date])) {
+                            $hasMatch = true;
+                            break;
+                        }
+                    }
+                } elseif ($hmErrorFilter === 'over_24') {
+                    foreach ($dates as $date) {
+                        $log = $groupedLogs[$unit->id][$date] ?? null;
+                        if ($log) {
+                            $yesterdayDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+                            $prevLog = $groupedLogs[$unit->id][$yesterdayDate] ?? null;
+                            $diff = null;
+                            if ($prevLog) {
+                                $diff = (float) $log->hm_end - (float) $prevLog->hm_end;
+                            } elseif ((float) $log->hm_start > 0) {
+                                $diff = (float) $log->hm_end - (float) $log->hm_start;
+                            } elseif ($log->hm_total !== null) {
+                                $diff = (float) $log->hm_total;
+                            }
+
+                            if (($diff !== null && $diff > 24) || (float) $log->hm_total > 24) {
+                                $hasMatch = true;
+                                break;
+                            }
+                        }
+                    }
+                } elseif ($hmErrorFilter === 'minus') {
+                    foreach ($dates as $date) {
+                        $log = $groupedLogs[$unit->id][$date] ?? null;
+                        if ($log) {
+                            $yesterdayDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+                            $prevLog = $groupedLogs[$unit->id][$yesterdayDate] ?? null;
+                            $diff = null;
+                            if ($prevLog) {
+                                $diff = (float) $log->hm_end - (float) $prevLog->hm_end;
+                            } elseif ((float) $log->hm_start > 0) {
+                                $diff = (float) $log->hm_end - (float) $log->hm_start;
+                            } elseif ($log->hm_total !== null) {
+                                $diff = (float) $log->hm_total;
+                            }
+
+                            if (($diff !== null && $diff < 0) || (float) $log->hm_total < 0) {
+                                $hasMatch = true;
+                                break;
+                            }
+                        }
+                    }
+                } elseif ($hmErrorFilter === 'all_errors') {
+                    foreach ($dates as $date) {
+                        $log = $groupedLogs[$unit->id][$date] ?? null;
+                        if ($log) {
+                            $yesterdayDate = Carbon::parse($date)->subDay()->format('Y-m-d');
+                            $prevLog = $groupedLogs[$unit->id][$yesterdayDate] ?? null;
+                            $diff = null;
+                            if ($prevLog) {
+                                $diff = (float) $log->hm_end - (float) $prevLog->hm_end;
+                            } elseif ((float) $log->hm_start > 0) {
+                                $diff = (float) $log->hm_end - (float) $log->hm_start;
+                            } elseif ($log->hm_total !== null) {
+                                $diff = (float) $log->hm_total;
+                            }
+
+                            if (($diff !== null && ($diff > 24 || $diff < 0)) || (float) $log->hm_total > 24 || (float) $log->hm_total < 0) {
+                                $hasMatch = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if ($hasMatch) {
+                    $filteredUnits[] = $unit;
+                }
+            }
+            $units = collect($filteredUnits)->values();
+        }
+
+        $spreadsheet = new Spreadsheet;
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SHEET 1: Matrix HM Harian
+        // ══════════════════════════════════════════════════════════════════════
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Matrix HM Harian');
+        $sheet1->setShowGridLines(true);
+
+        $dateCount = count($dates);
+        $totalColumnsCount = 6 + $dateCount + 2;
+        $lastColLetter = Coordinate::stringFromColumnIndex($totalColumnsCount);
+
+        // Header Title (Row 1)
+        $sheet1->mergeCells("A1:{$lastColLetter}1");
+        $sheet1->setCellValue('A1', 'MONITORING HOUR METER (HM) HARIAN ALAT BERAT');
+        $sheet1->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setRGB('FFFFFF');
+        $sheet1->getStyle('A1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('065F46');
+        $sheet1->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
+
+        // Subtitle Info (Row 2)
+        $sheet1->mergeCells("A2:{$lastColLetter}2");
+        $dateRangeText = ! empty($dates) ? (Carbon::parse(reset($dates))->format('d/m/Y').' s/d '.Carbon::parse(end($dates))->format('d/m/Y')) : '-';
+        $scopeText = $isAll ? 'Semua Data Historis' : 'Data Sesuai Filter';
+        $subtitle = "Tipe Unduhan: {$scopeText} | Periode: {$dateRangeText} | Total Armada: {$units->count()} Unit | Diunduh: ".now()->translatedFormat('d F Y H:i');
+        $sheet1->setCellValue('A2', $subtitle);
+        $sheet1->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setRGB('047857');
+        $sheet1->getStyle('A2')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('ECFDF5');
+        $sheet1->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet1->getRowDimension(2)->setRowHeight(20);
+
+        // Blank Row (Row 3)
+        $sheet1->getRowDimension(3)->setRowHeight(8);
+
+        // Table Column Headers (Row 4)
+        $headers1 = ['No', 'Kode Unit', 'Model', 'Tipe Unit', 'Lokasi', 'Status'];
+        foreach ($dates as $d) {
+            $headers1[] = Carbon::parse($d)->format('d/m');
+        }
+        $headers1[] = 'Total Jam Operasi';
+        $headers1[] = 'HM Terakhir';
+
+        $sheet1->fromArray([$headers1], null, 'A4');
+        $sheet1->getStyle("A4:{$lastColLetter}4")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '10B981']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '059669'],
+                ],
+            ],
+        ]);
+        $sheet1->getRowDimension(4)->setRowHeight(28);
+
+        // Populate Matrix Data Rows
+        $matrixRows = [];
+        foreach ($units as $idx => $unit) {
+            $row = [
+                $idx + 1,
+                $unit->code_unit,
+                $unit->model ?: '-',
+                $unit->type_unit ?: '-',
+                $unit->location ?: '-',
+                $unit->status ?: 'Running',
+            ];
+
+            $unitTotalHours = 0.0;
+            $latestHmInPeriod = null;
+
+            foreach ($dates as $date) {
+                $log = $groupedLogs[$unit->id][$date] ?? null;
+                if ($log) {
+                    $row[] = (float) $log->hm_end;
+                    if ($log->hm_total !== null && (float) $log->hm_total > 0) {
+                        $unitTotalHours += (float) $log->hm_total;
+                    }
+                    $latestHmInPeriod = (float) $log->hm_end;
+                } else {
+                    $row[] = '-';
+                }
+            }
+
+            $row[] = round($unitTotalHours, 1);
+            $row[] = $latestHmInPeriod !== null ? $latestHmInPeriod : (float) ($unit->hm ?? 0);
+            $matrixRows[] = $row;
+        }
+
+        if (! empty($matrixRows)) {
+            $sheet1->fromArray($matrixRows, null, 'A5');
+            $lastRow = 4 + count($matrixRows);
+
+            $sheet1->getStyle("A5:{$lastColLetter}{$lastRow}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color' => ['rgb' => 'E5E7EB'],
+                    ],
+                ],
+                'alignment' => [
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
+            ]);
+
+            $sheet1->getStyle("A5:A{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet1->getStyle("B5:B{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet1->getStyle("F5:F{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        }
+
+        $sheet1->getColumnDimension('A')->setWidth(6);
+        $sheet1->getColumnDimension('B')->setWidth(14);
+        $sheet1->getColumnDimension('C')->setWidth(18);
+        $sheet1->getColumnDimension('D')->setWidth(18);
+        $sheet1->getColumnDimension('E')->setWidth(16);
+        $sheet1->getColumnDimension('F')->setWidth(14);
+        for ($colIdx = 7; $colIdx <= 6 + $dateCount; $colIdx++) {
+            $colLetter = Coordinate::stringFromColumnIndex($colIdx);
+            $sheet1->getColumnDimension($colLetter)->setWidth(11);
+        }
+        $totalHoursColLetter = Coordinate::stringFromColumnIndex(7 + $dateCount);
+        $latestHmColLetter = Coordinate::stringFromColumnIndex(8 + $dateCount);
+        $sheet1->getColumnDimension($totalHoursColLetter)->setWidth(18);
+        $sheet1->getColumnDimension($latestHmColLetter)->setWidth(16);
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SHEET 2: Detail Log HM Lengkap
+        // ══════════════════════════════════════════════════════════════════════
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Detail Log HM');
+        $sheet2->setShowGridLines(true);
+
+        $sheet2->mergeCells('A1:M1');
+        $sheet2->setCellValue('A1', 'DATA DETAIL LOG HOUR METER (HM) LENGKAP');
+        $sheet2->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setRGB('FFFFFF');
+        $sheet2->getStyle('A1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('065F46');
+        $sheet2->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet2->getRowDimension(1)->setRowHeight(30);
+
+        $sheet2->mergeCells('A2:M2');
+        $sheet2->setCellValue('A2', "Total Rekaman: {$logs->count()} Baris Log | Tanggal Ekspor: ".now()->translatedFormat('d F Y H:i:s'));
+        $sheet2->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setRGB('047857');
+        $sheet2->getStyle('A2')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('ECFDF5');
+        $sheet2->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet2->getRowDimension(2)->setRowHeight(20);
+
+        $sheet2->getRowDimension(3)->setRowHeight(8);
+
+        $headers2 = [
+            'No', 'Tanggal', 'Shift', 'Kode Unit', 'Model', 'Tipe Unit',
+            'HM Awal', 'HM Akhir', 'Total Jam Kerja', 'Operator', 'Lokasi', 'Status Unit', 'Catatan / Remarks',
+        ];
+        $sheet2->fromArray([$headers2], null, 'A4');
+        $sheet2->getStyle('A4:M4')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '047857']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '065F46'],
+                ],
+            ],
+        ]);
+        $sheet2->getRowDimension(4)->setRowHeight(26);
+
+        $detailRows = [];
+        foreach ($logs as $idx => $log) {
+            $unit = $log->unit;
+            $detailRows[] = [
+                $idx + 1,
+                $log->log_date ? Carbon::parse($log->log_date)->format('d/m/Y') : '-',
+                $log->shift ?: 'DS',
+                $log->code_unit,
+                $unit?->model ?: '-',
+                $unit?->type_unit ?: '-',
+                $log->hm_start !== null ? (float) $log->hm_start : 0.0,
+                $log->hm_end !== null ? (float) $log->hm_end : 0.0,
+                $log->hm_total !== null ? (float) $log->hm_total : 0.0,
+                $log->operator_name ?: '-',
+                $log->location ?: ($unit?->location ?: '-'),
+                $unit?->status ?: 'Running',
+                $log->remarks ?: '-',
+            ];
+        }
+
+        if (! empty($detailRows)) {
+            $sheet2->fromArray($detailRows, null, 'A5');
+            $lastRow2 = 4 + count($detailRows);
+
+            $sheet2->getStyle("A5:M{$lastRow2}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color' => ['rgb' => 'E5E7EB'],
+                    ],
+                ],
+                'alignment' => [
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
+            ]);
+
+            $sheet2->getStyle("A5:D{$lastRow2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getStyle("G5:I{$lastRow2}")->getNumberFormat()->setFormatCode('#,##0.0');
+        }
+
+        foreach (['A' => 6, 'B' => 14, 'C' => 8, 'D' => 14, 'E' => 18, 'F' => 18, 'G' => 13, 'H' => 13, 'I' => 16, 'J' => 18, 'K' => 16, 'L' => 14, 'M' => 25] as $col => $w) {
+            $sheet2->getColumnDimension($col)->setWidth($w);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SHEET 3: Ringkasan Per Unit
+        // ══════════════════════════════════════════════════════════════════════
+        $sheet3 = $spreadsheet->createSheet();
+        $sheet3->setTitle('Ringkasan Per Unit');
+        $sheet3->setShowGridLines(true);
+
+        $sheet3->mergeCells('A1:K1');
+        $sheet3->setCellValue('A1', 'RINGKASAN UTILISASI & PERFORMA ARMADA UNIT');
+        $sheet3->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setRGB('FFFFFF');
+        $sheet3->getStyle('A1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('065F46');
+        $sheet3->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet3->getRowDimension(1)->setRowHeight(30);
+
+        $sheet3->mergeCells('A2:K2');
+        $sheet3->setCellValue('A2', "Total Armada: {$units->count()} Unit | Diunduh: ".now()->translatedFormat('d F Y H:i:s'));
+        $sheet3->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setRGB('047857');
+        $sheet3->getStyle('A2')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('ECFDF5');
+        $sheet3->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet3->getRowDimension(2)->setRowHeight(20);
+
+        $sheet3->getRowDimension(3)->setRowHeight(8);
+
+        $headers3 = [
+            'No', 'Kode Unit', 'Model', 'Tipe Unit', 'Lokasi', 'Status Unit',
+            'Total Log', 'HM Terendah', 'HM Tertinggi', 'Akumulasi Jam Kerja', 'Rata-rata HM/Log',
+        ];
+        $sheet3->fromArray([$headers3], null, 'A4');
+        $sheet3->getStyle('A4:K4')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '059669']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '047857'],
+                ],
+            ],
+        ]);
+        $sheet3->getRowDimension(4)->setRowHeight(26);
+
+        $summaryRows = [];
+        foreach ($units as $idx => $unit) {
+            $uLogs = $logsByUnit[$unit->id] ?? [];
+            $logCount = count($uLogs);
+
+            $minHm = $logCount > 0 ? min(array_map(fn ($l) => (float) ($l->hm_start > 0 ? $l->hm_start : $l->hm_end), $uLogs)) : (float) ($unit->hm ?? 0);
+            $maxHm = $logCount > 0 ? max(array_map(fn ($l) => (float) $l->hm_end, $uLogs)) : (float) ($unit->hm ?? 0);
+            $totalHmWorked = $logCount > 0 ? array_sum(array_map(fn ($l) => (float) ($l->hm_total ?: 0), $uLogs)) : 0.0;
+            $avgHm = $logCount > 0 ? round($totalHmWorked / $logCount, 1) : 0.0;
+
+            $summaryRows[] = [
+                $idx + 1,
+                $unit->code_unit,
+                $unit->model ?: '-',
+                $unit->type_unit ?: '-',
+                $unit->location ?: '-',
+                $unit->status ?: 'Running',
+                $logCount,
+                round($minHm, 1),
+                round($maxHm, 1),
+                round($totalHmWorked, 1),
+                $avgHm,
+            ];
+        }
+
+        if (! empty($summaryRows)) {
+            $sheet3->fromArray($summaryRows, null, 'A5');
+            $lastRow3 = 4 + count($summaryRows);
+
+            $sheet3->getStyle("A5:K{$lastRow3}")->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color' => ['rgb' => 'E5E7EB'],
+                    ],
+                ],
+                'alignment' => [
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
+            ]);
+
+            $sheet3->getStyle("A5:B{$lastRow3}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet3->getStyle("F5:G{$lastRow3}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet3->getStyle("H5:K{$lastRow3}")->getNumberFormat()->setFormatCode('#,##0.0');
+        }
+
+        foreach (['A' => 6, 'B' => 14, 'C' => 18, 'D' => 18, 'E' => 16, 'F' => 14, 'G' => 12, 'H' => 14, 'I' => 14, 'J' => 18, 'K' => 16] as $col => $w) {
+            $sheet3->getColumnDimension($col)->setWidth($w);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $writer = new Xlsx($spreadsheet);
+        $fileName = $isAll
+            ? 'Data_Hour_Meter_Semua_'.date('Ymd_His').'.xlsx'
+            : 'Data_Hour_Meter_'.($dateFrom ?: 'Awal').'_sd_'.($dateTo ?: 'Akhir').'_'.date('His').'.xlsx';
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');

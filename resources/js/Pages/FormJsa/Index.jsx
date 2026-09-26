@@ -18,7 +18,8 @@ import {
   FileText,
   RotateCcw,
   Sparkles,
-  Filter
+  Filter,
+  LayoutGrid
 } from 'lucide-react';
 
 export default function Index({ 
@@ -224,6 +225,15 @@ export default function Index({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/form-jsa/portal"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-semibold text-sm rounded-xl transition-colors border border-emerald-300/40"
+              title="Buka Tampilan Portal Card"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Portal Card Hub
+            </Link>
+
             <button
               onClick={() => openCreateModal(activeTaskType || 'overhaul-starting-motor')}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95"

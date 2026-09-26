@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
+import TyreReplacementModal from '@/Components/Tyre/TyreReplacementModal';
 
 const TrashIcon = () => (
     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -91,43 +92,47 @@ const calculateDowntime = (waktuBd, waktuRfu, hmBd, hmRfu) => {
 export const TIPE_WO_OPTIONS = [
     { value: 'PM - PREVENTIVE MAINTENANCE', label: 'PM - PREVENTIVE MAINTENANCE' },
     { value: 'CM - CORRECTIVE MAINTENANCE', label: 'CM - CORRECTIVE MAINTENANCE' },
-    { value: 'INS - INSPECTION', label: 'INS - INSPECTION' },
     { value: 'OVH - OVERHAUL', label: 'OVH - OVERHAUL' },
     { value: 'REPL - COMPONENT REPLACEMENT', label: 'REPL - COMPONENT REPLACEMENT' },
     { value: 'UC - UNDERCARRIAGE MAINTENANCE', label: 'UC - UNDERCARRIAGE MAINTENANCE' },
-    { value: 'TYRE - Tyre Management', label: 'TYRE - Tyre Management' },
+    { value: 'TYRE - TYRE REPLACEMENT', label: 'TYRE - TYRE REPLACEMENT' },
+    { value: 'SVC - SERVICE MAINTENANCE', label: 'SVC - SERVICE MAINTENANCE' },
 ];
 
 export const STATUS_WO_OPTIONS = [
-    { value: 'DRAFT', label: 'DRAFT' },
-    { value: 'OPEN', label: 'OPEN' },
-    { value: 'CLOSED', label: 'CLOSED' },
+    { value: 'PLANNING - PERENCANAAN PEKERJAAN', label: 'PLANNING - PERENCANAAN PEKERJAAN' },
+    { value: 'IN PROGRESS - SEDANG DIKERJAKAN', label: 'IN PROGRESS - SEDANG DIKERJAKAN' },
+    { value: 'COMPLETED - PEKERJAAN SELESAI', label: 'COMPLETED - PEKERJAAN SELESAI' },
 ];
 
 export const DOWN_STATUS_OPTIONS = [
-    { value: 'B0 - On Progress', label: 'B0 - On Progress' },
-    { value: 'B1 - Waiting Parts', label: 'B1 - Waiting Parts' },
-    { value: 'B2 - Waiting Sarana', label: 'B2 - Waiting Sarana' },
-    { value: 'B3 - Waiting Tools', label: 'B3 - Waiting Tools' },
-    { value: 'B4 - Waiting Man Power', label: 'B4 - Waiting Man Power' },
-    { value: 'B5 - Outside / Dealer', label: 'B5 - Outside / Dealer' },
-    { value: 'B6 - Production / Abuse', label: 'B6 - Production / Abuse' },
-    { value: 'B7 - Waiting Decision Plant', label: 'B7 - Waiting Decision Plant' },
-    { value: 'B8 - Waiting Decision HO', label: 'B8 - Waiting Decision HO' },
+    { value: 'B0 - ON PROGRESS', label: 'B0 - ON PROGRESS' },
+    { value: 'B1 - WAITING PARTS', label: 'B1 - WAITING PARTS' },
+    { value: 'B2 - WAITING SARANA', label: 'B2 - WAITING SARANA' },
+    { value: 'B3 - WAITING TOOLS', label: 'B3 - WAITING TOOLS' },
+    { value: 'B4 - WAITING MAN POWER', label: 'B4 - WAITING MAN POWER' },
+    { value: 'B5 - OUTSIDE / DEALER', label: 'B5 - OUTSIDE / DEALER' },
+    { value: 'B6 - PRODUCTION / ABUSE', label: 'B6 - PRODUCTION / ABUSE' },
+    { value: 'B7 - WAITING DECISION PLANT', label: 'B7 - WAITING DECISION PLANT' },
+    { value: 'B8 - WAITING DECISION HO', label: 'B8 - WAITING DECISION HO' },
+    { value: 'B9 - WAITING ACCESS', label: 'B9 - WAITING ACCESS' },
+    { value: 'B10 - WAITING RAIN / SLIPPERY CONDITION', label: 'B10 - WAITING RAIN / SLIPPERY CONDITION' },
 ];
 
 export const formatDownStatus = (val) => {
-    if (!val) return 'B0 - On Progress';
+    if (!val) return 'B0 - ON PROGRESS';
     const s = String(val).toUpperCase();
-    if (s.includes('B0')) return 'B0 - On Progress';
-    if (s.includes('B1')) return 'B1 - Waiting Parts';
-    if (s.includes('B2')) return 'B2 - Waiting Sarana';
-    if (s.includes('B3')) return 'B3 - Waiting Tools';
-    if (s.includes('B4')) return 'B4 - Waiting Man Power';
-    if (s.includes('B5')) return 'B5 - Outside / Dealer';
-    if (s.includes('B6')) return 'B6 - Production / Abuse';
-    if (s.includes('B7')) return 'B7 - Waiting Decision Plant';
-    if (s.includes('B8')) return 'B8 - Waiting Decision HO';
+    if (s.includes('B10')) return 'B10 - WAITING RAIN / SLIPPERY CONDITION';
+    if (s.includes('B9')) return 'B9 - WAITING ACCESS';
+    if (s.includes('B0')) return 'B0 - ON PROGRESS';
+    if (s.includes('B1')) return 'B1 - WAITING PARTS';
+    if (s.includes('B2')) return 'B2 - WAITING SARANA';
+    if (s.includes('B3')) return 'B3 - WAITING TOOLS';
+    if (s.includes('B4')) return 'B4 - WAITING MAN POWER';
+    if (s.includes('B5')) return 'B5 - OUTSIDE / DEALER';
+    if (s.includes('B6')) return 'B6 - PRODUCTION / ABUSE';
+    if (s.includes('B7')) return 'B7 - WAITING DECISION PLANT';
+    if (s.includes('B8')) return 'B8 - WAITING DECISION HO';
     return val;
 };
 
@@ -139,11 +144,21 @@ const normalizeStatusWo = (status, tipeWo = 'BREAKDOWN') => {
     return found ? found.value : status;
 };
 
-export default function Edit({ workOrder: wo, units = [], manpowers = [], tools = [] }) {
-    const initialStatusWo = normalizeStatusWo(wo.status_wo, wo.tipe_wo);
-    const initialStatusPengerjaan = wo.status_pengerjaan || (wo.status_wo === 'COMPLETED' || wo.status_wo === 'CLOSED' ? 'CLOSED' : 'OPEN');
+const normalizeStatusPengerjaan = (status) => {
+    if (!status) return 'PLANNING - PERENCANAAN PEKERJAAN';
+    const s = String(status).toUpperCase();
+    if (s.includes('PLANNING') || s === 'DRAFT') return 'PLANNING - PERENCANAAN PEKERJAAN';
+    if (s.includes('PROGRESS') || s === 'OPEN' || s === 'PROCESS' || s === 'WAITING PART') return 'IN PROGRESS - SEDANG DIKERJAKAN';
+    if (s.includes('COMPLETED') || s === 'CLOSED') return 'COMPLETED - PEKERJAAN SELESAI';
+    return status;
+};
 
-    const { data, setData, put, processing, errors } = useForm({
+export default function Edit({ workOrder: wo, units = [], manpowers = [], tools = [], stockTyres = [] }) {
+    const initialStatusWo = normalizeStatusWo(wo.status_wo, wo.tipe_wo);
+    const initialStatusPengerjaan = normalizeStatusPengerjaan(wo.status_pengerjaan || wo.status_wo);
+    const [showTyreModal, setShowTyreModal] = useState(false);
+
+    const { data, setData, put, processing, errors, transform } = useForm({
         no_wo: wo.no_wo || '',
         tipe_wo: wo.tipe_wo || 'BREAKDOWN',
         downtime_code: wo.downtime_code || 'Unschedule',
@@ -161,6 +176,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
             }
             return wo.durasi_hrs ?? 0;
         })(),
+        delay: wo.delay ?? 0,
         hm_unit: wo.hm_unit ?? '',
         hm_bd: wo.hm_bd ?? '',
         hm_rfu: wo.hm_rfu ?? '',
@@ -175,6 +191,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
         component_sn: wo.component_sn || '',
         priority: wo.priority || 'MEDIUM',
         request_date: wo.request_date ? wo.request_date.split('T')[0] : '',
+        tyre_replacements: [],
         tasks: wo.tasks && wo.tasks.length > 0
             ? wo.tasks.map(t => ({
                 id: t.id,
@@ -193,7 +210,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                 target_date: toDatetimeLocal(t.target_date || t.start_date),
                 status: t.status || 'B0 - On Progress',
             }))
-            : [{ id: null, group_component: '', component: '', task_description: '', problem: '', activity_progress: '', est_finish: '', mechanic: '', is_manual_pic: false, tools: [], start_date: '', end_date: '', downtime_hrs: 0, target_date: '', status: 'B0 - On Progress' }],
+            : [{ id: null, group_component: '', component: '', task_description: '', problem: '', activity_progress: '', est_finish: '', mechanic: '', is_manual_pic: false, tools: [], start_date: toDatetimeLocal(wo.waktu_breakdown), end_date: '', downtime_hrs: 0, target_date: '', status: 'B0 - On Progress' }],
     });
 
     // Auto-calculate downtime when breakdown/rfu times change (dari awal breakdown sampai hari ini / rfu)
@@ -212,8 +229,77 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
         }
     }, [data.waktu_breakdown, data.waktu_rfu, data.hm_bd, data.hm_rfu]);
 
-    const handleAddTask = () => {
-        setData('tasks', [...data.tasks, { id: null, group_component: '', component: '', task_description: '', problem: '', activity_progress: '', est_finish: '', mechanic: '', is_manual_pic: false, tools: [], start_date: '', end_date: '', downtime_hrs: 0, target_date: '', status: 'B0 - On Progress' }]);
+    // Perhitungan total pekerjaan (penjumlahan seluruh DT task dalam jam)
+    const totalPekerjaan = useMemo(() => {
+        const total = (data.tasks || []).reduce((sum, t) => {
+            const val = parseFloat(t.downtime_hrs);
+            return sum + (isNaN(val) ? 0 : val);
+        }, 0);
+        return Math.round(total * 10) / 10;
+    }, [data.tasks]);
+
+    // Perhitungan delay: Total downtime dikurangi total pekerjaan
+    const delayHours = useMemo(() => {
+        const dt = parseFloat(data.durasi_hrs) || 0;
+        const diff = Math.round((dt - totalPekerjaan) * 10) / 10;
+        return diff > 0 ? diff : 0;
+    }, [data.durasi_hrs, totalPekerjaan]);
+
+    // Sinkronkan delay ke state form
+    useEffect(() => {
+        setData(prev => (prev.delay !== delayHours ? { ...prev, delay: delayHours } : prev));
+    }, [delayHours]);
+
+    const handleApplyTyreReplacements = (replacements) => {
+        setData(prev => {
+            const updated = { ...prev };
+            updated.tyre_replacements = replacements;
+            updated.component_group = 'TYRE';
+
+            if (replacements && replacements.length > 0) {
+                const summaryPos = replacements.map(r => `Pos ${r.position} (${r.action}): ${r.old_tyre_serial ? `${r.old_tyre_serial}➔${r.old_tyre_disposition || 'SCRAP'}` : 'New'} / Pasang ${r.new_tyre_serial} (${r.brand || ''} ${r.size || ''})`).join('; ');
+                
+                if (!prev.problem || prev.problem.trim() === '' || prev.problem.startsWith('Penggantian Tyre:')) {
+                    updated.problem = `Penggantian Tyre: ${summaryPos}`;
+                }
+
+                const newTasks = replacements.map((r, idx) => ({
+                    id: null,
+                    group_component: 'TYRE',
+                    component: `TYRE POS ${r.position}`,
+                    task_description: `Penggantian Tyre Posisi ${r.position}: Lepas ban lama (${r.old_tyre_serial || '-'}, kondisi: ${r.removal_reason || r.old_tyre_disposition || 'SCRAP'}) & Pasang ban (${r.new_tyre_serial}, ${r.brand || ''} ${r.size || ''})`,
+                    problem: r.removal_reason || '',
+                    mechanic: '',
+                    is_manual_pic: false,
+                    tools: [],
+                    start_date: '',
+                    end_date: '',
+                    downtime_hrs: 0,
+                    target_date: '',
+                    status: 'B0 - On Progress'
+                }));
+
+                const hasOnlyEmptyInitial = prev.tasks.length === 1 && 
+                    !prev.tasks[0].component && 
+                    !prev.tasks[0].task_description;
+
+                if (hasOnlyEmptyInitial) {
+                    updated.tasks = newTasks;
+                } else {
+                    const existingNonTyre = prev.tasks.filter(t => t.group_component !== 'TYRE');
+                    updated.tasks = [...existingNonTyre, ...newTasks];
+                }
+            }
+
+            return updated;
+        });
+    };
+
+    const handleAddTask = (e) => {
+        if (e && typeof e.preventDefault === 'function') {
+            e.preventDefault();
+        }
+        setData('tasks', [...data.tasks, { id: null, group_component: '', component: '', task_description: '', problem: '', activity_progress: '', est_finish: '', mechanic: '', is_manual_pic: false, tools: [], start_date: toDatetimeLocal(data.waktu_breakdown), end_date: '', downtime_hrs: 0, target_date: '', status: 'B0 - On Progress' }]);
     };
 
     const handleRemoveTask = (index) => {
@@ -253,6 +339,11 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        transform((currentData) => ({
+            ...currentData,
+            delay: delayHours,
+            component_group: currentData.component_group || currentData.tasks?.find(t => t.group_component)?.group_component || '',
+        }));
         put(`/work-orders/${wo.id}`, { preserveScroll: true });
     };
 
@@ -377,7 +468,17 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                         </label>
                                         <select 
                                             value={data.status_wo} 
-                                            onChange={e => setData('status_wo', e.target.value)} 
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setData(prev => ({
+                                                    ...prev,
+                                                    status_wo: val,
+                                                    component_group: val.includes('TYRE') ? 'TYRE' : prev.component_group,
+                                                }));
+                                                if (val.includes('TYRE')) {
+                                                    setShowTyreModal(true);
+                                                }
+                                            }} 
                                             className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold dark:text-gray-200 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
                                         >
                                             {TIPE_WO_OPTIONS.map(opt => (
@@ -392,23 +493,23 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between uppercase tracking-wide">
                                             <span>Status WO</span>
                                             <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-black ${
-                                                data.status_pengerjaan === 'CLOSED'
+                                                data.status_pengerjaan === 'COMPLETED - PEKERJAAN SELESAI' || data.status_pengerjaan === 'CLOSED'
                                                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                                                    : data.status_pengerjaan === 'DRAFT'
+                                                    : data.status_pengerjaan === 'PLANNING - PERENCANAAN PEKERJAAN' || data.status_pengerjaan === 'DRAFT'
                                                     ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                                                     : 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
                                             }`}>
-                                                {data.status_pengerjaan || 'DRAFT'}
+                                                {data.status_pengerjaan || 'PLANNING - PERENCANAAN PEKERJAAN'}
                                             </span>
                                         </label>
                                         <select 
-                                            value={data.status_pengerjaan || 'DRAFT'} 
+                                            value={data.status_pengerjaan || 'PLANNING - PERENCANAAN PEKERJAAN'} 
                                             onChange={e => setData('status_pengerjaan', e.target.value)} 
                                             className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold dark:text-gray-200 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
                                         >
-                                            <option value="DRAFT">DRAFT</option>
-                                            <option value="OPEN">OPEN</option>
-                                            <option value="CLOSED">CLOSED</option>
+                                            {STATUS_WO_OPTIONS.map(opt => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>
@@ -503,6 +604,106 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                             Buka PCR Component ({selectedUnit.code_unit})
                                         </a>
+                                    </div>
+                                )}
+
+                                {/* Banner TYRE - Tyre Replacement & Management */}
+                                {data.status_wo?.includes('TYRE') && (
+                                    <div className="mt-3 p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-950/40 dark:via-teal-950/40 dark:to-cyan-950/40 border-2 border-emerald-300 dark:border-emerald-500/40 rounded-xl shadow-xs">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-[#0b6e4f] text-white flex items-center justify-center text-lg font-black shadow-sm shrink-0">
+                                                    🛞
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-black text-emerald-950 dark:text-emerald-100 flex items-center gap-2 flex-wrap">
+                                                        <span>Integrasi Tyre Management & Penggantian Ban</span>
+                                                        {selectedUnit ? (
+                                                            <span className="px-2 py-0.5 rounded-md bg-emerald-200/90 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 font-mono text-[11px] font-black">
+                                                                {selectedUnit.code_unit}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[11px] text-amber-700 bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 rounded font-bold">
+                                                                Pilih Unit Terlebih Dahulu
+                                                            </span>
+                                                        )}
+                                                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                                                            data.tyre_replacements?.length > 0
+                                                                ? 'bg-emerald-600 text-white'
+                                                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+                                                        }`}>
+                                                            {data.tyre_replacements?.length > 0 ? `${data.tyre_replacements.length} Posisi Diatur` : 'Belum Ada Ban Diatur'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                                                        Menyimpan Work Order ini akan otomatis memperbarui database Tyre (lepas ban lama, catat HM & pasang ban baru ke unit) di menu <span className="font-mono font-bold">/tyres</span>.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (!data.unit_id) {
+                                                            alert('Silakan pilih Unit terlebih dahulu!');
+                                                            return;
+                                                        }
+                                                        setShowTyreModal(true);
+                                                    }}
+                                                    className="px-4 py-2 bg-[#0b6e4f] hover:bg-[#095940] text-white rounded-lg text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                                                >
+                                                    <span>🛞</span>
+                                                    <span>{data.tyre_replacements?.length > 0 ? 'Edit Penggantian Tyre' : 'Atur Penggantian Tyre'}</span>
+                                                </button>
+                                                <a
+                                                    href={selectedUnit ? `/tyres?unit_id=${selectedUnit.id}` : '/tyres'}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="px-3 py-2 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1"
+                                                    title="Buka menu Tyre Management di tab baru"
+                                                >
+                                                    <span>↗</span>
+                                                    <span className="hidden sm:inline">Menu /tyres</span>
+                                                </a>
+                                            </div>
+                                        </div>
+
+                                        {data.tyre_replacements?.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800/60">
+                                                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                                    Daftar Ban yang Akan Diproses Saat WO Disimpan:
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                    {data.tyre_replacements.map((r, idx) => (
+                                                        <div key={idx} className="bg-white dark:bg-slate-800/90 rounded-lg p-2.5 border border-emerald-200 dark:border-emerald-700 text-xs shadow-xs">
+                                                            <div className="flex items-center justify-between font-bold mb-1">
+                                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 rounded text-[11px]">
+                                                                    Posisi {r.position}
+                                                                </span>
+                                                                <span className="text-[10px] font-mono text-slate-500">
+                                                                    Aksi: {r.action}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-300">
+                                                                {r.old_tyre_serial && (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-slate-400">Old:</span>
+                                                                        <span className="font-mono font-bold text-rose-600">{r.old_tyre_serial}</span>
+                                                                        <span className="text-[10px] bg-rose-50 text-rose-700 px-1 rounded">➔ {r.old_tyre_disposition}</span>
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-slate-400">New:</span>
+                                                                    <span className="font-mono font-bold text-emerald-600">{r.new_tyre_serial}</span>
+                                                                    <span className="text-[10px] text-slate-500">({r.brand || 'Tyre'} {r.size || ''})</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -614,7 +815,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                                             ...prev,
                                                             waktu_rfu: '',
                                                             durasi_hrs: dur,
-                                                            status_pengerjaan: 'OPEN',
+                                                            status_pengerjaan: 'IN PROGRESS - SEDANG DIKERJAKAN',
                                                         }));
                                                     }}
                                                     className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1 cursor-pointer transition"
@@ -632,7 +833,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                                             ...prev,
                                                             waktu_rfu: nowStr,
                                                             durasi_hrs: dur,
-                                                            status_pengerjaan: 'CLOSED',
+                                                            status_pengerjaan: 'COMPLETED - PEKERJAAN SELESAI',
                                                         }));
                                                     }}
                                                     className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 flex items-center gap-1 cursor-pointer transition"
@@ -655,7 +856,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                                         ...prev,
                                                         waktu_rfu: combined,
                                                         durasi_hrs: dur,
-                                                        status_pengerjaan: combined ? 'CLOSED' : prev.status_pengerjaan,
+                                                        status_pengerjaan: combined ? 'COMPLETED - PEKERJAAN SELESAI' : prev.status_pengerjaan,
                                                     }));
                                                 }}
                                                 className="col-span-3 px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-800 dark:text-slate-100 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]" 
@@ -672,7 +873,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                                         ...prev,
                                                         waktu_rfu: combined,
                                                         durasi_hrs: dur,
-                                                        status_pengerjaan: 'CLOSED',
+                                                        status_pengerjaan: 'COMPLETED - PEKERJAAN SELESAI',
                                                     }));
                                                 }}
                                                 className="col-span-2 px-2 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]" 
@@ -711,7 +912,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                     </div>
                                 </div>
 
-                                {/* Downtime & Component Group in 2-Col row */}
+                                {/* Downtime & Delay in 2-Col row */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <div className="flex items-center justify-between mb-1.5">
@@ -742,17 +943,34 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wide">Component Group</label>
-                                        <select 
-                                            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-semibold dark:text-gray-200 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
-                                            value={data.component_group}
-                                            onChange={e => setData('component_group', e.target.value)}
-                                        >
-                                            <option value="">-- Pilih Component Group --</option>
-                                            {COMPONENTS.map(comp => (
-                                                <option key={comp} value={comp}>{comp}</option>
-                                            ))}
-                                        </select>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="block text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wide flex items-center gap-1.5">
+                                                <span>Delay</span>
+                                                <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-mono">
+                                                    (DT {data.durasi_hrs || 0} - Pkj {totalPekerjaan})
+                                                </span>
+                                            </label>
+                                            {delayHours > 0 ? (
+                                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                                                    ⏱️ Menunggu {delayHours} Jam
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                                    ✓ Tanpa Delay
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                step="any" 
+                                                readOnly
+                                                tabIndex="-1"
+                                                className="w-full px-3 py-2 pr-14 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 rounded-lg text-xs text-rose-700 dark:text-rose-300 font-black font-mono cursor-not-allowed select-none focus:outline-none" 
+                                                value={delayHours} 
+                                            />
+                                            <span className="absolute right-3 top-2 text-[11px] font-bold text-rose-400 pointer-events-none">Hours</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -762,16 +980,25 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
 
                     {/* Section 2: Task List */}
                     <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="bg-[#0b6e4f] text-white p-4 flex items-center justify-between">
+                        <div className="bg-[#0b6e4f] text-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
                                 <h3 className="font-bold text-sm">Daftar Task & Tindakan</h3>
                                 <p className="text-xs text-[#86c4a6] mt-0.5">Edit, tambah, atau hapus task yang ada</p>
                             </div>
-                            <button type="button" onClick={handleAddTask}
-                                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-1.5 transition"
-                            >
-                                <span className="text-lg leading-none">+</span> Tambah Task
-                            </button>
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex items-center gap-2 bg-emerald-900/60 px-3 py-1.5 rounded-lg border border-emerald-500/30 text-xs">
+                                    <span className="text-emerald-200">DT: <strong className="text-white font-mono">{data.durasi_hrs || 0}h</strong></span>
+                                    <span className="text-emerald-400">|</span>
+                                    <span className="text-emerald-200">Pekerjaan: <strong className="text-white font-mono">{totalPekerjaan}h</strong></span>
+                                    <span className="text-emerald-400">|</span>
+                                    <span className="text-emerald-200">Delay: <strong className="text-amber-200 font-mono">{delayHours}h</strong></span>
+                                </div>
+                                <button type="button" onClick={handleAddTask}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-1.5 transition shrink-0 cursor-pointer"
+                                >
+                                    <span className="text-lg leading-none">+</span> Tambah Task
+                                </button>
+                            </div>
                         </div>
                         <div className="overflow-x-auto">
                             <datalist id="edit-manpower-list-options">
@@ -783,6 +1010,7 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                 <thead>
                                     <tr className="bg-gray-50 border-b border-gray-200">
                                         <th className="py-3 px-3 text-sm font-bold text-gray-700 w-14 text-center">TASK</th>
+                                        <th className="py-3 px-3 text-sm font-bold text-gray-700 w-52 min-w-[190px]">COMPONENT GROUP</th>
                                         <th className="py-3 px-3 text-sm font-bold text-gray-700 min-w-[300px]">PROBLEM</th>
                                         <th className="py-3 px-3 text-sm font-bold text-gray-700 w-16 text-center">SUB TASK</th>
                                         <th className="py-3 px-3 text-sm font-bold text-gray-700 min-w-[300px]">ACTIVITY PROGRESS</th>
@@ -797,9 +1025,43 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
                                         <tr key={i} className="border-b border-gray-100 align-top">
                                             {/* TASK - auto number */}
                                             <td className="py-3 px-3 text-center w-14">
-                                                <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 text-base font-black border-2 border-emerald-300 select-none">
-                                                    {i + 1}
-                                                </span>
+                                                 <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 text-base font-black border-2 border-emerald-300 select-none">
+                                                     {i + 1}
+                                                 </span>
+                                            </td>
+                                            {/* COMPONENT GROUP - select dropdown per task */}
+                                            <td className="py-3 px-2 w-52 min-w-[190px]">
+                                                <div className="space-y-1.5">
+                                                    <select
+                                                        className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
+                                                        value={t.group_component || t.component || ''}
+                                                        onChange={e => {
+                                                            const val = e.target.value;
+                                                            const newTasks = [...data.tasks];
+                                                            newTasks[i].group_component = val;
+                                                            newTasks[i].component = val;
+                                                            setData('tasks', newTasks);
+                                                            if (val === 'TYRE') {
+                                                                setShowTyreModal(true);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <option value="">-- Pilih Component --</option>
+                                                        {COMPONENTS.map(comp => (
+                                                            <option key={comp} value={comp}>{comp}</option>
+                                                        ))}
+                                                    </select>
+                                                    {t.group_component === 'TYRE' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowTyreModal(true)}
+                                                            className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer bg-blue-50 px-2 py-1 rounded border border-blue-200"
+                                                        >
+                                                            <span>⚙️</span>
+                                                            <span>{data.tyre_replacements?.length > 0 ? `${data.tyre_replacements.length} Ban Terpilih` : 'Pilih Posisi Ban'}</span>
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                             {/* PROBLEM - large textarea */}
                                             <td className="py-3 px-3 min-w-[300px]">
@@ -984,6 +1246,22 @@ export default function Edit({ workOrder: wo, units = [], manpowers = [], tools 
 
                 </form>
             </div>
+
+            {/* Tyre Replacement & Management Modal */}
+            <TyreReplacementModal
+                isOpen={showTyreModal}
+                onClose={() => setShowTyreModal(false)}
+                unit={selectedUnit}
+                units={units}
+                onUnitChange={(newUnitId) => {
+                    setData('unit_id', newUnitId);
+                    const sel = (units || []).find(u => String(u?.id) === String(newUnitId));
+                    if (sel) setData('hm_unit', sel.current_hm || data.hm_unit);
+                }}
+                stockTyres={stockTyres}
+                initialReplacements={data.tyre_replacements}
+                onApply={handleApplyTyreReplacements}
+            />
         </AuthenticatedLayout>
     );
 }

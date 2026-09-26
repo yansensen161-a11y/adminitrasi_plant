@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import UndercarriageSelectorModal from '@/Components/Pcr/UndercarriageSelectorModal';
+import TyreReplacementModal from '@/Components/Tyre/TyreReplacementModal';
 
 // Common Icons
 const CalendarIcon = () => (
@@ -66,43 +67,47 @@ const COMPONENTS = [
 export const TIPE_WO_OPTIONS = [
     { value: 'PM - PREVENTIVE MAINTENANCE', label: 'PM - PREVENTIVE MAINTENANCE', code: 'PM', isSchedule: true },
     { value: 'CM - CORRECTIVE MAINTENANCE', label: 'CM - CORRECTIVE MAINTENANCE', code: 'CM', isSchedule: false },
-    { value: 'INS - INSPECTION', label: 'INS - INSPECTION', code: 'INSP', isSchedule: true },
     { value: 'OVH - OVERHAUL', label: 'OVH - OVERHAUL', code: 'OVH', isSchedule: true },
     { value: 'REPL - COMPONENT REPLACEMENT', label: 'REPL - COMPONENT REPLACEMENT', code: 'REPL', isSchedule: false },
     { value: 'UC - UNDERCARRIAGE MAINTENANCE', label: 'UC - UNDERCARRIAGE MAINTENANCE', code: 'UC', isSchedule: false },
-    { value: 'TYRE - Tyre Management', label: 'TYRE - Tyre Management', code: 'TYRE', isSchedule: false },
+    { value: 'TYRE - TYRE REPLACEMENT', label: 'TYRE - TYRE REPLACEMENT', code: 'TYRE', isSchedule: false },
+    { value: 'SVC - SERVICE MAINTENANCE', label: 'SVC - SERVICE MAINTENANCE', code: 'SVC', isSchedule: true },
 ];
 
 export const STATUS_WO_OPTIONS = [
-    { value: 'DRAFT', label: 'DRAFT' },
-    { value: 'OPEN', label: 'OPEN' },
-    { value: 'CLOSED', label: 'CLOSED' },
+    { value: 'PLANNING - PERENCANAAN PEKERJAAN', label: 'PLANNING - PERENCANAAN PEKERJAAN' },
+    { value: 'IN PROGRESS - SEDANG DIKERJAKAN', label: 'IN PROGRESS - SEDANG DIKERJAKAN' },
+    { value: 'COMPLETED - PEKERJAAN SELESAI', label: 'COMPLETED - PEKERJAAN SELESAI' },
 ];
 
 export const DOWN_STATUS_OPTIONS = [
-    { value: 'B0 - On Progress', label: 'B0 - On Progress' },
-    { value: 'B1 - Waiting Parts', label: 'B1 - Waiting Parts' },
-    { value: 'B2 - Waiting Sarana', label: 'B2 - Waiting Sarana' },
-    { value: 'B3 - Waiting Tools', label: 'B3 - Waiting Tools' },
-    { value: 'B4 - Waiting Man Power', label: 'B4 - Waiting Man Power' },
-    { value: 'B5 - Outside / Dealer', label: 'B5 - Outside / Dealer' },
-    { value: 'B6 - Production / Abuse', label: 'B6 - Production / Abuse' },
-    { value: 'B7 - Waiting Decision Plant', label: 'B7 - Waiting Decision Plant' },
-    { value: 'B8 - Waiting Decision HO', label: 'B8 - Waiting Decision HO' },
+    { value: 'B0 - ON PROGRESS', label: 'B0 - ON PROGRESS' },
+    { value: 'B1 - WAITING PARTS', label: 'B1 - WAITING PARTS' },
+    { value: 'B2 - WAITING SARANA', label: 'B2 - WAITING SARANA' },
+    { value: 'B3 - WAITING TOOLS', label: 'B3 - WAITING TOOLS' },
+    { value: 'B4 - WAITING MAN POWER', label: 'B4 - WAITING MAN POWER' },
+    { value: 'B5 - OUTSIDE / DEALER', label: 'B5 - OUTSIDE / DEALER' },
+    { value: 'B6 - PRODUCTION / ABUSE', label: 'B6 - PRODUCTION / ABUSE' },
+    { value: 'B7 - WAITING DECISION PLANT', label: 'B7 - WAITING DECISION PLANT' },
+    { value: 'B8 - WAITING DECISION HO', label: 'B8 - WAITING DECISION HO' },
+    { value: 'B9 - WAITING ACCESS', label: 'B9 - WAITING ACCESS' },
+    { value: 'B10 - WAITING RAIN / SLIPPERY CONDITION', label: 'B10 - WAITING RAIN / SLIPPERY CONDITION' },
 ];
 
 export const formatDownStatus = (val) => {
-    if (!val) return 'B0 - On Progress';
+    if (!val) return 'B0 - ON PROGRESS';
     const s = String(val).toUpperCase();
-    if (s.includes('B0')) return 'B0 - On Progress';
-    if (s.includes('B1')) return 'B1 - Waiting Parts';
-    if (s.includes('B2')) return 'B2 - Waiting Sarana';
-    if (s.includes('B3')) return 'B3 - Waiting Tools';
-    if (s.includes('B4')) return 'B4 - Waiting Man Power';
-    if (s.includes('B5')) return 'B5 - Outside / Dealer';
-    if (s.includes('B6')) return 'B6 - Production / Abuse';
-    if (s.includes('B7')) return 'B7 - Waiting Decision Plant';
-    if (s.includes('B8')) return 'B8 - Waiting Decision HO';
+    if (s.includes('B10')) return 'B10 - WAITING RAIN / SLIPPERY CONDITION';
+    if (s.includes('B9')) return 'B9 - WAITING ACCESS';
+    if (s.includes('B0')) return 'B0 - ON PROGRESS';
+    if (s.includes('B1')) return 'B1 - WAITING PARTS';
+    if (s.includes('B2')) return 'B2 - WAITING SARANA';
+    if (s.includes('B3')) return 'B3 - WAITING TOOLS';
+    if (s.includes('B4')) return 'B4 - WAITING MAN POWER';
+    if (s.includes('B5')) return 'B5 - OUTSIDE / DEALER';
+    if (s.includes('B6')) return 'B6 - PRODUCTION / ABUSE';
+    if (s.includes('B7')) return 'B7 - WAITING DECISION PLANT';
+    if (s.includes('B8')) return 'B8 - WAITING DECISION HO';
     return val;
 };
 
@@ -116,6 +121,7 @@ export default function Create({
     suggestedNoOrder = 'HW-MOL-01502',
     initialApls = [],
     existingForms = [],
+    stockTyres = [],
 }) {
     // Read query params to pre-fill from monitoring board click
     const { url } = usePage();
@@ -127,6 +133,7 @@ export default function Create({
 
     const [showUcModal, setShowUcModal] = useState(false);
     const [selectedUcComponents, setSelectedUcComponents] = useState([]);
+    const [showTyreModal, setShowTyreModal] = useState(false);
 
     // State for List APL & Master Form Actions
     const [aplList, setAplList] = useState(initialApls || []);
@@ -145,7 +152,7 @@ export default function Create({
         return 'CM - CORRECTIVE MAINTENANCE';
     })();
     const initialOpt = TIPE_WO_OPTIONS.find(o => o.value === initialStatusWo);
-    const initialIsSchedule = initialOpt ? initialOpt.isSchedule : (initialStatusWo.includes('PM') || initialStatusWo.includes('INS') || initialStatusWo.includes('OVH'));
+    const initialIsSchedule = initialOpt ? initialOpt.isSchedule : (initialStatusWo.includes('PM') || initialStatusWo.includes('OVH') || initialStatusWo.includes('SVC'));
     const initialWoNo = suggestedNumbers[initialStatusWo] || (initialIsSchedule ? suggestedPmNo : suggestedCmNo);
 
     const { data, setData, post, processing, errors, transform } = useForm({
@@ -158,6 +165,7 @@ export default function Create({
         waktu_breakdown: '',
         waktu_rfu: '',
         durasi_hrs: 0,
+        delay: 0,
         hm_unit: preselectedUnit ? (preselectedUnit.current_hm || 0) : 0,
         hm_bd: preselectedUnit ? (preselectedUnit.current_hm || '') : '',
         hm_rfu: '',
@@ -166,7 +174,8 @@ export default function Create({
         component_group: '',
         model_system: '',
         status_wo: initialStatusWo,
-        status_pengerjaan: 'DRAFT',
+        status_pengerjaan: 'PLANNING - PERENCANAAN PEKERJAAN',
+        tyre_replacements: [],
         plan_inspection_categories: [],
         plan_inspection_shift: 'all',
         plan_inspection_date: todayStr,
@@ -181,7 +190,7 @@ export default function Create({
         form_penundaan_service_attachment: null,
         form_service_unit_attachment: null,
         tasks: [
-            { id: 1, group_component: '', component: '', task_description: '', problem: '', activity_progress: '', est_finish: '', mechanic: '', is_manual_pic: false, tools: [], start_date: '', end_date: '', downtime_hrs: 0, target_date: '', status: 'B0 - On Progress' }
+            { id: 1, group_component: '', component: '', task_description: '', problem: '', activity_progress: '', est_finish: '', mechanic: '', is_manual_pic: false, tools: [], start_date: '', end_date: '', downtime_hrs: 0, target_date: '', status: 'B0 - ON PROGRESS' }
         ]
     });
 
@@ -354,10 +363,31 @@ export default function Create({
         }
     }, [data.waktu_breakdown, data.waktu_rfu, data.hm_bd, data.hm_rfu]);
 
-    // Otomatis ubah status_pengerjaan ke CLOSED jika waktu_rfu diisi dan status masih OPEN
+    // Perhitungan total pekerjaan (penjumlahan seluruh DT task dalam jam)
+    const totalPekerjaan = useMemo(() => {
+        const total = (data.tasks || []).reduce((sum, t) => {
+            const val = parseFloat(t.downtime_hrs);
+            return sum + (isNaN(val) ? 0 : val);
+        }, 0);
+        return Math.round(total * 10) / 10;
+    }, [data.tasks]);
+
+    // Perhitungan delay: Total downtime dikurangi total pekerjaan
+    const delayHours = useMemo(() => {
+        const dt = parseFloat(data.durasi_hrs) || 0;
+        const diff = Math.round((dt - totalPekerjaan) * 10) / 10;
+        return diff > 0 ? diff : 0;
+    }, [data.durasi_hrs, totalPekerjaan]);
+
+    // Sinkronkan delay ke state form
     useEffect(() => {
-        if (data.waktu_rfu && data.status_pengerjaan === 'OPEN') {
-            setData('status_pengerjaan', 'CLOSED');
+        setData(prev => (prev.delay !== delayHours ? { ...prev, delay: delayHours } : prev));
+    }, [delayHours]);
+
+    // Otomatis ubah status_pengerjaan ke COMPLETED jika waktu_rfu diisi dan status belum COMPLETED
+    useEffect(() => {
+        if (data.waktu_rfu && (data.status_pengerjaan === 'OPEN' || data.status_pengerjaan === 'DRAFT' || data.status_pengerjaan === 'PLANNING - PERENCANAAN PEKERJAAN' || data.status_pengerjaan === 'IN PROGRESS - SEDANG DIKERJAKAN')) {
+            setData('status_pengerjaan', 'COMPLETED - PEKERJAAN SELESAI');
         }
     }, [data.waktu_rfu]);
 
@@ -395,7 +425,7 @@ export default function Create({
 
     const handleTipeWoChange = async (selectedType) => {
         const opt = TIPE_WO_OPTIONS.find(o => o.value === selectedType);
-        const isSchedule = opt ? opt.isSchedule : (selectedType.includes('PM') || selectedType.includes('INS') || selectedType.includes('OVH'));
+        const isSchedule = opt ? opt.isSchedule : (selectedType.includes('PM') || selectedType.includes('OVH') || selectedType.includes('SVC'));
         
         // Immediate fallback from preloaded suggestedNumbers map
         const fallbackNo = suggestedNumbers[selectedType] || (isSchedule ? suggestedPmNo : suggestedCmNo);
@@ -408,7 +438,7 @@ export default function Create({
             no_wo: fallbackNo,
             component_group: selectedType === 'UC - UNDERCARRIAGE MAINTENANCE' 
                 ? 'UNDERCARRIAGE' 
-                : (selectedType === 'TYRE - Tyre Management' ? 'TYRE' : prev.component_group),
+                : (selectedType.includes('TYRE') ? 'TYRE' : prev.component_group),
             plan_inspection_categories: isSchedule ? prev.plan_inspection_categories : [],
         }));
 
@@ -422,6 +452,10 @@ export default function Create({
 
         if (selectedType === 'UC - UNDERCARRIAGE MAINTENANCE' && selectedUcComponents.length === 0) {
             setShowUcModal(true);
+        }
+
+        if (selectedType.includes('TYRE')) {
+            setShowTyreModal(true);
         }
 
         if (selectedType === 'REPL - COMPONENT REPLACEMENT') {
@@ -452,6 +486,55 @@ export default function Create({
         if (val === 'UNDERCARRIAGE') {
             setShowUcModal(true);
         }
+        if (val === 'TYRE') {
+            setShowTyreModal(true);
+        }
+    };
+
+    const handleApplyTyreReplacements = (replacements) => {
+        setData(prev => {
+            const updated = { ...prev };
+            updated.tyre_replacements = replacements;
+            updated.component_group = 'TYRE';
+
+            if (replacements && replacements.length > 0) {
+                const summaryPos = replacements.map(r => `Pos ${r.position} (${r.action}): ${r.old_tyre_serial ? `${r.old_tyre_serial}➔${r.old_tyre_disposition || 'SCRAP'}` : 'New'} / Pasang ${r.new_tyre_serial} (${r.brand || ''} ${r.size || ''})`).join('; ');
+                
+                if (!prev.problem || prev.problem.trim() === '' || prev.problem.startsWith('Penggantian Tyre:')) {
+                    updated.problem = `Penggantian Tyre: ${summaryPos}`;
+                }
+
+                // Sync into tasks (Section 2: Daftar Task & Tindakan)
+                const newTasks = replacements.map((r, idx) => ({
+                    id: Date.now() + idx,
+                    group_component: 'TYRE',
+                    component: `TYRE POS ${r.position}`,
+                    task_description: `Penggantian Tyre Posisi ${r.position}: Lepas ban lama (${r.old_tyre_serial || '-'}, kondisi: ${r.removal_reason || r.old_tyre_disposition || 'SCRAP'}) & Pasang ban (${r.new_tyre_serial}, ${r.brand || ''} ${r.size || ''})`,
+                    problem: r.removal_reason || '',
+                    mechanic: '',
+                    is_manual_pic: false,
+                    tools: [],
+                    start_date: '',
+                    end_date: '',
+                    downtime_hrs: 0,
+                    target_date: '',
+                    status: 'B0 - On Progress'
+                }));
+
+                const hasOnlyEmptyInitial = prev.tasks.length === 1 && 
+                    !prev.tasks[0].component && 
+                    !prev.tasks[0].task_description;
+
+                if (hasOnlyEmptyInitial) {
+                    updated.tasks = newTasks;
+                } else {
+                    const existingNonTyre = prev.tasks.filter(t => t.group_component !== 'TYRE');
+                    updated.tasks = [...existingNonTyre, ...newTasks];
+                }
+            }
+
+            return updated;
+        });
     };
 
     const handleApplyUcComponents = (selectedComponents, allComponents) => {
@@ -538,8 +621,11 @@ export default function Create({
         setData('plan_inspection_categories', []);
     };
 
-    const handleAddTask = () => {
-        setData('tasks', [...data.tasks, { id: Date.now() + data.tasks.length, group_component: '', component: '', task_description: '', problem: '', activity_progress: '', est_finish: '', mechanic: '', is_manual_pic: false, tools: [], start_date: '', end_date: '', downtime_hrs: 0, target_date: '', status: 'B0 - On Progress' }]);
+    const handleAddTask = (e) => {
+        if (e && typeof e.preventDefault === 'function') {
+            e.preventDefault();
+        }
+        setData('tasks', [...data.tasks, { id: Date.now() + data.tasks.length, group_component: '', component: '', task_description: '', problem: '', activity_progress: '', est_finish: '', mechanic: '', is_manual_pic: false, tools: [], start_date: data.waktu_breakdown || '', end_date: '', downtime_hrs: 0, target_date: '', status: 'B0 - On Progress' }]);
     };
 
     const handleRemoveTask = (id) => {
@@ -593,8 +679,11 @@ export default function Create({
             far_no_wo: currentData.no_wo,
             abr_no_wo: currentData.no_wo,
             mag_plug_no_wo: currentData.no_wo,
+            delay: delayHours,
+            component_group: currentData.component_group || currentData.tasks?.find(t => t.group_component)?.group_component || '',
             waktu_breakdown: currentData.waktu_breakdown ? currentData.waktu_breakdown.replace('T', ' ') + ':00' : null,
             waktu_rfu: currentData.waktu_rfu ? currentData.waktu_rfu.replace('T', ' ') + ':00' : null,
+            tyre_replacements: currentData.tyre_replacements || [],
         }));
 
         post('/work-orders', { 
@@ -638,7 +727,7 @@ export default function Create({
                             <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 font-medium">
                                 {fromParam === 'pm-monitoring' ? (
                                     <>
-                                        <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Home</Link>
+                                        <Link href="/portal" className="hover:text-blue-600 transition-colors">Portal</Link>
                                         <span className="mx-1.5">&gt;</span>
                                         <Link href="/pm-monitoring" className="hover:text-blue-600 transition-colors">PM Monitoring</Link>
                                         <span className="mx-1.5">&gt;</span>
@@ -794,23 +883,23 @@ export default function Create({
                                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between uppercase tracking-wide">
                                             <span>Status WO</span>
                                             <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-black ${
-                                                data.status_pengerjaan === 'CLOSED'
+                                                data.status_pengerjaan === 'COMPLETED - PEKERJAAN SELESAI' || data.status_pengerjaan === 'CLOSED'
                                                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                                                    : data.status_pengerjaan === 'DRAFT'
+                                                    : data.status_pengerjaan === 'PLANNING - PERENCANAAN PEKERJAAN' || data.status_pengerjaan === 'DRAFT'
                                                     ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                                                     : 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
                                             }`}>
-                                                {data.status_pengerjaan || 'DRAFT'}
+                                                {data.status_pengerjaan || 'PLANNING - PERENCANAAN PEKERJAAN'}
                                             </span>
                                         </label>
                                         <select 
-                                            value={data.status_pengerjaan || 'DRAFT'} 
+                                            value={data.status_pengerjaan || 'PLANNING - PERENCANAAN PEKERJAAN'} 
                                             onChange={e => setData('status_pengerjaan', e.target.value)} 
                                             className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold dark:text-gray-200 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
                                         >
-                                            <option value="DRAFT">DRAFT</option>
-                                            <option value="OPEN">OPEN</option>
-                                            <option value="CLOSED">CLOSED</option>
+                                            {STATUS_WO_OPTIONS.map(opt => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>
@@ -849,6 +938,8 @@ export default function Create({
                                                         window.open(`/pcr-component?code_unit=${encodeURIComponent(selected.code_unit)}&tab=${targetTab}&open_modal=1${compQuery}`, '_blank');
                                                     } else if (data.status_wo === 'UC - UNDERCARRIAGE MAINTENANCE' && selectedUcComponents.length === 0) {
                                                         setShowUcModal(true);
+                                                    } else if (data.status_wo?.includes('TYRE') && (!data.tyre_replacements || data.tyre_replacements.length === 0)) {
+                                                        setShowTyreModal(true);
                                                     }
                                                 }
                                             }}
@@ -928,6 +1019,107 @@ export default function Create({
                                             <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-white/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700 shrink-0 text-center">
                                                 Pilih unit di atas
                                             </span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Banner TYRE - Tyre Replacement & Management */}
+                                {data.status_wo?.includes('TYRE') && (
+                                    <div className="mt-3 p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-950/40 dark:via-teal-950/40 dark:to-cyan-950/40 border-2 border-emerald-300 dark:border-emerald-500/40 rounded-xl shadow-xs">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-[#0b6e4f] text-white flex items-center justify-center text-lg font-black shadow-sm shrink-0">
+                                                    🛞
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-black text-emerald-950 dark:text-emerald-100 flex items-center gap-2 flex-wrap">
+                                                        <span>Integrasi Tyre Management & Penggantian Ban</span>
+                                                        {selectedUnit ? (
+                                                            <span className="px-2 py-0.5 rounded-md bg-emerald-200/90 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 font-mono text-[11px] font-black">
+                                                                {selectedUnit.code_unit}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[11px] text-amber-700 bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 rounded font-bold">
+                                                                Pilih Unit Terlebih Dahulu
+                                                            </span>
+                                                        )}
+                                                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                                                            data.tyre_replacements?.length > 0
+                                                                ? 'bg-emerald-600 text-white'
+                                                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+                                                        }`}>
+                                                            {data.tyre_replacements?.length > 0 ? `${data.tyre_replacements.length} Posisi Diatur` : 'Belum Ada Ban Diatur'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                                                        Menyimpan Work Order ini akan otomatis memperbarui database Tyre (lepas ban lama, catat HM & pasang ban baru ke unit) di menu <span className="font-mono font-bold">/tyres</span>.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (!data.unit_id) {
+                                                            alert('Silakan pilih Unit terlebih dahulu!');
+                                                            return;
+                                                        }
+                                                        setShowTyreModal(true);
+                                                    }}
+                                                    className="px-4 py-2 bg-[#0b6e4f] hover:bg-[#095940] text-white rounded-lg text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                                                >
+                                                    <span>🛞</span>
+                                                    <span>{data.tyre_replacements?.length > 0 ? 'Edit Penggantian Tyre' : 'Atur Penggantian Tyre'}</span>
+                                                </button>
+                                                <a
+                                                    href={selectedUnit ? `/tyres?unit_id=${selectedUnit.id}` : '/tyres'}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="px-3 py-2 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1"
+                                                    title="Buka menu Tyre Management di tab baru"
+                                                >
+                                                    <span>↗</span>
+                                                    <span className="hidden sm:inline">Menu /tyres</span>
+                                                </a>
+                                            </div>
+                                        </div>
+
+                                        {/* Preview staged replacements table if any */}
+                                        {data.tyre_replacements?.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800/60">
+                                                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                                    Daftar Ban yang Akan Diproses Saat WO Disimpan:
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                    {data.tyre_replacements.map((r, idx) => (
+                                                        <div key={idx} className="bg-white dark:bg-slate-800/90 rounded-lg p-2.5 border border-emerald-200 dark:border-emerald-700 text-xs shadow-xs">
+                                                            <div className="flex items-center justify-between font-bold mb-1">
+                                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 rounded text-[11px]">
+                                                                    Posisi {r.position}
+                                                                </span>
+                                                                <span className="text-[10px] font-mono text-slate-500">
+                                                                    Aksi: {r.action}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-300">
+                                                                {r.old_tyre_serial && (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-slate-400">Old:</span>
+                                                                        <span className="font-mono font-bold text-rose-600">{r.old_tyre_serial}</span>
+                                                                        <span className="text-[10px] bg-rose-50 text-rose-700 px-1 rounded">➔ {r.old_tyre_disposition}</span>
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-slate-400">New:</span>
+                                                                    <span className="font-mono font-bold text-emerald-600">{r.new_tyre_serial}</span>
+                                                                    <span className="text-[10px] text-slate-500">({r.brand || 'Tyre'} {r.size || ''})</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 )}
@@ -1042,7 +1234,7 @@ export default function Create({
                                                             ...prev,
                                                             waktu_rfu: '',
                                                             durasi_hrs: dur,
-                                                            status_pengerjaan: 'OPEN',
+                                                            status_pengerjaan: 'IN PROGRESS - SEDANG DIKERJAKAN',
                                                         }));
                                                     }}
                                                     className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1 cursor-pointer transition"
@@ -1060,7 +1252,7 @@ export default function Create({
                                                             ...prev,
                                                             waktu_rfu: nowStr,
                                                             durasi_hrs: dur,
-                                                            status_pengerjaan: 'CLOSED',
+                                                            status_pengerjaan: 'COMPLETED - PEKERJAAN SELESAI',
                                                         }));
                                                     }}
                                                     className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 flex items-center gap-1 cursor-pointer transition"
@@ -1083,7 +1275,7 @@ export default function Create({
                                                         ...prev,
                                                         waktu_rfu: combined,
                                                         durasi_hrs: dur,
-                                                        status_pengerjaan: combined ? 'CLOSED' : prev.status_pengerjaan,
+                                                        status_pengerjaan: combined ? 'COMPLETED - PEKERJAAN SELESAI' : prev.status_pengerjaan,
                                                     }));
                                                 }}
                                                 className="col-span-3 px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-800 dark:text-slate-100 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]" 
@@ -1100,7 +1292,7 @@ export default function Create({
                                                         ...prev,
                                                         waktu_rfu: combined,
                                                         durasi_hrs: dur,
-                                                        status_pengerjaan: 'CLOSED',
+                                                        status_pengerjaan: 'COMPLETED - PEKERJAAN SELESAI',
                                                     }));
                                                 }}
                                                 className="col-span-2 px-2 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]" 
@@ -1139,7 +1331,7 @@ export default function Create({
                                     </div>
                                 </div>
 
-                                {/* Downtime & Component Group in 2-Col row */}
+                                {/* Downtime & Delay in 2-Col row */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <div className="flex items-center justify-between mb-1.5">
@@ -1171,32 +1363,37 @@ export default function Create({
 
                                     <div>
                                         <div className="flex items-center justify-between mb-1.5">
-                                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Component Group</label>
-                                            {data.component_group === 'UNDERCARRIAGE' && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowUcModal(true)}
-                                                    className="text-[10px] font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer"
-                                                >
-                                                    <span>🚜</span>
-                                                    {selectedUcComponents.length > 0 ? `${selectedUcComponents.length} Terpilih` : 'Pilih Komponen'}
-                                                </button>
+                                            <label className="block text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wide flex items-center gap-1.5">
+                                                <span>Delay</span>
+                                                <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-mono">
+                                                    (DT {data.durasi_hrs || 0} - Pkj {totalPekerjaan})
+                                                </span>
+                                            </label>
+                                            {delayHours > 0 ? (
+                                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                                                    ⏱️ Menunggu {delayHours} Jam
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                                    ✓ Tanpa Delay
+                                                </span>
                                             )}
                                         </div>
-                                        <select 
-                                            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-semibold dark:text-gray-200 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
-                                            value={data.component_group}
-                                            onChange={handleComponentGroupChange}
-                                        >
-                                            <option value="">-- Pilih Component Group --</option>
-                                            {COMPONENTS.map(comp => (
-                                                <option key={comp} value={comp}>{comp}</option>
-                                            ))}
-                                        </select>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                step="any" 
+                                                readOnly
+                                                tabIndex="-1"
+                                                className="w-full px-3 py-2 pr-14 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 rounded-lg text-xs text-rose-700 dark:text-rose-300 font-black font-mono cursor-not-allowed select-none focus:outline-none" 
+                                                value={delayHours} 
+                                            />
+                                            <span className="absolute right-3 top-2 text-[11px] font-bold text-rose-400 pointer-events-none">Hours</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {data.component_group === 'UNDERCARRIAGE' && (
+                                {(data.tasks?.some(t => t.group_component === 'UNDERCARRIAGE') || selectedUcComponents.length > 0) && (
                                     <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 rounded-lg flex items-center justify-between transition-all">
                                         <div className="flex items-center gap-2">
                                             <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
@@ -1420,7 +1617,7 @@ export default function Create({
                     {/* Section 2: Daftar Task & Tindakan */}
                     <div className="bg-white dark:bg-slate-900/50 rounded border border-gray-200 dark:border-white/10 shadow-sm overflow-hidden">
                         {/* Header */}
-                        <div className="bg-[#0b6e4f] text-white p-4 flex items-center justify-between">
+                        <div className="bg-[#0b6e4f] text-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
                                 <ListIcon />
                                 <div>
@@ -1428,9 +1625,18 @@ export default function Create({
                                     <p className="text-sm text-[#86c4a6]">Tambahkan pekerjaan, pemeriksaan dan tindakan yang harus dilakukan</p>
                                 </div>
                             </div>
-                            <button onClick={handleAddTask} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow text-sm font-bold flex items-center gap-1.5 transition">
-                                <span className="text-lg leading-none">+</span> Tambah Task
-                            </button>
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex items-center gap-2 bg-emerald-900/60 px-3 py-1.5 rounded-lg border border-emerald-500/30 text-xs">
+                                    <span className="text-emerald-200">DT: <strong className="text-white font-mono">{data.durasi_hrs || 0}h</strong></span>
+                                    <span className="text-emerald-400">|</span>
+                                    <span className="text-emerald-200">Pekerjaan: <strong className="text-white font-mono">{totalPekerjaan}h</strong></span>
+                                    <span className="text-emerald-400">|</span>
+                                    <span className="text-emerald-200">Delay: <strong className="text-amber-200 font-mono">{delayHours}h</strong></span>
+                                </div>
+                                <button type="button" onClick={handleAddTask} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow text-sm font-bold flex items-center gap-1.5 transition shrink-0 cursor-pointer">
+                                    <span className="text-lg leading-none">+</span> Tambah Task
+                                </button>
+                            </div>
                         </div>
                         
                         {/* Table */}
@@ -1439,6 +1645,7 @@ export default function Create({
                                  <thead>
                                      <tr className="bg-gray-50 dark:bg-white/5 border-b border-gray-200 dark:border-white/10">
                                          <th className="py-3 px-3 text-sm font-bold text-gray-700 dark:text-gray-300 w-14 text-center">TASK</th>
+                                         <th className="py-3 px-3 text-sm font-bold text-gray-700 dark:text-gray-300 w-52 min-w-[190px]">COMPONENT GROUP</th>
                                          <th className="py-3 px-3 text-sm font-bold text-gray-700 dark:text-gray-300 min-w-[300px]">PROBLEM</th>
                                          <th className="py-3 px-3 text-sm font-bold text-gray-700 dark:text-gray-300 w-16 text-center">SUB TASK</th>
                                          <th className="py-3 px-3 text-sm font-bold text-gray-700 dark:text-gray-300 min-w-[300px]">ACTIVITY PROGRESS</th>
@@ -1461,6 +1668,53 @@ export default function Create({
                                                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-base font-black border-2 border-emerald-300 dark:border-emerald-700 select-none">
                                                      {i + 1}
                                                  </span>
+                                             </td>
+                                             {/* COMPONENT GROUP - select dropdown per task */}
+                                             <td className="py-3 px-2 w-52 min-w-[190px]">
+                                                 <div className="space-y-1.5">
+                                                     <select
+                                                         className="w-full px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-semibold dark:text-gray-200 focus:ring-[#0b6e4f] focus:border-[#0b6e4f]"
+                                                         value={t.group_component || t.component || ''}
+                                                         onChange={e => {
+                                                             const val = e.target.value;
+                                                             const newTasks = [...data.tasks];
+                                                             newTasks[i].group_component = val;
+                                                             newTasks[i].component = val;
+                                                             setData('tasks', newTasks);
+                                                             if (val === 'UNDERCARRIAGE') {
+                                                                 setShowUcModal(true);
+                                                             }
+                                                             if (val === 'TYRE') {
+                                                                 setShowTyreModal(true);
+                                                             }
+                                                         }}
+                                                     >
+                                                         <option value="">-- Pilih Component --</option>
+                                                         {COMPONENTS.map(comp => (
+                                                             <option key={comp} value={comp}>{comp}</option>
+                                                         ))}
+                                                     </select>
+                                                     {t.group_component === 'UNDERCARRIAGE' && (
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => setShowUcModal(true)}
+                                                             className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-700/50"
+                                                         >
+                                                             <span>🚜</span>
+                                                             <span>{selectedUcComponents.length > 0 ? `${selectedUcComponents.length} UC Terpilih` : 'Pilih Komponen UC'}</span>
+                                                         </button>
+                                                     )}
+                                                     {t.group_component === 'TYRE' && (
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => setShowTyreModal(true)}
+                                                             className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer bg-blue-50 dark:bg-blue-950/40 px-2 py-1 rounded border border-blue-200 dark:border-blue-700/50"
+                                                         >
+                                                             <span>⚙️</span>
+                                                             <span>{data.tyre_replacements?.length > 0 ? `${data.tyre_replacements.length} Ban Terpilih` : 'Pilih Posisi Ban'}</span>
+                                                         </button>
+                                                     )}
+                                                 </div>
                                              </td>
                                              {/* PROBLEM - large textarea */}
                                              <td className="py-3 px-3 min-w-[300px]">
@@ -2506,6 +2760,22 @@ export default function Create({
                     if (selected) setData('hm_unit', selected.current_hm || 0);
                 }}
                 onApply={handleApplyUcComponents}
+            />
+
+            {/* Tyre Replacement & Management Modal */}
+            <TyreReplacementModal
+                isOpen={showTyreModal}
+                onClose={() => setShowTyreModal(false)}
+                unit={currentSelectedUnit}
+                units={units}
+                onUnitChange={(newUnitId) => {
+                    setData('unit_id', newUnitId);
+                    const selected = units.find(u => u.id.toString() === newUnitId.toString());
+                    if (selected) setData('hm_unit', selected.current_hm || 0);
+                }}
+                stockTyres={stockTyres}
+                initialReplacements={data.tyre_replacements}
+                onApply={handleApplyTyreReplacements}
             />
         </AuthenticatedLayout>
     );

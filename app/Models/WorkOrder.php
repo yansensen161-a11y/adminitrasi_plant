@@ -11,7 +11,7 @@ class WorkOrder extends Model
 
     protected $fillable = [
         'no_wo', 'tipe_wo', 'downtime_code', 'site', 'unit_id',
-        'waktu_breakdown', 'waktu_rfu', 'durasi_hrs', 'hm_unit', 'hm_bd', 'hm_rfu',
+        'waktu_breakdown', 'waktu_rfu', 'durasi_hrs', 'delay', 'hm_unit', 'hm_bd', 'hm_rfu',
         'status_wo', 'status_pengerjaan', 'keterangan', 'priority', 'request_date',
         'request_by', 'problem',
         'department', 'location', 'failure_description', 'job_instruction',
@@ -20,6 +20,33 @@ class WorkOrder extends Model
         'schedule_date', 'start_date', 'finish_date', 'close_date',
         'estimated_job', 'actual_job', 'root_cause', 'corrective_action', 'remark',
     ];
+
+    protected $casts = [
+        'waktu_breakdown' => 'datetime',
+        'waktu_rfu' => 'datetime',
+        'close_date' => 'datetime',
+        'request_date' => 'datetime',
+    ];
+
+    protected $appends = ['component_group'];
+
+    public function getComponentGroupAttribute(): ?string
+    {
+        if (! empty($this->attributes['component'])) {
+            return $this->attributes['component'];
+        }
+
+        if ($this->relationLoaded('tasks')) {
+            return $this->tasks->first()?->group_component ?? $this->tasks->first()?->component;
+        }
+
+        return null;
+    }
+
+    public function setComponentGroupAttribute(?string $value): void
+    {
+        $this->attributes['component'] = $value;
+    }
 
     public function unit()
     {

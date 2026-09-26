@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { compressImage, formatBytes } from '@/utils/imageCompressor';
 
 export default function CreateMagneticPlug({ auth, units = [] }) {
     const { url } = usePage();
@@ -14,6 +15,9 @@ export default function CreateMagneticPlug({ auth, units = [] }) {
     const initialUnit = units.find(u => u.id.toString() === preUnitId.toString()) || null;
     const initialHm = preHm || (initialUnit ? (initialUnit.hm || initialUnit.current_hm || '') : '');
 
+    const [compressionInfo, setCompressionInfo] = useState(null);
+    const [isCompressing, setIsCompressing] = useState(false);
+
     const { data, setData, post, processing, errors } = useForm({
         unit_id: preUnitId,
         hm: initialHm,
@@ -25,6 +29,39 @@ export default function CreateMagneticPlug({ auth, units = [] }) {
         photo: null,
         return_to: returnTo,
     });
+
+    const handlePhotoChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) {
+            setData('photo', null);
+            setCompressionInfo(null);
+            return;
+        }
+
+        setIsCompressing(true);
+        try {
+            const compressed = await compressImage(file, { maxWidth: 1400, quality: 0.75 });
+            setData('photo', compressed.file);
+            setCompressionInfo(compressed);
+        } catch (err) {
+            setData('photo', file);
+            setCompressionInfo({
+                originalSize: file.size,
+                compressedSize: file.size,
+                ratio: 0,
+                previewUrl: URL.createObjectURL(file),
+                formattedOriginalSize: formatBytes(file.size),
+                formattedCompressedSize: formatBytes(file.size),
+            });
+        } finally {
+            setIsCompressing(false);
+        }
+    };
+
+    const handleRemovePhoto = () => {
+        setData('photo', null);
+        setCompressionInfo(null);
+    };
 
     const submit = (e) => {
         e.preventDefault();
@@ -185,17 +222,89 @@ export default function CreateMagneticPlug({ auth, units = [] }) {
                                 {errors.remarks && <p className="text-red-500 text-sm mt-1">{errors.remarks}</p>}
                             </div>
 
-                            {/* Photo Upload */}
+                            {/* Photo Upload with Compression */}
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Foto Kondisi / Serpihan (Opsional)</label>
-                                <input 
-                                    type="file" 
-                                    accept="image/*"
-                                    className="w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#0b5c3e] focus:ring-1 focus:ring-[#0b5c3e]"
-                                    onChange={e => setData('photo', e.target.files[0])}
-                                />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">
+                                    Foto Kondisi / Serpihan (Opsional)
+                                </label>
+
+                                {!data.photo ? (
+                                    <div className="relative border-2 border-dashed border-gray-300 hover:border-[#0b5c3e] rounded-xl p-4 transition bg-gray-50/50 hover:bg-green-50/30 group text-center cursor-pointer">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            onChange={handlePhotoChange}
+                                            disabled={isCompressing}
+                                        />
+                                        <div className="flex flex-col items-center justify-center py-3">
+                                            {isCompressing ? (
+                                                <div className="flex items-center gap-2 text-sm text-[#0b5c3e] font-semibold">
+                                                    <svg className="animate-spin h-5 w-5 text-[#0b5c3e]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                                    </svg>
+                                                    Mengompres gambar...
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-10 h-10 text-gray-400 group-hover:text-[#0b5c3e] transition mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <p className="text-sm font-semibold text-gray-700">
+                                                        Pilih atau seret foto ke sini
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        Foto otomatis dikompres sebelum diunggah (JPG/PNG &rarr; WebP)
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-4">
+                                        {compressionInfo?.previewUrl && (
+                                            <img 
+                                                src={compressionInfo.previewUrl} 
+                                                alt="Preview" 
+                                                className="w-24 h-24 object-cover rounded-lg border border-gray-200 shrink-0 shadow-xs"
+                                            />
+                                        )}
+                                        <div className="flex-1 min-w-0 text-left">
+                                            <p className="text-sm font-bold text-gray-800 truncate">
+                                                {data.photo?.name || 'Foto Terpilih'}
+                                            </p>
+                                            {compressionInfo && (
+                                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                        <svg className="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                        Terkonversi WebP ({compressionInfo.ratio}% hemat)
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">
+                                                        {compressionInfo.formattedOriginalSize} &rarr; <strong className="text-gray-800">{compressionInfo.formattedCompressedSize}</strong>
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                Foto siap disimpan dengan ukuran ringan.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleRemovePhoto}
+                                            className="text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                            Hapus Foto
+                                        </button>
+                                    </div>
+                                )}
+
                                 {errors.photo && <p className="text-red-500 text-sm mt-1">{errors.photo}</p>}
-                                <p className="text-xs text-gray-500 mt-1">Format: JPG/PNG, Max: 2MB.</p>
                             </div>
 
                         </div>

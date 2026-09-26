@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Imports\BreakdownImport;
+use App\Imports\WorkOrderImport;
 use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
@@ -71,5 +73,91 @@ class WorkOrderTypeAndNumberingTest extends TestCase
         // Next auto-generated REPL number should now be 002
         $suggestResponse = $this->actingAs($user)->getJson('/work-orders/suggest-number?type=REPL');
         $this->assertEquals('PLT/WO/REPL/002', $suggestResponse->json('no_wo'));
+    }
+
+    public function test_can_download_templates(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $responseWo = $this->actingAs($user)->get('/work-orders/download-template');
+        $responseWo->assertOk();
+        $this->assertStringContainsString('Template_Import_Work_Order.xlsx', $responseWo->headers->get('content-disposition'));
+
+        $responseBd = $this->actingAs($user)->get('/work-orders/download-template-breakdown');
+        $responseBd->assertOk();
+        $this->assertStringContainsString('Template_Import_Breakdown.xlsx', $responseBd->headers->get('content-disposition'));
+    }
+
+    public function test_work_order_import_and_breakdown_import_collections(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $unit = Unit::create([
+            'code_unit' => 'EX02',
+            'model' => 'PC200',
+            'type_unit' => 'EXCAVATOR',
+            'hm' => 12000,
+        ]);
+
+        // Test WorkOrderImport with new options
+        $importWo = new WorkOrderImport;
+        $importWo->collection(collect([
+            [
+                'code_unit' => 'EX02',
+                'tipe_wo' => 'PM - PREVENTIVE MAINTENANCE',
+                'status_wo' => 'COMPLETED - PEKERJAAN SELESAI',
+                'down_status' => 'B10 - WAITING RAIN / SLIPPERY CONDITION',
+                'tanggal_request' => '2026-09-20 08:00',
+                'tanggal_selesai' => '2026-09-20 14:00',
+                'hm_unit' => 12100,
+                'problem' => 'PS 250 H Periodic Service',
+                'tindakan_perbaikan' => 'Ganti filter solar & oli',
+                'pic' => 'Agus',
+            ],
+        ]));
+
+        $this->assertDatabaseHas('work_orders', [
+            'unit_id' => $unit->id,
+            'status_wo' => 'PM - PREVENTIVE MAINTENANCE',
+            'status_pengerjaan' => 'COMPLETED - PEKERJAAN SELESAI',
+            'tipe_wo' => 'SCHEDULE',
+        ]);
+
+        $this->assertDatabaseHas('work_order_tasks', [
+            'status' => 'B10 - WAITING RAIN / SLIPPERY CONDITION',
+            'mechanic' => 'Agus',
+        ]);
+
+        // Test BreakdownImport with new options
+        $importBd = new BreakdownImport;
+        $importBd->collection(collect([
+            [
+                'code_unit' => 'EX02',
+                'tipe_wo' => 'CM - CORRECTIVE MAINTENANCE',
+                'status_wo' => 'IN PROGRESS - SEDANG DIKERJAKAN',
+                'down_status' => 'B1 - WAITING PARTS',
+                'tanggal' => '2026-09-22',
+                'jam_breakdown' => '09:00',
+                'jam_ready' => '',
+                'hm_unit' => 12150,
+                'problem' => 'Hose boom pecah',
+                'corrective_action' => 'Menunggu spare hose',
+                'pic' => 'Budi',
+            ],
+        ]));
+
+        $this->assertDatabaseHas('work_orders', [
+            'unit_id' => $unit->id,
+            'status_wo' => 'CM - CORRECTIVE MAINTENANCE',
+            'status_pengerjaan' => 'IN PROGRESS - SEDANG DIKERJAKAN',
+            'tipe_wo' => 'BREAKDOWN',
+        ]);
+
+        $this->assertDatabaseHas('work_order_tasks', [
+            'status' => 'B1 - WAITING PARTS',
+            'mechanic' => 'Budi',
+        ]);
     }
 }

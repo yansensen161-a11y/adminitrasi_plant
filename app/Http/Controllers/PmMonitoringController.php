@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Unit;
+use App\Services\HMUpdateService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -34,5 +35,15 @@ class PmMonitoringController extends Controller
         return Inertia::render('PmMonitoring/Index', [
             'units' => $units,
         ]);
+    }
+
+    /**
+     * Sinkronkan Hour Meter (HM) semua unit dari data HourMeterLog dan ServiceLog terbaru.
+     */
+    public function syncHm(Request $request)
+    {
+        $updatedCount = HMUpdateService::syncAllUnits();
+
+        return redirect()->route('pm-monitoring.index')->with('success', "Berhasil mensinkronkan Hour Meter (HM) untuk {$updatedCount} unit dari log operasional & service terbaru.");
     }
 }

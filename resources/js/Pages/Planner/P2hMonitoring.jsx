@@ -324,7 +324,7 @@ export default function P2hMonitoring({
                                 </span>
                             </h1>
                             <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                                <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Home</Link>
+                                <Link href="/portal" className="hover:text-blue-600 transition-colors">Portal</Link>
                                 <span className="mx-1.5">&gt;</span>
                                 <span className="text-gray-600 dark:text-gray-300">Preventive Maintenance</span>
                                 <span className="mx-1.5">&gt;</span>
