@@ -163,9 +163,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/permissions/seed', [RolePermissionController::class, 'seedRecommendedPermissions'])->name('settings.permissions.seed');
 
     // Navigation and setting redirects
-    Route::redirect('/roles', '/settings/roles-permissions')->name('roles.index');
-    Route::redirect('/permissions', '/settings/roles-permissions')->name('permissions.index');
-    Route::redirect('/users', '/settings/roles-permissions?tab=users')->name('users.index');
+    
+    
+    
     Route::redirect('/part-canibal', '/part-canibals');
     Route::redirect('/hour-meter', '/hour-meters');
     Route::redirect('/pengajuan-cuti', '/cuti/pengajuan');
@@ -248,7 +248,7 @@ Route::middleware('auth')->group(function () {
         // Dynamic Settings
         Route::get('/settings/mail', [SettingController::class, 'index'])->name('settings.mail');
         Route::post('/settings/mail', [SettingController::class, 'update'])->name('settings.mail.update');
-        Route::post('/settings/test-mail', [SettingController::class, 'sendTestMail'])->name('settings.mail.test');
+        
 
         // Reports (DomPDF)
         Route::get('/reports/users/pdf', [ReportController::class, 'usersPdf'])->name('reports.users.pdf');
